@@ -545,45 +545,43 @@ function ResponsePanel() {
         `}
 
         ${!loading && !error && response && viewMode === 'json' && html`
-          <pre class="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto text-sm">
+          <pre class="bg-gray-900 text-green-300 p-6 rounded-lg overflow-x-auto text-sm font-mono leading-relaxed">
             ${JSON.stringify(response, null, 2)}
           </pre>
         `}
 
         ${!loading && !error && response && viewMode === 'message' && html`
           <div class="space-y-4">
-            <div class="bg-white border border-gray-200 rounded-lg p-4">
-              <div class="prose prose-sm max-w-none">
-                <pre class="whitespace-pre-wrap font-sans text-gray-800">
-                  ${extractMessageText(response.content)}
-                </pre>
+            <div class="bg-gray-50 border border-gray-300 rounded-lg p-6">
+              <div class="text-base leading-relaxed text-gray-900 whitespace-pre-wrap font-sans">
+                ${extractMessageText(response.content)}
               </div>
             </div>
 
             ${response.usage && html`
-              <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-2">
+              <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-2">
                 <div class="flex items-center justify-between text-sm">
-                  <span class="text-gray-600">Model:</span>
-                  <span class="font-medium text-gray-900">${response.model}</span>
+                  <span class="text-gray-700 font-medium">Model:</span>
+                  <span class="font-semibold text-gray-900">${response.model}</span>
                 </div>
                 <div class="flex items-center justify-between text-sm">
-                  <span class="text-gray-600">Input Tokens:</span>
-                  <span class="font-medium text-gray-900">${response.usage.input_tokens}</span>
+                  <span class="text-gray-700 font-medium">Input Tokens:</span>
+                  <span class="font-semibold text-gray-900">${response.usage.input_tokens}</span>
                 </div>
                 <div class="flex items-center justify-between text-sm">
-                  <span class="text-gray-600">Output Tokens:</span>
-                  <span class="font-medium text-gray-900">${response.usage.output_tokens}</span>
+                  <span class="text-gray-700 font-medium">Output Tokens:</span>
+                  <span class="font-semibold text-gray-900">${response.usage.output_tokens}</span>
                 </div>
                 <div class="flex items-center justify-between text-sm">
-                  <span class="text-gray-600">Total Tokens:</span>
-                  <span class="font-medium text-gray-900">
+                  <span class="text-gray-700 font-medium">Total Tokens:</span>
+                  <span class="font-semibold text-gray-900">
                     ${response.usage.input_tokens + response.usage.output_tokens}
                   </span>
                 </div>
                 ${response.stop_reason && html`
                   <div class="flex items-center justify-between text-sm">
-                    <span class="text-gray-600">Stop Reason:</span>
-                    <span class="font-medium text-gray-900">${response.stop_reason}</span>
+                    <span class="text-gray-700 font-medium">Stop Reason:</span>
+                    <span class="font-semibold text-gray-900">${response.stop_reason}</span>
                   </div>
                 `}
               </div>
@@ -630,7 +628,7 @@ function AppContent() {
       </header>
 
       <div class="flex-1 flex overflow-hidden">
-        <div class="w-1/2 min-w-[400px]">
+        <div class="w-2/5 min-w-[400px] max-w-[600px]">
           <${ConfigPanel} />
         </div>
 

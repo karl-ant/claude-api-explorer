@@ -2,6 +2,8 @@
 
 A visual, interactive web application for testing and exploring Anthropic's Claude API. Built with React, htm (no build step!), and Express.
 
+![Claude API Explorer Screenshot](screenshots/cc_explorer.png)
+
 ## Features
 
 ### Core Functionality
