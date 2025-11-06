@@ -993,7 +993,7 @@ function CostPanel() {
 }
 
 function ConfigPanel() {
-  const { selectedEndpoint, handleSendRequest, handleCreateBatch, loading, apiKey, history, loadFromHistory, clearHistory, exportHistory } = useApp();
+  const { selectedEndpoint, handleSendRequest, handleCreateBatch, loading, apiKey, history, loadFromHistory, clearHistory, exportHistory, clearConfiguration } = useApp();
   const [showHistory, setShowHistory] = useState(false);
 
   // Determine which action handler to use
@@ -1025,6 +1025,19 @@ function ConfigPanel() {
 
       <div class="flex-1 overflow-y-auto p-4 space-y-6">
         <${ApiKeySection} />
+
+        ${selectedEndpoint === 'messages' && html`
+          <div class="border-t pt-4">
+            <${Button}
+              variant="secondary"
+              size="sm"
+              onClick=${clearConfiguration}
+              fullWidth=${true}
+            >
+              Clear Configuration
+            </${Button}>
+          </div>
+        `}
 
         <div class="border-t pt-4">
           ${selectedEndpoint === 'messages' && html`<${MessagesPanel} />`}
@@ -1104,7 +1117,7 @@ function ConfigPanel() {
 }
 
 function ResponsePanel() {
-  const { response, loading, error, selectedEndpoint, modelsList, batchStatus, usageReport, costReport } = useApp();
+  const { response, loading, error, selectedEndpoint, modelsList, batchStatus, usageReport, costReport, toolExecutionStatus, toolExecutionDetails } = useApp();
   const [viewMode, setViewMode] = useState('formatted');
 
   // Determine if we should show view mode toggle
@@ -1154,7 +1167,9 @@ function ResponsePanel() {
         ${loading && html`
           <div class="flex items-center gap-2 text-blue-600">
             <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-            <span class="text-sm font-medium">Processing request...</span>
+            <span class="text-sm font-medium">
+              ${toolExecutionStatus || 'Processing request...'}
+            </span>
           </div>
         `}
       </div>
@@ -1180,6 +1195,34 @@ function ResponsePanel() {
                 ${extractMessageText(response.content)}
               </div>
             </div>
+
+            ${toolExecutionDetails && toolExecutionDetails.length > 0 && html`
+              <div class="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                <h3 class="text-sm font-semibold text-purple-900 mb-3 flex items-center gap-2">
+                  <span>🔧</span>
+                  <span>Tools Executed (${toolExecutionDetails.length})</span>
+                </h3>
+                <div class="space-y-3">
+                  ${toolExecutionDetails.map((tool, idx) => html`
+                    <div key=${idx} class="bg-white rounded-lg p-3 border border-purple-100">
+                      <div class="font-medium text-purple-900 mb-2">
+                        ${tool.tool_name}
+                      </div>
+                      <div class="space-y-2 text-xs">
+                        <div>
+                          <div class="text-purple-700 font-medium mb-1">Input:</div>
+                          <pre class="bg-purple-50 p-2 rounded text-purple-900 overflow-x-auto">${JSON.stringify(tool.tool_input, null, 2)}</pre>
+                        </div>
+                        <div>
+                          <div class="text-purple-700 font-medium mb-1">Result:</div>
+                          <pre class="bg-green-50 p-2 rounded text-green-900 overflow-x-auto">${tool.tool_result}</pre>
+                        </div>
+                      </div>
+                    </div>
+                  `)}
+                </div>
+              </div>
+            `}
 
             ${response.usage && html`
               <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-2">

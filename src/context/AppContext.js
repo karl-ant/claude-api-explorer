@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import htm from 'htm';
 import { storage } from '../utils/localStorage.js';
+import { executeTool } from '../utils/formatters.js';
 import modelsConfig from '../config/models.js';
 import endpoints from '../config/endpoints.js';
 
@@ -60,6 +61,8 @@ export function AppProvider({ children }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [streamingText, setStreamingText] = useState('');
+  const [toolExecutionStatus, setToolExecutionStatus] = useState(null);
+  const [toolExecutionDetails, setToolExecutionDetails] = useState(null);
 
   // History
   const [history, setHistory] = useState(storage.getHistory());
@@ -122,6 +125,8 @@ export function AppProvider({ children }) {
     setError(null);
     setResponse(null);
     setStreamingText('');
+    setToolExecutionStatus(null);
+    setToolExecutionDetails(null);
 
     // Integrate images into the first user message if images exist
     const messagesWithImages = images.length > 0 ? messages.map((msg, idx) => {
@@ -152,6 +157,7 @@ export function AppProvider({ children }) {
     if (stream) requestBody.stream = stream;
 
     try {
+      // Make initial request
       const res = await fetch('http://localhost:3001/v1/messages', {
         method: 'POST',
         headers: {
@@ -168,14 +174,98 @@ export function AppProvider({ children }) {
       }
 
       const data = await res.json();
-      setResponse(data);
 
-      // Save to history
-      storage.saveToHistory(requestBody, data);
-      setHistory(storage.getHistory());
+      // Check if Claude wants to use tools
+      if (data.stop_reason === 'tool_use' && tools.length > 0) {
+        setToolExecutionStatus('Executing tools...');
+
+        // Extract tool use blocks
+        const toolUseBlocks = data.content.filter(block => block.type === 'tool_use');
+
+        // Execute each tool and create tool_result blocks
+        const executionDetails = [];
+        const toolResults = toolUseBlocks.map(toolUse => {
+          const result = executeTool(toolUse.name, toolUse.input);
+
+          // Store execution details for display
+          executionDetails.push({
+            tool_name: toolUse.name,
+            tool_input: toolUse.input,
+            tool_result: result
+          });
+
+          return {
+            type: 'tool_result',
+            tool_use_id: toolUse.id,
+            content: result
+          };
+        });
+
+        // Store tool execution details
+        setToolExecutionDetails(executionDetails);
+
+        // Prepare the follow-up request with tool results
+        const followUpMessages = [
+          ...messagesWithImages,
+          {
+            role: 'assistant',
+            content: data.content
+          },
+          {
+            role: 'user',
+            content: toolResults
+          }
+        ];
+
+        const followUpBody = {
+          model,
+          messages: followUpMessages,
+          max_tokens: maxTokens,
+        };
+
+        if (system) followUpBody.system = system;
+        if (temperature !== 1.0) followUpBody.temperature = temperature;
+        if (topP !== 1.0) followUpBody.top_p = topP;
+        if (topK !== 0) followUpBody.top_k = topK;
+        if (tools.length > 0) followUpBody.tools = tools;
+
+        setToolExecutionStatus('Getting final response...');
+
+        // Make follow-up request
+        const followUpRes = await fetch('http://localhost:3001/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey,
+            'anthropic-version': '2023-06-01',
+          },
+          body: JSON.stringify(followUpBody),
+        });
+
+        if (!followUpRes.ok) {
+          const errorData = await followUpRes.json();
+          throw new Error(errorData.error?.message || `Follow-up request failed with status ${followUpRes.status}`);
+        }
+
+        const finalData = await followUpRes.json();
+        setResponse(finalData);
+        setToolExecutionStatus(null);
+
+        // Save the final response to history
+        storage.saveToHistory(requestBody, finalData);
+        setHistory(storage.getHistory());
+      } else {
+        // No tool use, just set the response
+        setResponse(data);
+
+        // Save to history
+        storage.saveToHistory(requestBody, data);
+        setHistory(storage.getHistory());
+      }
     } catch (err) {
       console.error('API Error:', err);
       setError(err.message || 'An error occurred while processing your request');
+      setToolExecutionStatus(null);
     } finally {
       setLoading(false);
     }
@@ -454,6 +544,17 @@ export function AppProvider({ children }) {
     setApiKey('');
   };
 
+  const clearConfiguration = () => {
+    // Reset to default values
+    setMessages([{ role: 'user', content: '' }]);
+    setSystem('');
+    setTools([]);
+    setImages([]);
+    setResponse(null);
+    setError(null);
+    setToolExecutionDetails(null);
+  };
+
   const loadFromHistory = (historyItem) => {
     const { request } = historyItem;
     if (request.model) setModel(request.model);
@@ -487,6 +588,7 @@ export function AppProvider({ children }) {
     persistKey,
     setPersistKey,
     clearApiKey,
+    clearConfiguration,
 
     // Endpoint selection
     selectedEndpoint,
@@ -551,6 +653,8 @@ export function AppProvider({ children }) {
     loading,
     error,
     streamingText,
+    toolExecutionStatus,
+    toolExecutionDetails,
     handleSendRequest,
 
     // History
@@ -568,7 +672,7 @@ export function AppProvider({ children }) {
     modelsList, modelsLoading,
     usageReport, usageLoading,
     costReport, costLoading,
-    response, loading, error, streamingText,
+    response, loading, error, streamingText, toolExecutionStatus, toolExecutionDetails,
     history
   ]);
 
