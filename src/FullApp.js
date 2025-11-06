@@ -273,20 +273,152 @@ function AdvancedOptions() {
     const predefined = {
       calculator: {
         name: 'calculator',
-        description: 'Perform mathematical calculations',
+        description: 'Perform mathematical calculations. Supports basic arithmetic, exponents, and common math functions.',
         input_schema: {
           type: 'object',
           properties: {
             expression: {
               type: 'string',
-              description: 'The mathematical expression to evaluate'
+              description: 'The mathematical expression to evaluate (e.g., "2 + 2", "sqrt(16)", "pow(2, 3)")'
             }
           },
           required: ['expression']
         }
       },
+      get_weather: {
+        name: 'get_weather',
+        description: 'Get the current weather for a specific location',
+        input_schema: {
+          type: 'object',
+          properties: {
+            location: {
+              type: 'string',
+              description: 'The city and state, e.g., San Francisco, CA'
+            },
+            unit: {
+              type: 'string',
+              enum: ['celsius', 'fahrenheit'],
+              description: 'The unit of temperature to return'
+            }
+          },
+          required: ['location']
+        }
+      },
+      web_search: {
+        name: 'web_search',
+        description: 'Search the web for current information',
+        input_schema: {
+          type: 'object',
+          properties: {
+            query: {
+              type: 'string',
+              description: 'The search query to execute'
+            },
+            num_results: {
+              type: 'integer',
+              description: 'Number of results to return (1-10)',
+              minimum: 1,
+              maximum: 10
+            }
+          },
+          required: ['query']
+        }
+      },
+      get_stock_price: {
+        name: 'get_stock_price',
+        description: 'Get the current stock price for a given ticker symbol',
+        input_schema: {
+          type: 'object',
+          properties: {
+            ticker: {
+              type: 'string',
+              description: 'The stock ticker symbol (e.g., AAPL, GOOGL, MSFT)'
+            }
+          },
+          required: ['ticker']
+        }
+      },
+      send_email: {
+        name: 'send_email',
+        description: 'Send an email to a recipient',
+        input_schema: {
+          type: 'object',
+          properties: {
+            to: {
+              type: 'string',
+              description: 'The email address of the recipient'
+            },
+            subject: {
+              type: 'string',
+              description: 'The subject line of the email'
+            },
+            body: {
+              type: 'string',
+              description: 'The body content of the email'
+            }
+          },
+          required: ['to', 'subject', 'body']
+        }
+      },
+      get_current_time: {
+        name: 'get_current_time',
+        description: 'Get the current time in a specific timezone',
+        input_schema: {
+          type: 'object',
+          properties: {
+            timezone: {
+              type: 'string',
+              description: 'The timezone identifier (e.g., America/New_York, Europe/London, Asia/Tokyo)'
+            }
+          },
+          required: ['timezone']
+        }
+      },
+      file_search: {
+        name: 'file_search',
+        description: 'Search for files in a directory based on criteria',
+        input_schema: {
+          type: 'object',
+          properties: {
+            directory: {
+              type: 'string',
+              description: 'The directory path to search in'
+            },
+            pattern: {
+              type: 'string',
+              description: 'File name pattern to match (e.g., "*.txt", "report_*")'
+            },
+            recursive: {
+              type: 'boolean',
+              description: 'Whether to search subdirectories recursively'
+            }
+          },
+          required: ['directory', 'pattern']
+        }
+      },
+      database_query: {
+        name: 'database_query',
+        description: 'Execute a read-only SQL query against a database',
+        input_schema: {
+          type: 'object',
+          properties: {
+            query: {
+              type: 'string',
+              description: 'The SQL SELECT query to execute'
+            },
+            database: {
+              type: 'string',
+              description: 'The database name to query'
+            }
+          },
+          required: ['query', 'database']
+        }
+      },
     };
-    setTools(prev => [...prev, predefined[toolType]]);
+
+    if (predefined[toolType]) {
+      setTools(prev => [...prev, predefined[toolType]]);
+    }
   };
 
   const removeTool = (index) => {
@@ -344,14 +476,51 @@ function AdvancedOptions() {
 
         ${activeTab === 'tools' && html`
           <div class="space-y-3">
-            <p class="text-sm text-gray-600">Configure tools for Claude to use</p>
+            <p class="text-sm text-gray-600">Configure tools for Claude to use. These demonstrate tool calling capabilities but don't actually execute.</p>
 
-            <div class="space-y-2">
+            <div class="space-y-3">
               <p class="text-sm font-medium text-gray-700">Predefined Tools</p>
-              <div class="flex gap-2">
-                <${Button} variant="secondary" size="sm" onClick=${() => addPredefinedTool('calculator')}>
-                  + Calculator
-                </${Button}>
+
+              <div class="space-y-2">
+                <div class="text-xs font-medium text-gray-600 uppercase">Data & Information</div>
+                <div class="grid grid-cols-2 gap-2">
+                  <${Button} variant="secondary" size="sm" onClick=${() => addPredefinedTool('get_weather')}>
+                    🌤️ Weather
+                  </${Button}>
+                  <${Button} variant="secondary" size="sm" onClick=${() => addPredefinedTool('get_stock_price')}>
+                    📈 Stock Price
+                  </${Button}>
+                  <${Button} variant="secondary" size="sm" onClick=${() => addPredefinedTool('get_current_time')}>
+                    🕐 Current Time
+                  </${Button}>
+                  <${Button} variant="secondary" size="sm" onClick=${() => addPredefinedTool('web_search')}>
+                    🔍 Web Search
+                  </${Button}>
+                </div>
+              </div>
+
+              <div class="space-y-2">
+                <div class="text-xs font-medium text-gray-600 uppercase">Computation</div>
+                <div class="grid grid-cols-2 gap-2">
+                  <${Button} variant="secondary" size="sm" onClick=${() => addPredefinedTool('calculator')}>
+                    🧮 Calculator
+                  </${Button}>
+                  <${Button} variant="secondary" size="sm" onClick=${() => addPredefinedTool('database_query')}>
+                    🗄️ Database Query
+                  </${Button}>
+                </div>
+              </div>
+
+              <div class="space-y-2">
+                <div class="text-xs font-medium text-gray-600 uppercase">Actions</div>
+                <div class="grid grid-cols-2 gap-2">
+                  <${Button} variant="secondary" size="sm" onClick=${() => addPredefinedTool('send_email')}>
+                    📧 Send Email
+                  </${Button}>
+                  <${Button} variant="secondary" size="sm" onClick=${() => addPredefinedTool('file_search')}>
+                    📁 File Search
+                  </${Button}>
+                </div>
               </div>
             </div>
 
@@ -370,19 +539,40 @@ function AdvancedOptions() {
             </div>
 
             ${tools.length > 0 && html`
-              <div class="space-y-2">
-                <p class="text-sm font-medium text-gray-700">${tools.length} tool(s) configured</p>
-                ${tools.map((tool, index) => html`
-                  <div key=${index} class="flex items-center justify-between p-2 bg-gray-50 rounded">
-                    <span class="text-sm text-gray-600 font-medium">${tool.name}</span>
-                    <button
-                      onClick=${() => removeTool(index)}
-                      class="text-red-600 hover:text-red-700 text-sm"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                `)}
+              <div class="space-y-2 border-t pt-3">
+                <div class="flex items-center justify-between">
+                  <p class="text-sm font-medium text-gray-700">${tools.length} tool(s) configured</p>
+                  <button
+                    onClick=${() => setTools([])}
+                    class="text-xs text-red-600 hover:text-red-700"
+                  >
+                    Clear All
+                  </button>
+                </div>
+                <div class="space-y-2 max-h-48 overflow-y-auto">
+                  ${tools.map((tool, index) => html`
+                    <div key=${index} class="p-3 bg-gray-50 border border-gray-200 rounded">
+                      <div class="flex items-start justify-between mb-1">
+                        <span class="text-sm text-gray-900 font-medium">${tool.name}</span>
+                        <button
+                          onClick=${() => removeTool(index)}
+                          class="text-red-600 hover:text-red-700 text-xs ml-2"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                      ${tool.description && html`
+                        <p class="text-xs text-gray-600">${tool.description}</p>
+                      `}
+                      <div class="mt-1 text-xs text-gray-500">
+                        ${tool.input_schema?.required?.length > 0
+                          ? `Required: ${tool.input_schema.required.join(', ')}`
+                          : 'No required parameters'
+                        }
+                      </div>
+                    </div>
+                  `)}
+                </div>
               </div>
             `}
           </div>
@@ -392,10 +582,247 @@ function AdvancedOptions() {
   `;
 }
 
-function ConfigPanel() {
-  const { handleSendRequest, loading, apiKey, history, loadFromHistory, clearHistory, exportHistory } = useApp();
+function MessagesPanel() {
   const [showAdvanced, setShowAdvanced] = useState(false);
+
+  return html`
+    <div class="space-y-6">
+      <${ModelSelector} />
+
+      <div class="border-t pt-4">
+        <${MessageBuilder} />
+      </div>
+
+      <div class="border-t pt-4">
+        <button
+          onClick=${() => setShowAdvanced(!showAdvanced)}
+          class="w-full flex items-center justify-between text-sm font-medium text-gray-700 hover:text-gray-900"
+        >
+          <span>Advanced Options (Vision & Tools)</span>
+          <span>${showAdvanced ? '▼' : '▶'}</span>
+        </button>
+
+        ${showAdvanced && html`
+          <div class="mt-4">
+            <${AdvancedOptions} />
+          </div>
+        `}
+      </div>
+    </div>
+  `;
+}
+
+function ModelsPanel() {
+  const { modelsList, modelsLoading, handleListModels } = useApp();
+
+  return html`
+    <div class="space-y-4">
+      <div>
+        <p class="text-sm text-gray-600 mb-4">
+          List all available Claude models from the Anthropic API
+        </p>
+        <${Button}
+          onClick=${() => handleListModels({ limit: 20 })}
+          disabled=${modelsLoading}
+          variant="primary"
+        >
+          ${modelsLoading ? 'Loading...' : 'List Models'}
+        </${Button}>
+      </div>
+
+      ${modelsList && html`
+        <div class="border-t pt-4">
+          <h3 class="text-sm font-medium text-gray-900 mb-2">
+            Found ${modelsList.data?.length || 0} models
+          </h3>
+          <div class="space-y-2 max-h-96 overflow-y-auto">
+            ${modelsList.data?.map((model) => html`
+              <div key=${model.id} class="p-3 bg-gray-50 rounded border border-gray-200">
+                <div class="font-medium text-sm text-gray-900">${model.display_name || model.id}</div>
+                <div class="text-xs text-gray-600 font-mono mt-1">${model.id}</div>
+                <div class="text-xs text-gray-500 mt-1">
+                  Created: ${new Date(model.created_at).toLocaleDateString()}
+                </div>
+              </div>
+            `)}
+          </div>
+        </div>
+      `}
+    </div>
+  `;
+}
+
+function BatchesPanel() {
+  const { batchRequests, setBatchRequests, handleCreateBatch, handleGetBatchStatus, batchStatus } = useApp();
+  const [batchId, setBatchId] = useState('');
+
+  const addBatchRequest = () => {
+    setBatchRequests([...batchRequests, {
+      custom_id: '',
+      params: {
+        model: 'claude-sonnet-4-20250514',
+        messages: [{ role: 'user', content: '' }],
+        max_tokens: 1024
+      }
+    }]);
+  };
+
+  const updateBatchRequest = (index, field, value) => {
+    const updated = [...batchRequests];
+    if (field === 'custom_id') {
+      updated[index].custom_id = value;
+    } else if (field === 'model') {
+      updated[index].params.model = value;
+    } else if (field === 'message') {
+      updated[index].params.messages[0].content = value;
+    } else if (field === 'max_tokens') {
+      updated[index].params.max_tokens = parseInt(value, 10);
+    }
+    setBatchRequests(updated);
+  };
+
+  const removeBatchRequest = (index) => {
+    if (batchRequests.length > 1) {
+      setBatchRequests(batchRequests.filter((_, i) => i !== index));
+    }
+  };
+
+  return html`
+    <div class="space-y-4">
+      <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+        <p class="text-sm text-blue-900">
+          💡 Message Batches process requests asynchronously at 50% cost
+        </p>
+      </div>
+
+      <div>
+        <div class="flex items-center justify-between mb-2">
+          <label class="block text-sm font-medium text-gray-700">Batch Requests</label>
+          <${Button} variant="ghost" size="sm" onClick=${addBatchRequest}>+ Add Request</${Button}>
+        </div>
+
+        <div class="space-y-3 max-h-64 overflow-y-auto">
+          ${batchRequests.map((req, index) => html`
+            <div key=${index} class="border border-gray-200 rounded-lg p-3 space-y-2">
+              <div class="flex items-center justify-between">
+                <input
+                  type="text"
+                  value=${req.custom_id}
+                  onInput=${(e) => updateBatchRequest(index, 'custom_id', e.target.value)}
+                  placeholder="Custom ID (unique identifier)"
+                  class="flex-1 px-2 py-1 border border-gray-300 rounded text-sm"
+                />
+                ${batchRequests.length > 1 && html`
+                  <button
+                    onClick=${() => removeBatchRequest(index)}
+                    class="ml-2 text-red-600 hover:text-red-700 text-sm"
+                  >
+                    Remove
+                  </button>
+                `}
+              </div>
+              <textarea
+                value=${req.params.messages[0].content}
+                onInput=${(e) => updateBatchRequest(index, 'message', e.target.value)}
+                placeholder="Message content..."
+                rows="2"
+                class="w-full px-2 py-1 border border-gray-300 rounded text-sm resize-none"
+              ></textarea>
+            </div>
+          `)}
+        </div>
+      </div>
+
+      <div class="border-t pt-4">
+        <${Button}
+          onClick=${handleCreateBatch}
+          variant="primary"
+          fullWidth=${true}
+        >
+          Create Batch
+        </${Button}>
+      </div>
+
+      <div class="border-t pt-4">
+        <label class="block text-sm font-medium text-gray-700 mb-2">Check Batch Status</label>
+        <div class="flex gap-2">
+          <input
+            type="text"
+            value=${batchId}
+            onInput=${(e) => setBatchId(e.target.value)}
+            placeholder="Batch ID"
+            class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+          />
+          <${Button}
+            onClick=${() => handleGetBatchStatus(batchId)}
+            variant="secondary"
+            disabled=${!batchId}
+          >
+            Check
+          </${Button}>
+        </div>
+      </div>
+
+      ${batchStatus && html`
+        <div class="border-t pt-4">
+          <div class="p-3 bg-gray-50 rounded border border-gray-200">
+            <div class="text-sm font-medium text-gray-900 mb-2">Batch Status</div>
+            <div class="text-xs text-gray-600 space-y-1">
+              <div>ID: ${batchStatus.id}</div>
+              <div>Status: ${batchStatus.processing_status || 'unknown'}</div>
+              ${batchStatus.request_counts && html`
+                <div class="mt-2">
+                  Processing: ${batchStatus.request_counts.processing || 0} |
+                  Succeeded: ${batchStatus.request_counts.succeeded || 0} |
+                  Errored: ${batchStatus.request_counts.errored || 0}
+                </div>
+              `}
+            </div>
+          </div>
+        </div>
+      `}
+    </div>
+  `;
+}
+
+function AdminPanel() {
+  return html`
+    <div class="space-y-4">
+      <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+        <p class="text-sm text-yellow-900 font-medium mb-2">Coming Soon</p>
+        <p class="text-sm text-yellow-800">
+          Admin API endpoints will be added based on your specific needs.
+          This may include organization management, user provisioning, and usage tracking.
+        </p>
+      </div>
+    </div>
+  `;
+}
+
+function ConfigPanel() {
+  const { selectedEndpoint, handleSendRequest, handleCreateBatch, loading, apiKey, history, loadFromHistory, clearHistory, exportHistory } = useApp();
   const [showHistory, setShowHistory] = useState(false);
+
+  // Determine which action handler to use
+  const handleAction = () => {
+    if (selectedEndpoint === 'messages') {
+      handleSendRequest();
+    } else if (selectedEndpoint === 'batches') {
+      handleCreateBatch();
+    }
+    // Models and Admin don't have a primary action button
+  };
+
+  // Determine button text
+  const getButtonText = () => {
+    if (loading) return 'Processing...';
+    if (selectedEndpoint === 'messages') return 'Send Request';
+    if (selectedEndpoint === 'batches') return 'Create Batch';
+    return 'Execute';
+  };
+
+  // Check if action button should be shown
+  const showActionButton = selectedEndpoint === 'messages' || selectedEndpoint === 'batches';
 
   return html`
     <div class="h-full flex flex-col bg-white border-r border-gray-200">
@@ -407,97 +834,97 @@ function ConfigPanel() {
         <${ApiKeySection} />
 
         <div class="border-t pt-4">
-          <${ModelSelector} />
+          ${selectedEndpoint === 'messages' && html`<${MessagesPanel} />`}
+          ${selectedEndpoint === 'batches' && html`<${BatchesPanel} />`}
+          ${selectedEndpoint === 'models' && html`<${ModelsPanel} />`}
+          ${selectedEndpoint === 'admin' && html`<${AdminPanel} />`}
         </div>
 
-        <div class="border-t pt-4">
-          <${MessageBuilder} />
-        </div>
+        ${selectedEndpoint === 'messages' && html`
+          <div class="border-t pt-4">
+            <button
+              onClick=${() => setShowHistory(!showHistory)}
+              class="w-full flex items-center justify-between text-sm font-medium text-gray-700 hover:text-gray-900"
+            >
+              <span>Request History (${history.length})</span>
+              <span>${showHistory ? '▼' : '▶'}</span>
+            </button>
 
-        <div class="border-t pt-4">
-          <button
-            onClick=${() => setShowAdvanced(!showAdvanced)}
-            class="w-full flex items-center justify-between text-sm font-medium text-gray-700 hover:text-gray-900"
-          >
-            <span>Advanced Options</span>
-            <span>${showAdvanced ? '▼' : '▶'}</span>
-          </button>
+            ${showHistory && html`
+              <div class="mt-4 space-y-2">
+                ${history.length === 0 ? html`
+                  <p class="text-sm text-gray-500 text-center py-4">No history yet</p>
+                ` : html`
+                  <div class="flex gap-2 mb-3">
+                    <${Button} variant="secondary" size="sm" onClick=${exportHistory} fullWidth=${true}>
+                      Export
+                    </${Button}>
+                    <${Button} variant="danger" size="sm" onClick=${clearHistory} fullWidth=${true}>
+                      Clear All
+                    </${Button}>
+                  </div>
 
-          ${showAdvanced && html`
-            <div class="mt-4">
-              <${AdvancedOptions} />
-            </div>
-          `}
-        </div>
-
-        <div class="border-t pt-4">
-          <button
-            onClick=${() => setShowHistory(!showHistory)}
-            class="w-full flex items-center justify-between text-sm font-medium text-gray-700 hover:text-gray-900"
-          >
-            <span>Request History (${history.length})</span>
-            <span>${showHistory ? '▼' : '▶'}</span>
-          </button>
-
-          ${showHistory && html`
-            <div class="mt-4 space-y-2">
-              ${history.length === 0 ? html`
-                <p class="text-sm text-gray-500 text-center py-4">No history yet</p>
-              ` : html`
-                <div class="flex gap-2 mb-3">
-                  <${Button} variant="secondary" size="sm" onClick=${exportHistory} fullWidth=${true}>
-                    Export
-                  </${Button}>
-                  <${Button} variant="danger" size="sm" onClick=${clearHistory} fullWidth=${true}>
-                    Clear All
-                  </${Button}>
-                </div>
-
-                <div class="space-y-2 max-h-60 overflow-y-auto">
-                  ${history.map((item) => html`
-                    <div
-                      key=${item.id}
-                      onClick=${() => loadFromHistory(item)}
-                      class="p-3 bg-gray-50 rounded cursor-pointer hover:bg-gray-100 transition-colors"
-                    >
-                      <div class="flex items-start justify-between mb-1">
-                        <span class="text-xs font-medium text-gray-700">${item.model}</span>
-                        <span class="text-xs text-gray-500">
-                          ${new Date(item.timestamp).toLocaleTimeString()}
-                        </span>
+                  <div class="space-y-2 max-h-60 overflow-y-auto">
+                    ${history.map((item) => html`
+                      <div
+                        key=${item.id}
+                        onClick=${() => loadFromHistory(item)}
+                        class="p-3 bg-gray-50 rounded cursor-pointer hover:bg-gray-100 transition-colors"
+                      >
+                        <div class="flex items-start justify-between mb-1">
+                          <span class="text-xs font-medium text-gray-700">${item.model}</span>
+                          <span class="text-xs text-gray-500">
+                            ${new Date(item.timestamp).toLocaleTimeString()}
+                          </span>
+                        </div>
+                        <p class="text-xs text-gray-600 truncate">${item.prompt}</p>
+                        ${item.tokenUsage && html`
+                          <p class="text-xs text-gray-500 mt-1">
+                            ${item.tokenUsage.input_tokens} in / ${item.tokenUsage.output_tokens} out
+                          </p>
+                        `}
                       </div>
-                      <p class="text-xs text-gray-600 truncate">${item.prompt}</p>
-                      ${item.tokenUsage && html`
-                        <p class="text-xs text-gray-500 mt-1">
-                          ${item.tokenUsage.input_tokens} in / ${item.tokenUsage.output_tokens} out
-                        </p>
-                      `}
-                    </div>
-                  `)}
-                </div>
-              `}
-            </div>
-          `}
-        </div>
+                    `)}
+                  </div>
+                `}
+              </div>
+            `}
+          </div>
+        `}
       </div>
 
-      <div class="p-4 border-t border-gray-200 bg-gray-50">
-        <${Button}
-          onClick=${handleSendRequest}
-          disabled=${loading || !apiKey}
-          fullWidth=${true}
-          size="lg"
-        >
-          ${loading ? 'Sending...' : 'Send Request'}
-        </${Button}>
-      </div>
+      ${showActionButton && html`
+        <div class="p-4 border-t border-gray-200 bg-gray-50">
+          <${Button}
+            onClick=${handleAction}
+            disabled=${loading || !apiKey}
+            fullWidth=${true}
+            size="lg"
+          >
+            ${getButtonText()}
+          </${Button}>
+        </div>
+      `}
     </div>
   `;
 }
 
 function ResponsePanel() {
-  const { response, loading, error, streamingText } = useApp();
-  const [viewMode, setViewMode] = useState('message');
+  const { response, loading, error, selectedEndpoint, modelsList, batchStatus } = useApp();
+  const [viewMode, setViewMode] = useState('formatted');
+
+  // Determine if we should show view mode toggle
+  const showViewModeToggle = response || modelsList || batchStatus;
+
+  // Determine the response type
+  const getResponseType = () => {
+    if (selectedEndpoint === 'models' && modelsList) return 'models';
+    if (selectedEndpoint === 'batches' && (batchStatus || response?.id)) return 'batch';
+    if (selectedEndpoint === 'messages' && response?.content) return 'message';
+    return 'generic';
+  };
+
+  const responseType = getResponseType();
 
   return html`
     <div class="h-full flex flex-col bg-white">
@@ -505,16 +932,16 @@ function ResponsePanel() {
         <div class="flex items-center justify-between mb-3">
           <h2 class="text-lg font-semibold text-gray-900">Response</h2>
 
-          ${response && html`
+          ${showViewModeToggle && html`
             <div class="flex items-center gap-2">
               <span class="text-sm text-gray-600">View:</span>
               <button
-                onClick=${() => setViewMode('message')}
+                onClick=${() => setViewMode('formatted')}
                 class="px-3 py-1 text-sm font-medium rounded ${
-                  viewMode === 'message' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'
+                  viewMode === 'formatted' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'
                 }"
               >
-                Message
+                Formatted
               </button>
               <button
                 onClick=${() => setViewMode('json')}
@@ -531,7 +958,7 @@ function ResponsePanel() {
         ${loading && html`
           <div class="flex items-center gap-2 text-blue-600">
             <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-            <span class="text-sm font-medium">Generating response...</span>
+            <span class="text-sm font-medium">Processing request...</span>
           </div>
         `}
       </div>
@@ -544,13 +971,13 @@ function ResponsePanel() {
           </div>
         `}
 
-        ${!loading && !error && response && viewMode === 'json' && html`
+        ${!loading && !error && viewMode === 'json' && (response || modelsList || batchStatus) && html`
           <pre class="bg-gray-900 text-green-300 p-6 rounded-lg overflow-x-auto text-sm font-mono leading-relaxed">
-            ${JSON.stringify(response, null, 2)}
+            ${JSON.stringify(response || modelsList || batchStatus, null, 2)}
           </pre>
         `}
 
-        ${!loading && !error && response && viewMode === 'message' && html`
+        ${!loading && !error && viewMode === 'formatted' && responseType === 'message' && response && html`
           <div class="space-y-4">
             <div class="bg-gray-50 border border-gray-300 rounded-lg p-6">
               <div class="text-base leading-relaxed text-gray-900 whitespace-pre-wrap font-sans">
@@ -589,7 +1016,87 @@ function ResponsePanel() {
           </div>
         `}
 
-        ${!loading && !error && !response && html`
+        ${!loading && !error && viewMode === 'formatted' && responseType === 'batch' && (response || batchStatus) && html`
+          <div class="space-y-4">
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <h3 class="text-sm font-semibold text-blue-900 mb-3">Batch Information</h3>
+              <div class="space-y-2 text-sm">
+                <div class="flex justify-between">
+                  <span class="text-blue-700 font-medium">Batch ID:</span>
+                  <span class="font-mono text-blue-900">${(response || batchStatus).id}</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-blue-700 font-medium">Status:</span>
+                  <span class="font-semibold text-blue-900">${(response || batchStatus).processing_status}</span>
+                </div>
+                ${(response || batchStatus).request_counts && html`
+                  <div class="mt-3 pt-3 border-t border-blue-200">
+                    <div class="text-blue-700 font-medium mb-2">Request Counts:</div>
+                    <div class="grid grid-cols-2 gap-2 text-xs">
+                      <div class="flex justify-between">
+                        <span class="text-blue-600">Processing:</span>
+                        <span class="font-semibold">${(response || batchStatus).request_counts.processing || 0}</span>
+                      </div>
+                      <div class="flex justify-between">
+                        <span class="text-green-600">Succeeded:</span>
+                        <span class="font-semibold">${(response || batchStatus).request_counts.succeeded || 0}</span>
+                      </div>
+                      <div class="flex justify-between">
+                        <span class="text-red-600">Errored:</span>
+                        <span class="font-semibold">${(response || batchStatus).request_counts.errored || 0}</span>
+                      </div>
+                      <div class="flex justify-between">
+                        <span class="text-gray-600">Canceled:</span>
+                        <span class="font-semibold">${(response || batchStatus).request_counts.canceled || 0}</span>
+                      </div>
+                    </div>
+                  </div>
+                `}
+                ${(response || batchStatus).results_url && html`
+                  <div class="mt-3 pt-3 border-t border-blue-200">
+                    <div class="text-blue-700 font-medium mb-1">Results URL:</div>
+                    <a
+                      href=${(response || batchStatus).results_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="text-xs text-blue-600 hover:underline break-all"
+                    >
+                      ${(response || batchStatus).results_url}
+                    </a>
+                  </div>
+                `}
+              </div>
+            </div>
+          </div>
+        `}
+
+        ${!loading && !error && viewMode === 'formatted' && responseType === 'models' && modelsList && html`
+          <div class="space-y-3">
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <h3 class="text-sm font-semibold text-blue-900">
+                Found ${modelsList.data?.length || 0} models
+              </h3>
+            </div>
+            ${modelsList.data?.map((model) => html`
+              <div key=${model.id} class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                <div class="font-medium text-base text-gray-900 mb-1">
+                  ${model.display_name || model.id}
+                </div>
+                <div class="text-sm text-gray-600 font-mono mb-2">${model.id}</div>
+                <div class="text-xs text-gray-500">
+                  Created: ${new Date(model.created_at).toLocaleDateString()}
+                </div>
+              </div>
+            `)}
+            ${modelsList.has_more && html`
+              <div class="text-sm text-gray-500 text-center py-2">
+                More models available (use pagination parameters)
+              </div>
+            `}
+          </div>
+        `}
+
+        ${!loading && !error && !response && !modelsList && !batchStatus && html`
           <div class="flex items-center justify-center h-full text-gray-400">
             <div class="text-center">
               <svg
@@ -606,7 +1113,7 @@ function ResponsePanel() {
                 />
               </svg>
               <p class="text-sm">No response yet</p>
-              <p class="text-xs mt-1">Configure your request and click Send</p>
+              <p class="text-xs mt-1">Configure your request and send</p>
             </div>
           </div>
         `}
@@ -616,6 +1123,15 @@ function ResponsePanel() {
 }
 
 function AppContent() {
+  const { selectedEndpoint, setSelectedEndpoint, endpoints } = useApp();
+
+  const endpointTabs = [
+    { id: 'messages', label: 'Messages', description: endpoints.messages.description },
+    { id: 'batches', label: 'Batches', description: endpoints.batches.description },
+    { id: 'models', label: 'Models', description: endpoints.models.description },
+    { id: 'admin', label: 'Admin', description: endpoints.admin.description },
+  ];
+
   return html`
     <div class="h-screen flex flex-col bg-gray-100">
       <header class="bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg">
@@ -626,6 +1142,25 @@ function AppContent() {
           </p>
         </div>
       </header>
+
+      <div class="bg-white border-b border-gray-200 px-6">
+        <div class="flex gap-1">
+          ${endpointTabs.map((tab) => html`
+            <button
+              key=${tab.id}
+              onClick=${() => setSelectedEndpoint(tab.id)}
+              class="px-4 py-3 text-sm font-medium transition-colors relative ${
+                selectedEndpoint === tab.id
+                  ? 'text-blue-600 border-b-2 border-blue-600'
+                  : 'text-gray-600 hover:text-gray-900'
+              }"
+              title=${tab.description}
+            >
+              ${tab.label}
+            </button>
+          `)}
+        </div>
+      </div>
 
       <div class="flex-1 flex overflow-hidden">
         <div class="w-2/5 min-w-[400px] max-w-[600px]">

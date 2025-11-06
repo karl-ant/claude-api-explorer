@@ -4,9 +4,20 @@ This document serves as a guide for AI assistants (and developers) working on th
 
 ## Project Overview
 
-**Purpose:** A visual, interactive web application for testing Anthropic's Claude API
+**Purpose:** A visual, interactive web application for testing multiple Anthropic API endpoints
 **Target Users:** Developers testing Claude API integrations
 **Design Philosophy:** Simple, maintainable, no build step required
+
+### Supported API Endpoints
+
+The application now supports multiple Anthropic API endpoints:
+
+1. **Messages API** - Send messages to Claude and receive responses (synchronous)
+2. **Message Batches API** - Process large batches of messages asynchronously at 50% cost
+3. **Models API** - List available Claude models and their metadata
+4. **Admin API** - Organization and user management (placeholder for future implementation)
+
+Users can switch between endpoints using the tabbed interface at the top of the application.
 
 ## Architecture Decisions
 
@@ -47,6 +58,29 @@ This document serves as a guide for AI assistants (and developers) working on th
 - Can add rate limiting or logging later if needed
 
 **Alternative considered:** Browser extension (rejected: too complex for users)
+
+### Multi-Endpoint Architecture
+
+**Decision:** Use a tabbed interface with endpoint-specific panels
+**Rationale:**
+- Single, unified interface for all API endpoints
+- Easy to switch between different API features
+- Maintains the "no build step" philosophy
+- Endpoints share common components (API key, response panel)
+- Each endpoint has its own configuration panel
+
+**Architecture layers:**
+1. **Endpoint Configuration** (`src/config/endpoints.js`) - Central definition of all endpoints
+2. **Proxy Server** (`server.js`) - Dynamic routing to Anthropic API endpoints
+3. **State Management** (`AppContext.js`) - Endpoint-specific state and handlers
+4. **UI Layer** (`FullApp.js`) - Tabbed navigation and endpoint-specific panels
+
+**Endpoint-specific components:**
+- `MessagesPanel` - Messages API configuration (model, messages, tools, vision)
+- `BatchesPanel` - Batch request builder and status checker
+- `ModelsPanel` - Simple model listing interface
+- `AdminPanel` - Placeholder for future admin features
+- `ResponsePanel` - Format-agnostic response display
 
 ## Tech Stack
 
@@ -157,12 +191,15 @@ src/
 ├── main.js                    # Entry point only - minimal code
 ├── FullApp.js                 # All UI components (keep together)
 ├── components/common/         # Reusable components only
-│   └── Button.js             # Must be used in 2+ places
+│   ├── Button.js             # Must be used in 2+ places
+│   ├── Toggle.js             # Toggle switch component
+│   └── Tabs.js               # Tabs component
 ├── context/                   # Global state management
 │   └── AppContext.js         # Single source of truth
 ├── config/                    # Static configuration
 │   ├── models.js             # Must export default object
-│   └── parameters.js         # Must export default object
+│   ├── parameters.js         # Must export default object (if used)
+│   └── endpoints.js          # ⭐ NEW: Endpoint definitions
 └── utils/                     # Pure functions only
     ├── localStorage.js       # Storage operations
     └── formatters.js         # Data transformations
@@ -232,12 +269,110 @@ console.log('Debug:', someVariable);
 
 ### Modifying the Proxy Server
 
-Edit `server.js` - it's a simple Express app:
+The proxy server now uses a helper function for all endpoints:
 ```javascript
-app.post('/v1/messages', async (req, res) => {
-  // Add logging, rate limiting, etc. here
+// Add new endpoint route
+app.get('/v1/new-endpoint', async (req, res) => {
+  await proxyToAnthropic(req, res, 'GET', '/v1/new-endpoint');
 });
 ```
+
+### Adding a New API Endpoint
+
+**Complete workflow for adding a new Anthropic API endpoint:**
+
+1. **Define the endpoint** in `src/config/endpoints.js`:
+```javascript
+newEndpoint: {
+  id: 'new-endpoint',
+  name: 'New Endpoint',
+  description: 'Description of what this endpoint does',
+  method: 'POST',
+  path: '/v1/new-endpoint',
+  requiresModel: true,
+  supportsStreaming: false,
+  parameters: {
+    required: ['param1'],
+    optional: ['param2']
+  },
+  requestType: 'synchronous',
+  responseType: 'custom'
+}
+```
+
+2. **Add proxy route** in `server.js`:
+```javascript
+app.post('/v1/new-endpoint', async (req, res) => {
+  await proxyToAnthropic(req, res, 'POST', '/v1/new-endpoint');
+});
+```
+
+3. **Add state and handler** in `AppContext.js`:
+```javascript
+// State
+const [newEndpointData, setNewEndpointData] = useState(null);
+
+// Handler
+const handleNewEndpoint = async () => {
+  // Implementation
+};
+
+// Add to context value
+const value = useMemo(() => ({
+  // ... existing
+  newEndpointData,
+  handleNewEndpoint,
+}), [/* dependencies */]);
+```
+
+4. **Create UI panel** in `FullApp.js`:
+```javascript
+function NewEndpointPanel() {
+  const { handleNewEndpoint } = useApp();
+  // Panel implementation
+}
+
+// Add to ConfigPanel's conditional rendering
+${selectedEndpoint === 'new-endpoint' && html`<${NewEndpointPanel} />`}
+```
+
+5. **Update ResponsePanel** in `FullApp.js`:
+```javascript
+// Add response type detection
+if (selectedEndpoint === 'new-endpoint' && response) return 'new-endpoint';
+
+// Add formatted view rendering
+${responseType === 'new-endpoint' && html`
+  <!-- Custom display for new endpoint response -->
+`}
+```
+
+6. **Add tab** to `AppContent` endpoint tabs:
+```javascript
+{ id: 'new-endpoint', label: 'New Endpoint', description: endpoints.newEndpoint.description }
+```
+
+### Working with Batch Requests
+
+**Create a batch:**
+1. Switch to "Batches" tab
+2. Add multiple requests with unique custom_ids
+3. Click "Create Batch"
+4. Copy the returned batch ID
+
+**Check batch status:**
+1. Paste batch ID in "Check Batch Status" field
+2. Click "Check"
+3. View processing status and request counts
+4. Download results when status is "ended"
+
+### Working with Models API
+
+**List models:**
+1. Switch to "Models" tab
+2. Click "List Models"
+3. View all available Claude models with metadata
+4. Use pagination parameters for large result sets
 
 ## Code Quality Standards
 
@@ -309,16 +444,25 @@ setImages([...images, newImage]);  // Closure bug!
 ### Current Limitations
 1. **Streaming not implemented** - Shows loading state only
 2. **No image previews** - Vision tab shows metadata only
-3. **50 item history limit** - Could hit localStorage quota
-4. **No error boundaries** - Whole app crashes on error
-5. **No keyboard shortcuts** - Mouse/click only
+3. **History only for Messages endpoint** - Batches/Models don't save to history
+4. **Admin API placeholder** - Not yet implemented, needs user requirements
+5. **No error boundaries** - Whole app crashes on error
+6. **No keyboard shortcuts** - Mouse/click only
+7. **Batch results download** - No automatic download of .jsonl results
+
+### Multi-Endpoint Specific Limitations
+1. **No batch result preview** - Must download .jsonl file manually
+2. **Models API pagination** - UI doesn't support before_id/after_id navigation
+3. **No cross-endpoint history** - Each endpoint operates independently
+4. **Batch status polling** - Manual refresh required, no auto-polling
 
 ### Technical Debt
-1. All components in one file (FullApp.js)
+1. All components in one file (FullApp.js) - Now ~1000 lines
 2. No TypeScript
 3. No automated tests
 4. No CI/CD pipeline
 5. Manual server startup (two terminals)
+6. Response panel logic getting complex with multiple formats
 
 ## Future Enhancement Guidelines
 
@@ -457,18 +601,61 @@ For questions or issues:
 
 ---
 
-**Last Updated:** 2025-10-31
-**Version:** 1.0
+**Last Updated:** 2025-11-06
+**Version:** 2.0
 **Maintained by:** Karl (project owner)
 
 ---
 
 ## Change Log
 
-### 2025-10-31 - Initial Version
+### 2025-11-06 - Version 2.0: Multi-Endpoint Support
+**Major architectural update - Added support for multiple Anthropic API endpoints**
+
+**New Features:**
+- ✨ Multi-endpoint architecture with tabbed navigation
+- ✨ Message Batches API support (create batches, check status, view results)
+- ✨ Models API support (list all available Claude models)
+- ✨ Admin API placeholder for future implementation
+- ✨ Endpoint configuration system (`src/config/endpoints.js`)
+- ✨ Dynamic proxy routing for all endpoints
+- ✨ Format-agnostic response panel (handles Messages, Batches, Models formats)
+
+**Infrastructure Changes:**
+- 🔧 Refactored `server.js` with `proxyToAnthropic()` helper function
+- 🔧 Extended `AppContext.js` with endpoint-specific state and handlers
+- 🔧 Refactored `FullApp.js` with endpoint-specific panels:
+  - `MessagesPanel` - Messages API (existing functionality)
+  - `BatchesPanel` - Batch request builder and status checker
+  - `ModelsPanel` - Model listing interface
+  - `AdminPanel` - Placeholder for future features
+- 🔧 Updated `ResponsePanel` to handle multiple response formats
+
+**Developer Experience:**
+- 📚 Updated CLAUDE.md with multi-endpoint architecture documentation
+- 📚 Added "Adding a New API Endpoint" guide
+- 📚 Added "Working with Batch Requests" guide
+- 📚 Added "Working with Models API" guide
+
+**Breaking Changes:**
+- None - Messages API functionality remains identical
+- Backward compatible with existing localStorage data
+
+**File Size:**
+- `FullApp.js`: ~600 lines → ~1050 lines (still maintainable)
+- `AppContext.js`: ~250 lines → ~400 lines
+- `server.js`: ~50 lines → ~90 lines
+
+**Next Steps:**
+- Implement batch result preview/download functionality
+- Add auto-polling for batch status
+- Implement Admin API endpoints based on user needs
+- Consider splitting FullApp.js if it exceeds 1200 lines
+
+### 2025-10-31 - Version 1.0: Initial Release
 - Project created with React + htm
 - Two-panel layout implemented
 - Vision and Tools support added
 - History and persistence working
 - Cleaned up duplicate files
-- This documentation created
+- Initial documentation created

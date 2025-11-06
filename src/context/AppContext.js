@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useMemo } from '
 import htm from 'htm';
 import { storage } from '../utils/localStorage.js';
 import modelsConfig from '../config/models.js';
+import endpoints from '../config/endpoints.js';
 
 const html = htm.bind(React.createElement);
 const AppContext = createContext();
@@ -19,7 +20,10 @@ export function AppProvider({ children }) {
   const [apiKey, setApiKey] = useState(storage.getApiKey() || '');
   const [persistKey, setPersistKey] = useState(storage.shouldPersistKey());
 
-  // Request configuration
+  // Endpoint selection
+  const [selectedEndpoint, setSelectedEndpoint] = useState('messages');
+
+  // Request configuration (Messages API)
   const [model, setModel] = useState('claude-sonnet-4-20250514');
   const [messages, setMessages] = useState([{ role: 'user', content: '' }]);
   const [system, setSystem] = useState('');
@@ -32,6 +36,16 @@ export function AppProvider({ children }) {
   // Advanced features
   const [tools, setTools] = useState([]);
   const [images, setImages] = useState([]);
+
+  // Endpoint-specific state
+  // Batches API
+  const [batchRequests, setBatchRequests] = useState([{ custom_id: '', params: { model: 'claude-sonnet-4-20250514', messages: [{ role: 'user', content: '' }], max_tokens: 1024 } }]);
+  const [batchStatus, setBatchStatus] = useState(null);
+  const [batchResults, setBatchResults] = useState(null);
+
+  // Models API
+  const [modelsList, setModelsList] = useState(null);
+  const [modelsLoading, setModelsLoading] = useState(false);
 
   // Response state
   const [response, setResponse] = useState(null);
@@ -159,6 +173,152 @@ export function AppProvider({ children }) {
     }
   };
 
+  // Models API handler
+  const handleListModels = async (queryParams = {}) => {
+    if (!apiKey) {
+      setError('Please provide an API key');
+      return;
+    }
+
+    setModelsLoading(true);
+    setError(null);
+
+    // Build query string
+    const params = new URLSearchParams();
+    if (queryParams.limit) params.append('limit', queryParams.limit);
+    if (queryParams.before_id) params.append('before_id', queryParams.before_id);
+    if (queryParams.after_id) params.append('after_id', queryParams.after_id);
+    const queryString = params.toString() ? `?${params.toString()}` : '';
+
+    try {
+      const res = await fetch(`http://localhost:3001/v1/models${queryString}`, {
+        method: 'GET',
+        headers: {
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+        },
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error?.message || `API request failed with status ${res.status}`);
+      }
+
+      const data = await res.json();
+      setModelsList(data);
+    } catch (err) {
+      console.error('API Error:', err);
+      setError(err.message || 'An error occurred while fetching models');
+    } finally {
+      setModelsLoading(false);
+    }
+  };
+
+  // Batches API handlers
+  const handleCreateBatch = async () => {
+    if (!apiKey) {
+      setError('Please provide an API key');
+      return;
+    }
+
+    // Validate batch requests
+    const hasValidRequests = batchRequests.some(req =>
+      req.custom_id &&
+      req.params.messages &&
+      req.params.messages.some(msg => msg.content.trim().length > 0)
+    );
+
+    if (!batchRequests.length || !hasValidRequests) {
+      setError('Please provide at least one valid batch request');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    setResponse(null);
+    setBatchStatus(null);
+
+    const requestBody = {
+      requests: batchRequests.filter(req =>
+        req.custom_id &&
+        req.params.messages &&
+        req.params.messages.some(msg => msg.content.trim().length > 0)
+      )
+    };
+
+    try {
+      const res = await fetch('http://localhost:3001/v1/messages/batches', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error?.message || `API request failed with status ${res.status}`);
+      }
+
+      const data = await res.json();
+      setResponse(data);
+      setBatchStatus(data);
+    } catch (err) {
+      console.error('API Error:', err);
+      setError(err.message || 'An error occurred while creating the batch');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGetBatchStatus = async (batchId) => {
+    if (!apiKey) {
+      setError('Please provide an API key');
+      return;
+    }
+
+    if (!batchId) {
+      setError('Please provide a batch ID');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const res = await fetch(`http://localhost:3001/v1/messages/batches/${batchId}`, {
+        method: 'GET',
+        headers: {
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+        },
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error?.message || `API request failed with status ${res.status}`);
+      }
+
+      const data = await res.json();
+      setResponse(data);
+      setBatchStatus(data);
+
+      // If batch is complete and has results_url, fetch the results
+      if (data.processing_status === 'ended' && data.results_url) {
+        // Note: results_url is a signed URL that returns .jsonl format
+        // We'll let the user download it or fetch it separately
+        setBatchResults(data);
+      }
+    } catch (err) {
+      console.error('API Error:', err);
+      setError(err.message || 'An error occurred while fetching batch status');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const clearApiKey = () => {
     storage.clearApiKey();
     setApiKey('');
@@ -198,7 +358,12 @@ export function AppProvider({ children }) {
     setPersistKey,
     clearApiKey,
 
-    // Configuration
+    // Endpoint selection
+    selectedEndpoint,
+    setSelectedEndpoint,
+    endpoints,
+
+    // Configuration (Messages API)
     model,
     setModel,
     models: modelsConfig.models,
@@ -223,6 +388,22 @@ export function AppProvider({ children }) {
     images,
     setImages,
 
+    // Batches API
+    batchRequests,
+    setBatchRequests,
+    batchStatus,
+    setBatchStatus,
+    batchResults,
+    setBatchResults,
+    handleCreateBatch,
+    handleGetBatchStatus,
+
+    // Models API
+    modelsList,
+    setModelsList,
+    modelsLoading,
+    handleListModels,
+
     // Response
     response,
     loading,
@@ -237,11 +418,14 @@ export function AppProvider({ children }) {
     deleteHistoryItem,
     exportHistory,
   }), [
-    apiKey, persistKey, clearApiKey,
+    apiKey, persistKey,
+    selectedEndpoint,
     model, messages, system, maxTokens, temperature, topP, topK, stream,
     tools, images,
-    response, loading, error, streamingText, handleSendRequest,
-    history, loadFromHistory, clearHistory, deleteHistoryItem, exportHistory
+    batchRequests, batchStatus, batchResults,
+    modelsList, modelsLoading,
+    response, loading, error, streamingText,
+    history
   ]);
 
   return html`<${AppContext.Provider} value=${value}>${children}</${AppContext.Provider}>`;
