@@ -87,21 +87,38 @@ const endpoints = {
     responseType: 'list'
   },
 
-  admin: {
-    id: 'admin',
-    name: 'Admin',
-    description: 'Organization and user management (requires admin permissions)',
-    method: 'GET', // Default, varies by sub-endpoint
-    path: '/v1/admin',
+  usage: {
+    id: 'usage',
+    name: 'Usage Reports',
+    description: 'Track token usage across your organization with detailed breakdowns',
+    method: 'GET',
+    path: '/v1/organizations/usage_report/messages',
     requiresModel: false,
     supportsStreaming: false,
     parameters: {
-      required: [],
-      optional: []
+      required: ['starting_at', 'ending_at', 'bucket_width'],
+      optional: ['models', 'service_tiers', 'context_window', 'api_key_ids', 'workspace_ids', 'group_by', 'limit', 'page']
     },
     requestType: 'synchronous',
-    responseType: 'admin',
-    note: 'Admin API requires special permissions and will be implemented based on specific needs'
+    responseType: 'usage',
+    note: 'Requires Admin API key (sk-ant-admin...). Data appears within 5 minutes of request completion.'
+  },
+
+  cost: {
+    id: 'cost',
+    name: 'Cost Reports',
+    description: 'View detailed cost breakdowns for token usage and services',
+    method: 'GET',
+    path: '/v1/organizations/cost_report',
+    requiresModel: false,
+    supportsStreaming: false,
+    parameters: {
+      required: ['starting_at', 'ending_at'],
+      optional: ['group_by', 'limit', 'page']
+    },
+    requestType: 'synchronous',
+    responseType: 'cost',
+    note: 'Requires Admin API key (sk-ant-admin...). All costs are in USD (cents). Priority Tier costs not included.'
   }
 };
 

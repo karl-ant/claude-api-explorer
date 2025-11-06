@@ -785,15 +785,208 @@ function BatchesPanel() {
   `;
 }
 
-function AdminPanel() {
+function UsagePanel() {
+  const { handleGetUsageReport, usageLoading } = useApp();
+  const [startingAt, setStartingAt] = useState('');
+  const [endingAt, setEndingAt] = useState('');
+  const [bucketWidth, setBucketWidth] = useState('1h');
+  const [selectedModels, setSelectedModels] = useState([]);
+  const [serviceTiers, setServiceTiers] = useState([]);
+  const [groupBy, setGroupBy] = useState([]);
+
+  // Set default date range (last 7 days)
+  React.useEffect(() => {
+    const end = new Date();
+    const start = new Date();
+    start.setDate(start.getDate() - 7);
+    setStartingAt(start.toISOString().split('.')[0] + 'Z');
+    setEndingAt(end.toISOString().split('.')[0] + 'Z');
+  }, []);
+
+  const handleGetReport = () => {
+    const params = {
+      starting_at: startingAt,
+      ending_at: endingAt,
+      bucket_width: bucketWidth,
+    };
+
+    if (selectedModels.length > 0) params.models = selectedModels;
+    if (serviceTiers.length > 0) params.service_tiers = serviceTiers;
+    if (groupBy.length > 0) params.group_by = groupBy;
+
+    handleGetUsageReport(params);
+  };
+
+  const toggleArrayValue = (array, setArray, value) => {
+    if (array.includes(value)) {
+      setArray(array.filter(v => v !== value));
+    } else {
+      setArray([...array, value]);
+    }
+  };
+
   return html`
     <div class="space-y-4">
-      <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-        <p class="text-sm text-yellow-900 font-medium mb-2">Coming Soon</p>
-        <p class="text-sm text-yellow-800">
-          Admin API endpoints will be added based on your specific needs.
-          This may include organization management, user provisioning, and usage tracking.
+      <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+        <p class="text-xs text-blue-900 font-medium mb-1">Admin API Key Required</p>
+        <p class="text-xs text-blue-800">
+          This endpoint requires an Admin API key (sk-ant-admin...) available only to organization admins.
         </p>
+      </div>
+
+      <div class="space-y-3">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Starting At (ISO 8601)</label>
+          <input
+            type="datetime-local"
+            value=${startingAt.slice(0, 16)}
+            onChange=${(e) => setStartingAt(e.target.value + ':00Z')}
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+          />
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Ending At (ISO 8601)</label>
+          <input
+            type="datetime-local"
+            value=${endingAt.slice(0, 16)}
+            onChange=${(e) => setEndingAt(e.target.value + ':00Z')}
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+          />
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Bucket Width</label>
+          <select
+            value=${bucketWidth}
+            onChange=${(e) => setBucketWidth(e.target.value)}
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+          >
+            <option value="1m">1 minute (real-time monitoring)</option>
+            <option value="1h">1 hour (daily patterns)</option>
+            <option value="1d">1 day (weekly/monthly reports)</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Group By (Optional)</label>
+          <div class="space-y-2 text-sm">
+            ${['model', 'workspace_id', 'service_tier', 'api_key_id'].map(option => html`
+              <label class="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked=${groupBy.includes(option)}
+                  onChange=${() => toggleArrayValue(groupBy, setGroupBy, option)}
+                  class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <span class="text-gray-700">${option}</span>
+              </label>
+            `)}
+          </div>
+        </div>
+
+        <${Button}
+          onClick=${handleGetReport}
+          loading=${usageLoading}
+          disabled=${!startingAt || !endingAt}
+          fullWidth=${true}
+        >
+          Get Usage Report
+        </${Button}>
+      </div>
+    </div>
+  `;
+}
+
+function CostPanel() {
+  const { handleGetCostReport, costLoading } = useApp();
+  const [startingAt, setStartingAt] = useState('');
+  const [endingAt, setEndingAt] = useState('');
+  const [groupBy, setGroupBy] = useState([]);
+
+  // Set default date range (last 7 days)
+  React.useEffect(() => {
+    const end = new Date();
+    const start = new Date();
+    start.setDate(start.getDate() - 7);
+    setStartingAt(start.toISOString().split('.')[0] + 'Z');
+    setEndingAt(end.toISOString().split('.')[0] + 'Z');
+  }, []);
+
+  const handleGetReport = () => {
+    const params = {
+      starting_at: startingAt,
+      ending_at: endingAt,
+    };
+
+    if (groupBy.length > 0) params.group_by = groupBy;
+
+    handleGetCostReport(params);
+  };
+
+  const toggleArrayValue = (array, setArray, value) => {
+    if (array.includes(value)) {
+      setArray(array.filter(v => v !== value));
+    } else {
+      setArray([...array, value]);
+    }
+  };
+
+  return html`
+    <div class="space-y-4">
+      <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+        <p class="text-xs text-blue-900 font-medium mb-1">Admin API Key Required</p>
+        <p class="text-xs text-blue-800">
+          This endpoint requires an Admin API key (sk-ant-admin...). All costs are in USD (cents).
+        </p>
+      </div>
+
+      <div class="space-y-3">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Starting At (ISO 8601)</label>
+          <input
+            type="datetime-local"
+            value=${startingAt.slice(0, 16)}
+            onChange=${(e) => setStartingAt(e.target.value + ':00Z')}
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+          />
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Ending At (ISO 8601)</label>
+          <input
+            type="datetime-local"
+            value=${endingAt.slice(0, 16)}
+            onChange=${(e) => setEndingAt(e.target.value + ':00Z')}
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+          />
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Group By (Optional)</label>
+          <div class="space-y-2 text-sm">
+            ${['workspace_id', 'description'].map(option => html`
+              <label class="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked=${groupBy.includes(option)}
+                  onChange=${() => toggleArrayValue(groupBy, setGroupBy, option)}
+                  class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <span class="text-gray-700">${option}</span>
+              </label>
+            `)}
+          </div>
+        </div>
+
+        <${Button}
+          onClick=${handleGetReport}
+          loading=${costLoading}
+          disabled=${!startingAt || !endingAt}
+          fullWidth=${true}
+        >
+          Get Cost Report
+        </${Button}>
       </div>
     </div>
   `;
@@ -837,7 +1030,8 @@ function ConfigPanel() {
           ${selectedEndpoint === 'messages' && html`<${MessagesPanel} />`}
           ${selectedEndpoint === 'batches' && html`<${BatchesPanel} />`}
           ${selectedEndpoint === 'models' && html`<${ModelsPanel} />`}
-          ${selectedEndpoint === 'admin' && html`<${AdminPanel} />`}
+          ${selectedEndpoint === 'usage' && html`<${UsagePanel} />`}
+          ${selectedEndpoint === 'cost' && html`<${CostPanel} />`}
         </div>
 
         ${selectedEndpoint === 'messages' && html`
@@ -910,17 +1104,19 @@ function ConfigPanel() {
 }
 
 function ResponsePanel() {
-  const { response, loading, error, selectedEndpoint, modelsList, batchStatus } = useApp();
+  const { response, loading, error, selectedEndpoint, modelsList, batchStatus, usageReport, costReport } = useApp();
   const [viewMode, setViewMode] = useState('formatted');
 
   // Determine if we should show view mode toggle
-  const showViewModeToggle = response || modelsList || batchStatus;
+  const showViewModeToggle = response || modelsList || batchStatus || usageReport || costReport;
 
   // Determine the response type
   const getResponseType = () => {
     if (selectedEndpoint === 'models' && modelsList) return 'models';
     if (selectedEndpoint === 'batches' && (batchStatus || response?.id)) return 'batch';
     if (selectedEndpoint === 'messages' && response?.content) return 'message';
+    if (selectedEndpoint === 'usage' && (usageReport || response?.data)) return 'usage';
+    if (selectedEndpoint === 'cost' && (costReport || response?.data)) return 'cost';
     return 'generic';
   };
 
@@ -971,9 +1167,9 @@ function ResponsePanel() {
           </div>
         `}
 
-        ${!loading && !error && viewMode === 'json' && (response || modelsList || batchStatus) && html`
+        ${!loading && !error && viewMode === 'json' && (response || modelsList || batchStatus || usageReport || costReport) && html`
           <pre class="bg-gray-900 text-green-300 p-6 rounded-lg overflow-x-auto text-sm font-mono leading-relaxed">
-            ${JSON.stringify(response || modelsList || batchStatus, null, 2)}
+            ${JSON.stringify(response || modelsList || batchStatus || usageReport || costReport, null, 2)}
           </pre>
         `}
 
@@ -1096,7 +1292,110 @@ function ResponsePanel() {
           </div>
         `}
 
-        ${!loading && !error && !response && !modelsList && !batchStatus && html`
+        ${!loading && !error && viewMode === 'formatted' && responseType === 'usage' && (usageReport || response) && html`
+          <div class="space-y-3">
+            ${((usageReport || response)?.data || []).map((bucket, idx) => html`
+              <div key=${idx} class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                <div class="font-medium text-base text-gray-900 mb-3">
+                  ${new Date(bucket.start_time).toLocaleString()} - ${new Date(bucket.end_time).toLocaleString()}
+                </div>
+                <div class="grid grid-cols-2 gap-3 text-sm">
+                  <div class="space-y-1">
+                    <div class="text-gray-600 text-xs font-medium">Input Tokens</div>
+                    <div class="text-lg font-semibold text-gray-900">
+                      ${(bucket.input_tokens || 0).toLocaleString()}
+                    </div>
+                  </div>
+                  <div class="space-y-1">
+                    <div class="text-gray-600 text-xs font-medium">Output Tokens</div>
+                    <div class="text-lg font-semibold text-gray-900">
+                      ${(bucket.output_tokens || 0).toLocaleString()}
+                    </div>
+                  </div>
+                  ${bucket.cache_creation_input_tokens !== undefined && html`
+                    <div class="space-y-1">
+                      <div class="text-gray-600 text-xs font-medium">Cache Creation</div>
+                      <div class="text-base font-semibold text-blue-900">
+                        ${(bucket.cache_creation_input_tokens || 0).toLocaleString()}
+                      </div>
+                    </div>
+                  `}
+                  ${bucket.cache_read_input_tokens !== undefined && html`
+                    <div class="space-y-1">
+                      <div class="text-gray-600 text-xs font-medium">Cache Read</div>
+                      <div class="text-base font-semibold text-green-900">
+                        ${(bucket.cache_read_input_tokens || 0).toLocaleString()}
+                      </div>
+                    </div>
+                  `}
+                </div>
+                ${bucket.model && html`
+                  <div class="mt-3 pt-3 border-t border-gray-200 text-xs text-gray-600">
+                    Model: <span class="font-mono">${bucket.model}</span>
+                  </div>
+                `}
+                ${bucket.workspace_id && html`
+                  <div class="mt-1 text-xs text-gray-600">
+                    Workspace: <span class="font-mono">${bucket.workspace_id}</span>
+                  </div>
+                `}
+              </div>
+            `)}
+            ${(usageReport || response)?.has_more && html`
+              <div class="text-sm text-gray-500 text-center py-2">
+                More data available (use pagination)
+              </div>
+            `}
+          </div>
+        `}
+
+        ${!loading && !error && viewMode === 'formatted' && responseType === 'cost' && (costReport || response) && html`
+          <div class="space-y-3">
+            <div class="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+              <div class="flex justify-between items-center">
+                <span class="text-sm font-medium text-green-900">Total Cost</span>
+                <span class="text-2xl font-bold text-green-900">
+                  $${((costReport || response)?.data?.reduce((sum, item) => sum + parseFloat(item.amount || 0), 0) / 100).toFixed(2)}
+                </span>
+              </div>
+            </div>
+
+            ${((costReport || response)?.data || []).map((item, idx) => html`
+              <div key=${idx} class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                <div class="flex justify-between items-start mb-2">
+                  <div>
+                    ${item.description && html`
+                      <div class="font-medium text-base text-gray-900">${item.description}</div>
+                    `}
+                    ${item.workspace_id && html`
+                      <div class="text-xs text-gray-600 font-mono mt-1">
+                        Workspace: ${item.workspace_id}
+                      </div>
+                    `}
+                  </div>
+                  <div class="text-right">
+                    <div class="text-xl font-bold text-gray-900">
+                      $${(parseFloat(item.amount || 0) / 100).toFixed(2)}
+                    </div>
+                    <div class="text-xs text-gray-500">USD</div>
+                  </div>
+                </div>
+                ${item.start_time && item.end_time && html`
+                  <div class="text-xs text-gray-500 mt-2 pt-2 border-t border-gray-200">
+                    ${new Date(item.start_time).toLocaleDateString()} - ${new Date(item.end_time).toLocaleDateString()}
+                  </div>
+                `}
+              </div>
+            `)}
+            ${(costReport || response)?.has_more && html`
+              <div class="text-sm text-gray-500 text-center py-2">
+                More data available (use pagination)
+              </div>
+            `}
+          </div>
+        `}
+
+        ${!loading && !error && !response && !modelsList && !batchStatus && !usageReport && !costReport && html`
           <div class="flex items-center justify-center h-full text-gray-400">
             <div class="text-center">
               <svg
@@ -1129,7 +1428,8 @@ function AppContent() {
     { id: 'messages', label: 'Messages', description: endpoints.messages.description },
     { id: 'batches', label: 'Batches', description: endpoints.batches.description },
     { id: 'models', label: 'Models', description: endpoints.models.description },
-    { id: 'admin', label: 'Admin', description: endpoints.admin.description },
+    { id: 'usage', label: 'Usage', description: endpoints.usage.description },
+    { id: 'cost', label: 'Cost', description: endpoints.cost.description },
   ];
 
   return html`

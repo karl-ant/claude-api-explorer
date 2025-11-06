@@ -47,6 +47,14 @@ export function AppProvider({ children }) {
   const [modelsList, setModelsList] = useState(null);
   const [modelsLoading, setModelsLoading] = useState(false);
 
+  // Usage API
+  const [usageReport, setUsageReport] = useState(null);
+  const [usageLoading, setUsageLoading] = useState(false);
+
+  // Cost API
+  const [costReport, setCostReport] = useState(null);
+  const [costLoading, setCostLoading] = useState(false);
+
   // Response state
   const [response, setResponse] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -211,6 +219,128 @@ export function AppProvider({ children }) {
       setError(err.message || 'An error occurred while fetching models');
     } finally {
       setModelsLoading(false);
+    }
+  };
+
+  // Usage API handler
+  const handleGetUsageReport = async (queryParams = {}) => {
+    if (!apiKey) {
+      setError('Please provide an Admin API key');
+      return;
+    }
+
+    if (!queryParams.starting_at || !queryParams.ending_at || !queryParams.bucket_width) {
+      setError('starting_at, ending_at, and bucket_width are required parameters');
+      return;
+    }
+
+    setUsageLoading(true);
+    setError(null);
+
+    // Build query string
+    const params = new URLSearchParams();
+    params.append('starting_at', queryParams.starting_at);
+    params.append('ending_at', queryParams.ending_at);
+    params.append('bucket_width', queryParams.bucket_width);
+
+    // Optional array parameters
+    if (queryParams.models && queryParams.models.length > 0) {
+      queryParams.models.forEach(m => params.append('models[]', m));
+    }
+    if (queryParams.service_tiers && queryParams.service_tiers.length > 0) {
+      queryParams.service_tiers.forEach(st => params.append('service_tiers[]', st));
+    }
+    if (queryParams.workspace_ids && queryParams.workspace_ids.length > 0) {
+      queryParams.workspace_ids.forEach(w => params.append('workspace_ids[]', w));
+    }
+    if (queryParams.group_by && queryParams.group_by.length > 0) {
+      queryParams.group_by.forEach(g => params.append('group_by[]', g));
+    }
+
+    // Optional scalar parameters
+    if (queryParams.limit) params.append('limit', queryParams.limit);
+    if (queryParams.page) params.append('page', queryParams.page);
+
+    const queryString = params.toString() ? `?${params.toString()}` : '';
+
+    try {
+      const res = await fetch(`http://localhost:3001/v1/organizations/usage_report/messages${queryString}`, {
+        method: 'GET',
+        headers: {
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+        },
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error?.message || `API request failed with status ${res.status}`);
+      }
+
+      const data = await res.json();
+      setUsageReport(data);
+      setResponse(data);
+    } catch (err) {
+      console.error('API Error:', err);
+      setError(err.message || 'An error occurred while fetching usage report');
+    } finally {
+      setUsageLoading(false);
+    }
+  };
+
+  // Cost API handler
+  const handleGetCostReport = async (queryParams = {}) => {
+    if (!apiKey) {
+      setError('Please provide an Admin API key');
+      return;
+    }
+
+    if (!queryParams.starting_at || !queryParams.ending_at) {
+      setError('starting_at and ending_at are required parameters');
+      return;
+    }
+
+    setCostLoading(true);
+    setError(null);
+
+    // Build query string
+    const params = new URLSearchParams();
+    params.append('starting_at', queryParams.starting_at);
+    params.append('ending_at', queryParams.ending_at);
+
+    // Optional array parameters
+    if (queryParams.group_by && queryParams.group_by.length > 0) {
+      queryParams.group_by.forEach(g => params.append('group_by[]', g));
+    }
+
+    // Optional scalar parameters
+    if (queryParams.limit) params.append('limit', queryParams.limit);
+    if (queryParams.page) params.append('page', queryParams.page);
+
+    const queryString = params.toString() ? `?${params.toString()}` : '';
+
+    try {
+      const res = await fetch(`http://localhost:3001/v1/organizations/cost_report${queryString}`, {
+        method: 'GET',
+        headers: {
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+        },
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error?.message || `API request failed with status ${res.status}`);
+      }
+
+      const data = await res.json();
+      setCostReport(data);
+      setResponse(data);
+    } catch (err) {
+      console.error('API Error:', err);
+      setError(err.message || 'An error occurred while fetching cost report');
+    } finally {
+      setCostLoading(false);
     }
   };
 
@@ -404,6 +534,18 @@ export function AppProvider({ children }) {
     modelsLoading,
     handleListModels,
 
+    // Usage API
+    usageReport,
+    setUsageReport,
+    usageLoading,
+    handleGetUsageReport,
+
+    // Cost API
+    costReport,
+    setCostReport,
+    costLoading,
+    handleGetCostReport,
+
     // Response
     response,
     loading,
@@ -424,6 +566,8 @@ export function AppProvider({ children }) {
     tools, images,
     batchRequests, batchStatus, batchResults,
     modelsList, modelsLoading,
+    usageReport, usageLoading,
+    costReport, costLoading,
     response, loading, error, streamingText,
     history
   ]);

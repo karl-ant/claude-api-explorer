@@ -89,6 +89,20 @@ app.get('/v1/models', async (req, res) => {
   await proxyToAnthropic(req, res, 'GET', path);
 });
 
+// Usage API - Get usage report
+app.get('/v1/organizations/usage_report/messages', async (req, res) => {
+  const queryParams = new URLSearchParams(req.query).toString();
+  const path = `/v1/organizations/usage_report/messages${queryParams ? '?' + queryParams : ''}`;
+  await proxyToAnthropic(req, res, 'GET', path);
+});
+
+// Cost API - Get cost report
+app.get('/v1/organizations/cost_report', async (req, res) => {
+  const queryParams = new URLSearchParams(req.query).toString();
+  const path = `/v1/organizations/cost_report${queryParams ? '?' + queryParams : ''}`;
+  await proxyToAnthropic(req, res, 'GET', path);
+});
+
 app.listen(PORT, () => {
   console.log(`\n🚀 Proxy server running on http://localhost:${PORT}`);
   console.log(`   Forwarding requests to https://api.anthropic.com`);

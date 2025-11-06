@@ -15,7 +15,8 @@ The application now supports multiple Anthropic API endpoints:
 1. **Messages API** - Send messages to Claude and receive responses (synchronous)
 2. **Message Batches API** - Process large batches of messages asynchronously at 50% cost
 3. **Models API** - List available Claude models and their metadata
-4. **Admin API** - Organization and user management (placeholder for future implementation)
+4. **Usage Reports API** - Track token usage across your organization with detailed breakdowns
+5. **Cost Reports API** - View detailed cost breakdowns for token usage and services
 
 Users can switch between endpoints using the tabbed interface at the top of the application.
 
@@ -79,7 +80,8 @@ Users can switch between endpoints using the tabbed interface at the top of the 
 - `MessagesPanel` - Messages API configuration (model, messages, tools, vision)
 - `BatchesPanel` - Batch request builder and status checker
 - `ModelsPanel` - Simple model listing interface
-- `AdminPanel` - Placeholder for future admin features
+- `UsagePanel` - Usage report configuration with filtering and time granularity options
+- `CostPanel` - Cost report configuration with grouping options
 - `ResponsePanel` - Format-agnostic response display
 
 ## Tech Stack
@@ -374,6 +376,32 @@ ${responseType === 'new-endpoint' && html`
 3. View all available Claude models with metadata
 4. Use pagination parameters for large result sets
 
+### Working with Usage and Cost APIs
+
+**Important:** These endpoints require an Admin API key (sk-ant-admin...) available only to organization admins.
+
+**Get usage report:**
+1. Switch to "Usage" tab
+2. Set date range (starting_at and ending_at)
+3. Select bucket width (1m, 1h, or 1d)
+4. Optionally filter by model, service tier, or workspace
+5. Optionally group results by dimension (model, workspace_id, etc.)
+6. Click "Get Usage Report"
+7. View token breakdowns with cache metrics
+
+**Get cost report:**
+1. Switch to "Cost" tab
+2. Set date range (starting_at and ending_at)
+3. Optionally group by workspace_id or description
+4. Click "Get Cost Report"
+5. View costs in USD with detailed breakdowns
+
+**Notes:**
+- Data appears within 5 minutes of request completion
+- All costs are in USD (cents)
+- Priority Tier costs are not included in cost reports
+- Both endpoints support pagination for large datasets
+
 ## Code Quality Standards
 
 ### Must Have
@@ -444,20 +472,22 @@ setImages([...images, newImage]);  // Closure bug!
 ### Current Limitations
 1. **Streaming not implemented** - Shows loading state only
 2. **No image previews** - Vision tab shows metadata only
-3. **History only for Messages endpoint** - Batches/Models don't save to history
-4. **Admin API placeholder** - Not yet implemented, needs user requirements
-5. **No error boundaries** - Whole app crashes on error
-6. **No keyboard shortcuts** - Mouse/click only
-7. **Batch results download** - No automatic download of .jsonl results
+3. **History only for Messages endpoint** - Batches/Models/Usage/Cost don't save to history
+4. **No error boundaries** - Whole app crashes on error
+5. **No keyboard shortcuts** - Mouse/click only
+6. **Batch results download** - No automatic download of .jsonl results
+7. **Admin API key requirement** - Usage and Cost APIs require special admin permissions
 
 ### Multi-Endpoint Specific Limitations
 1. **No batch result preview** - Must download .jsonl file manually
 2. **Models API pagination** - UI doesn't support before_id/after_id navigation
-3. **No cross-endpoint history** - Each endpoint operates independently
-4. **Batch status polling** - Manual refresh required, no auto-polling
+3. **Usage/Cost pagination** - UI doesn't support page token navigation
+4. **No cross-endpoint history** - Each endpoint operates independently
+5. **Batch status polling** - Manual refresh required, no auto-polling
+6. **No usage/cost filtering UI** - Advanced filters (models, service_tiers, api_key_ids) require manual input
 
 ### Technical Debt
-1. All components in one file (FullApp.js) - Now ~1000 lines
+1. All components in one file (FullApp.js) - Now ~1450 lines (approaching split threshold)
 2. No TypeScript
 3. No automated tests
 4. No CI/CD pipeline
@@ -602,12 +632,62 @@ For questions or issues:
 ---
 
 **Last Updated:** 2025-11-06
-**Version:** 2.0
+**Version:** 2.1
 **Maintained by:** Karl (project owner)
 
 ---
 
 ## Change Log
+
+### 2025-11-06 - Version 2.1: Usage & Cost APIs + Claude Haiku 4.5
+**Added Admin API functionality with Usage and Cost reporting endpoints**
+
+**New Features:**
+- ✨ Usage Reports API - Track token usage with detailed breakdowns by model, workspace, service tier
+- ✨ Cost Reports API - View cost breakdowns in USD with grouping options
+- ✨ Claude Haiku 4.5 model support - Latest Haiku with near-frontier performance at lower cost
+- ✨ Time granularity options for usage reports (1m, 1h, 1d buckets)
+- ✨ Advanced filtering and grouping for usage data
+- ✨ Formatted views for usage and cost responses with visual breakdowns
+
+**Infrastructure Changes:**
+- 🔧 Replaced Admin API placeholder with functional Usage and Cost endpoints
+- 🔧 Added `UsagePanel` component with date range, bucket width, and filtering options
+- 🔧 Added `CostPanel` component with date range and grouping options
+- 🔧 Extended `ResponsePanel` with usage and cost response formatters
+- 🔧 Added proxy routes for `/v1/organizations/usage_report/messages` and `/v1/organizations/cost_report`
+- 🔧 Extended `AppContext.js` with `handleGetUsageReport()` and `handleGetCostReport()` handlers
+- 🔧 Updated endpoint configuration in `endpoints.js` with usage and cost definitions
+
+**Model Updates:**
+- 📦 Added Claude Haiku 4.5 (`claude-haiku-4-5`) to model selector
+- 📦 Marked Claude 3.5 Haiku as "Legacy"
+
+**Developer Experience:**
+- 📚 Added "Working with Usage and Cost APIs" guide to CLAUDE.md
+- 📚 Updated Known Issues & Limitations section
+- 📚 Updated Supported API Endpoints documentation
+
+**Breaking Changes:**
+- ⚠️ Removed "Admin" tab, replaced with "Usage" and "Cost" tabs
+- Admin API key (sk-ant-admin...) now required for Usage and Cost endpoints
+
+**File Size:**
+- `FullApp.js`: ~1050 lines → ~1450 lines (approaching split threshold)
+- `AppContext.js`: ~400 lines → ~520 lines
+- `server.js`: ~90 lines → ~110 lines
+- `endpoints.js`: ~150 lines (updated)
+- `models.js`: 6 models → 7 models
+
+**Requirements:**
+- Admin API key required for Usage and Cost endpoints
+- Organization admin role needed to provision Admin API keys
+
+**Next Steps:**
+- Add pagination UI for usage and cost reports
+- Implement advanced filter UI (models, service_tiers, api_key_ids)
+- Consider splitting FullApp.js if it continues to grow
+- Add organization management endpoints if needed
 
 ### 2025-11-06 - Version 2.0: Multi-Endpoint Support
 **Major architectural update - Added support for multiple Anthropic API endpoints**
