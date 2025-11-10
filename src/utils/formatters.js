@@ -90,6 +90,39 @@ export function executeTool(toolName, toolInput) {
 
     calculator: (input) => {
       try {
+        // Support both old format (operation, num1, num2) and new format (expression)
+        if (input.expression) {
+          // New format - evaluate with Math functions available
+          try {
+            const mathContext = {
+              pi: Math.PI, e: Math.E,
+              sin: Math.sin, cos: Math.cos, tan: Math.tan,
+              asin: Math.asin, acos: Math.acos, atan: Math.atan,
+              exp: Math.exp, log: Math.log, log10: Math.log10,
+              sqrt: Math.sqrt, cbrt: Math.cbrt, pow: Math.pow,
+              abs: Math.abs, ceil: Math.ceil, floor: Math.floor,
+              round: Math.round, min: Math.min, max: Math.max
+            };
+
+            const func = new Function(...Object.keys(mathContext), `return (${input.expression})`);
+            const result = func(...Object.values(mathContext));
+
+            return JSON.stringify({
+              success: true,
+              result,
+              expression: input.expression,
+              mode: 'demo'
+            });
+          } catch (e) {
+            return JSON.stringify({
+              success: false,
+              error: 'Invalid expression: ' + e.message,
+              expression: input.expression
+            });
+          }
+        }
+
+        // Old format
         const { operation, num1, num2 } = input;
         let result;
         switch (operation) {
