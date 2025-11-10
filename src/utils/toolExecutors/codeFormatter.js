@@ -117,7 +117,7 @@ function formatJavaScript(code, indentSize) {
 
     // Increase indent for opening braces/brackets/parens
     const openCount = (line.match(/[\[{(]/g) || []).length;
-    const closeCount = (line.match(/[\]})](]|[])\}])/g) || []).length;
+    const closeCount = (line.match(/[\]})]/g) || []).length;
     level += openCount - closeCount;
     level = Math.max(0, level);
   }
