@@ -1,5 +1,10 @@
 import express from 'express';
 import cors from 'cors';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = 3001;
@@ -7,6 +12,9 @@ const PORT = 3001;
 // Enable CORS for all origins
 app.use(cors());
 app.use(express.json());
+
+// Serve static files from the project root
+app.use(express.static(__dirname));
 
 // Helper function to proxy requests to Anthropic API
 async function proxyToAnthropic(req, res, method, path) {
@@ -106,5 +114,5 @@ app.get('/v1/organizations/cost_report', async (req, res) => {
 app.listen(PORT, () => {
   console.log(`\n🚀 Proxy server running on http://localhost:${PORT}`);
   console.log(`   Forwarding requests to https://api.anthropic.com`);
-  console.log(`\n✅ Your app is ready at http://localhost:8000\n`);
+  console.log(`\n✅ Your app is ready at http://localhost:${PORT}\n`);
 });

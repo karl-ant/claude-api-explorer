@@ -32,7 +32,6 @@ export function AppProvider({ children }) {
   const [temperature, setTemperature] = useState(1.0);
   const [topP, setTopP] = useState(1.0);
   const [topK, setTopK] = useState(0);
-  const [stream, setStream] = useState(false);
 
   // Advanced features
   const [tools, setTools] = useState([]);
@@ -83,7 +82,6 @@ export function AppProvider({ children }) {
       if (lastConfig.temperature !== undefined) setTemperature(lastConfig.temperature);
       if (lastConfig.topP !== undefined) setTopP(lastConfig.topP);
       if (lastConfig.topK !== undefined) setTopK(lastConfig.topK);
-      if (lastConfig.stream !== undefined) setStream(lastConfig.stream);
       if (lastConfig.system) setSystem(lastConfig.system);
       if (lastConfig.tools) setTools(lastConfig.tools);
     }
@@ -97,11 +95,10 @@ export function AppProvider({ children }) {
       temperature,
       topP,
       topK,
-      stream,
       system,
       tools
     });
-  }, [model, maxTokens, temperature, topP, topK, stream, system, tools]);
+  }, [model, maxTokens, temperature, topP, topK, system, tools]);
 
   const handleSendRequest = async () => {
     if (!apiKey) {
@@ -154,7 +151,6 @@ export function AppProvider({ children }) {
     if (topP !== 1.0) requestBody.top_p = topP;
     if (topK !== 0) requestBody.top_k = topK;
     if (tools.length > 0) requestBody.tools = tools;
-    if (stream) requestBody.stream = stream;
 
     try {
       // Make initial request
@@ -611,8 +607,6 @@ export function AppProvider({ children }) {
     setTopP,
     topK,
     setTopK,
-    stream,
-    setStream,
 
     // Advanced features
     tools,
@@ -666,7 +660,7 @@ export function AppProvider({ children }) {
   }), [
     apiKey, persistKey,
     selectedEndpoint,
-    model, messages, system, maxTokens, temperature, topP, topK, stream,
+    model, messages, system, maxTokens, temperature, topP, topK,
     tools, images,
     batchRequests, batchStatus, batchResults,
     modelsList, modelsLoading,
