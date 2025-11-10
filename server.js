@@ -111,6 +111,74 @@ app.get('/v1/organizations/cost_report', async (req, res) => {
   await proxyToAnthropic(req, res, 'GET', path);
 });
 
+// Tool API Proxies
+// OpenWeatherMap API - Get weather
+app.get('/api/weather', async (req, res) => {
+  const { location, units, apiKey } = req.query;
+
+  if (!apiKey) {
+    return res.status(401).json({ error: 'OpenWeatherMap API key is required' });
+  }
+
+  if (!location) {
+    return res.status(400).json({ error: 'location parameter is required' });
+  }
+
+  try {
+    const url = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(location)}&units=${units || 'imperial'}&appid=${apiKey}`;
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return res.status(response.status).json({
+        error: errorData.message || 'OpenWeatherMap API request failed'
+      });
+    }
+
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('Weather API error:', error);
+    res.status(500).json({ error: 'Weather API proxy error: ' + error.message });
+  }
+});
+
+// Brave Search API - Web search
+app.get('/api/search', async (req, res) => {
+  const { query, count, apiKey } = req.query;
+
+  if (!apiKey) {
+    return res.status(401).json({ error: 'Brave Search API key is required' });
+  }
+
+  if (!query) {
+    return res.status(400).json({ error: 'query parameter is required' });
+  }
+
+  try {
+    const url = `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=${count || 5}`;
+    const response = await fetch(url, {
+      headers: {
+        'Accept': 'application/json',
+        'X-Subscription-Token': apiKey
+      }
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return res.status(response.status).json({
+        error: errorData.message || 'Brave Search API request failed'
+      });
+    }
+
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('Search API error:', error);
+    res.status(500).json({ error: 'Search API proxy error: ' + error.message });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`\n🚀 Proxy server running on http://localhost:${PORT}`);
   console.log(`   Forwarding requests to https://api.anthropic.com`);

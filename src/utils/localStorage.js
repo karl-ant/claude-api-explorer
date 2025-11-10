@@ -2,7 +2,9 @@ const STORAGE_KEYS = {
   API_KEY: 'claude_api_explorer_api_key',
   PERSIST_KEY: 'claude_api_explorer_persist_key',
   HISTORY: 'claude_api_explorer_history',
-  LAST_CONFIG: 'claude_api_explorer_last_config'
+  LAST_CONFIG: 'claude_api_explorer_last_config',
+  TOOL_MODE: 'claude_api_explorer_tool_mode',
+  TOOL_API_KEYS: 'claude_api_explorer_tool_api_keys'
 };
 
 const MAX_HISTORY_ITEMS = 50;
@@ -168,6 +170,42 @@ export const storage = {
     } catch (error) {
       console.error('Failed to load config:', error);
       return null;
+    }
+  },
+
+  // Tool mode and API keys
+  saveToolMode(mode) {
+    try {
+      localStorage.setItem(STORAGE_KEYS.TOOL_MODE, mode);
+    } catch (error) {
+      console.error('Failed to save tool mode:', error);
+    }
+  },
+
+  getToolMode() {
+    try {
+      return localStorage.getItem(STORAGE_KEYS.TOOL_MODE);
+    } catch (error) {
+      console.error('Failed to load tool mode:', error);
+      return null;
+    }
+  },
+
+  saveToolApiKeys(apiKeys) {
+    try {
+      localStorage.setItem(STORAGE_KEYS.TOOL_API_KEYS, JSON.stringify(apiKeys));
+    } catch (error) {
+      console.error('Failed to save tool API keys:', error);
+    }
+  },
+
+  getToolApiKeys() {
+    try {
+      const keys = localStorage.getItem(STORAGE_KEYS.TOOL_API_KEYS);
+      return keys ? JSON.parse(keys) : {};
+    } catch (error) {
+      console.error('Failed to load tool API keys:', error);
+      return {};
     }
   }
 };
