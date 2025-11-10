@@ -402,6 +402,151 @@ ${responseType === 'new-endpoint' && html`
 - Priority Tier costs are not included in cost reports
 - Both endpoints support pagination for large datasets
 
+## Working with the Hybrid Tool System
+
+**Status:** Backend infrastructure complete (Phase 1-3), UI pending (Phase 4-5)
+**See:** `TODO.md` for remaining work
+
+### Architecture Overview
+
+The hybrid tool system allows tools to run in two modes:
+- **Demo Mode**: Mock data for offline testing (default)
+- **Real Mode**: Actual API calls and implementations
+
+### File Structure
+
+```
+src/
+├── config/
+│   └── toolConfig.js         # Tool registry, configuration, availability checks
+├── utils/
+│   ├── formatters.js          # Demo tool implementations (legacy + enhanced)
+│   └── toolExecutors/
+│       ├── index.js           # Execution router (demo vs real)
+│       ├── calculator.js      # Enhanced math expressions
+│       ├── jsonValidator.js   # JSON validation
+│       ├── codeFormatter.js   # Code formatting
+│       ├── tokenCounter.js    # Token estimation
+│       ├── regexTester.js     # Regex testing
+│       ├── weather.js         # OpenWeatherMap API
+│       └── search.js          # Brave Search API
+```
+
+### Key Components
+
+**1. Tool Configuration (`toolConfig.js`)**
+- `TOOL_REGISTRY`: Defines all tools with metadata
+- `isToolAvailable(toolName, mode, apiKeys)`: Check if tool can execute
+- `getToolMode(toolName, preferredMode, apiKeys)`: Determine actual mode to use
+- `getRequiredApiKeys()`: Get list of API keys needed
+
+**2. Tool Executor Router (`toolExecutors/index.js`)**
+- `executeTool(toolName, input, mode, apiKeys)`: Main entry point
+- Routes between demo (formatters.js) and real implementations
+- Handles errors and fallbacks
+
+**3. State Management (`AppContext.js`)**
+- `toolMode`: Current mode ('demo' or 'real')
+- `toolApiKeys`: Object with API keys (e.g., `{openweathermap: '...', brave_search: '...'}`)
+- Both persist in localStorage automatically
+
+**4. API Proxies (`server.js`)**
+- `/api/weather`: OpenWeatherMap proxy
+- `/api/search`: Brave Search proxy
+
+### Tools Available
+
+**Developer Tools (No External APIs):**
+1. **Enhanced Calculator** - Math expressions with functions (sqrt, sin, cos, pow, log, etc.)
+2. **JSON Validator** - Validate, format, and analyze JSON
+3. **Code Formatter** - Format JavaScript, Python, JSON
+4. **Token Counter** - Estimate Claude token counts
+5. **Regex Tester** - Test patterns with match details
+
+**External API Tools (Require Keys):**
+6. **Weather** - OpenWeatherMap integration
+7. **Web Search** - Brave Search integration
+
+### Adding a New Tool
+
+**1. Add to Tool Registry** (`toolConfig.js`):
+```javascript
+new_tool: {
+  name: 'new_tool',
+  displayName: 'New Tool',
+  description: 'What this tool does',
+  hasDemo: true,
+  hasReal: true,
+  requiresApiKey: false,
+  category: 'developer'
+}
+```
+
+**2. Create Real Implementation** (`toolExecutors/newTool.js`):
+```javascript
+export async function executeNewTool(input, apiKey) {
+  try {
+    // Implementation
+    return JSON.stringify({
+      success: true,
+      result: /* ... */,
+      mode: 'real'
+    });
+  } catch (error) {
+    return JSON.stringify({
+      success: false,
+      error: error.message,
+      mode: 'real'
+    });
+  }
+}
+```
+
+**3. Add to Executor Router** (`toolExecutors/index.js`):
+```javascript
+import { executeNewTool } from './newTool.js';
+
+// In executeRealTool function:
+case 'new_tool':
+  return await executeNewTool(input, apiKeys.api_key_name);
+```
+
+**4. (Optional) Add Demo Implementation** (`formatters.js`):
+```javascript
+new_tool: (input) => {
+  // Mock implementation
+  return JSON.stringify({ /* mock data */ });
+}
+```
+
+**5. Add Tool Definition** (`FullApp.js`):
+```javascript
+{
+  name: 'new_tool',
+  description: 'What this tool does',
+  input_schema: {
+    type: 'object',
+    properties: {
+      /* parameters */
+    },
+    required: [/* required params */]
+  }
+}
+```
+
+### Current Tool Behavior
+
+**Default Mode:** Demo (mock data)
+**Tool Execution:** Automatic when Claude requests tools
+**Format Support:** Both old (`{operation, num1, num2}`) and new (`{expression}`) for calculator
+
+### Pending UI Work (See TODO.md)
+
+1. **Tool Mode Toggle** - Switch between demo/real in FullApp.js
+2. **API Keys Panel** - Input fields for OpenWeatherMap and Brave Search keys
+3. **Tool Definitions** - Add 4 new developer tools to predefined tools array
+4. **Visual Indicators** - Show which mode each tool is using
+
 ## Code Quality Standards
 
 ### Must Have
@@ -470,13 +615,14 @@ setImages([...images, newImage]);  // Closure bug!
 ## Known Issues & Limitations
 
 ### Current Limitations
-1. **Streaming not implemented** - Shows loading state only
+1. **Streaming not implemented** - Streaming checkbox removed, non-streaming only
 2. **No image previews** - Vision tab shows metadata only
 3. **History only for Messages endpoint** - Batches/Models/Usage/Cost don't save to history
 4. **No error boundaries** - Whole app crashes on error
 5. **No keyboard shortcuts** - Mouse/click only
 6. **Batch results download** - No automatic download of .jsonl results
 7. **Admin API key requirement** - Usage and Cost APIs require special admin permissions
+8. **Hybrid tool UI incomplete** - Backend ready, but mode toggle and API key panel UI pending (see TODO.md)
 
 ### Multi-Endpoint Specific Limitations
 1. **No batch result preview** - Must download .jsonl file manually
@@ -491,8 +637,8 @@ setImages([...images, newImage]);  // Closure bug!
 2. No TypeScript
 3. No automated tests
 4. No CI/CD pipeline
-5. Manual server startup (two terminals)
-6. Response panel logic getting complex with multiple formats
+5. Response panel logic getting complex with multiple formats
+6. Hybrid tool system backend complete but UI pending (TODO.md)
 
 ## Future Enhancement Guidelines
 
