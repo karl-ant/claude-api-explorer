@@ -10,21 +10,22 @@ export function Button({
   disabled = false,
   fullWidth = false,
   size = 'md',
-  type = 'button'
+  type = 'button',
+  loading = false
 }) {
-  const baseClasses = 'font-medium rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2';
+  const baseClasses = 'font-medium font-mono rounded-lg transition-all duration-200 focus:outline-none relative overflow-hidden';
 
   const variantClasses = {
-    primary: 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500 disabled:bg-blue-300',
-    secondary: 'bg-gray-200 text-gray-900 hover:bg-gray-300 focus:ring-gray-500 disabled:bg-gray-100',
-    danger: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500 disabled:bg-red-300',
-    ghost: 'bg-transparent text-gray-700 hover:bg-gray-100 focus:ring-gray-500 disabled:text-gray-400',
+    primary: 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-900 hover:from-amber-400 hover:to-amber-500 shadow-lg shadow-amber-500/30 hover:shadow-amber-500/50 disabled:from-slate-700 disabled:to-slate-700 disabled:text-slate-500 disabled:shadow-none',
+    secondary: 'bg-slate-800 text-slate-200 hover:bg-slate-700 border border-slate-700 hover:border-slate-600 disabled:bg-slate-800 disabled:text-slate-600 disabled:border-slate-800',
+    danger: 'bg-red-900/50 text-red-300 hover:bg-red-900/70 border border-red-700/50 hover:border-red-600 disabled:bg-red-900/20 disabled:text-red-700 disabled:border-red-900/30',
+    ghost: 'bg-transparent text-slate-400 hover:text-amber-400 hover:bg-slate-800/50 disabled:text-slate-700',
   };
 
   const sizeClasses = {
-    sm: 'px-3 py-1.5 text-sm',
-    md: 'px-4 py-2 text-base',
-    lg: 'px-6 py-3 text-lg',
+    sm: 'px-3 py-1.5 text-xs',
+    md: 'px-4 py-2 text-sm',
+    lg: 'px-6 py-3 text-base',
   };
 
   const widthClass = fullWidth ? 'w-full' : '';
@@ -33,10 +34,15 @@ export function Button({
     <button
       type=${type}
       onClick=${onClick}
-      disabled=${disabled}
-      class="${baseClasses} ${variantClasses[variant]} ${sizeClasses[size]} ${widthClass} disabled:cursor-not-allowed"
+      disabled=${disabled || loading}
+      class="${baseClasses} ${variantClasses[variant]} ${sizeClasses[size]} ${widthClass} disabled:cursor-not-allowed hover:transform hover:scale-[1.02] active:scale-[0.98]"
     >
-      ${children}
+      ${loading ? html`
+        <span class="flex items-center justify-center gap-2">
+          <span class="inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></span>
+          ${children}
+        </span>
+      ` : children}
     </button>
   `;
 }

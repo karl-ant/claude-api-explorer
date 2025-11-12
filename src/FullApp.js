@@ -15,7 +15,7 @@ function ApiKeySection() {
   return html`
     <div class="space-y-3">
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">API Key</label>
+        <label class="block text-sm font-medium text-slate-300 mb-2 font-mono">API Key</label>
         <div class="flex gap-2">
           <div class="relative flex-1">
             <input
@@ -23,11 +23,11 @@ function ApiKeySection() {
               value=${apiKey}
               onInput=${(e) => setApiKey(e.target.value)}
               placeholder="sk-ant-..."
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-mono"
+              class="w-full px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none text-sm font-mono text-slate-100 placeholder-slate-600 transition-colors hover:border-slate-600"
             />
             <button
               onClick=${() => setShowKey(!showKey)}
-              class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              class="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-amber-400 transition-colors text-lg"
             >
               ${showKey ? '👁️' : '👁️‍🗨️'}
             </button>
@@ -47,13 +47,13 @@ function ApiKeySection() {
           href="https://console.anthropic.com/settings/keys"
           target="_blank"
           rel="noopener noreferrer"
-          class="text-xs text-blue-600 hover:underline"
+          class="text-xs text-amber-400 hover:text-amber-300 transition-colors font-mono"
         >
           Get API key →
         </a>
       </div>
       ${!persistKey && html`
-        <p class="text-xs text-gray-500">Key will be cleared when browser closes</p>
+        <p class="text-xs text-slate-500 font-mono">Key will be cleared when browser closes</p>
       `}
     </div>
   `;
@@ -65,36 +65,36 @@ function ModelSelector() {
   return html`
     <div class="space-y-4">
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">Model</label>
+        <label class="block text-sm font-medium text-slate-300 mb-2 font-mono">Model</label>
         <select
           value=${model}
           onChange=${(e) => setModel(e.target.value)}
-          class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+          class="w-full px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none text-sm font-mono text-slate-100 hover:border-slate-600 transition-colors cursor-pointer"
         >
           ${models.map((m) => html`
             <option key=${m.id} value=${m.id}>${m.name}</option>
           `)}
         </select>
-        <p class="text-xs text-gray-500 mt-1">
+        <p class="text-xs text-slate-500 mt-2 font-mono">
           ${models.find((m) => m.id === model)?.description}
         </p>
       </div>
 
       <div class="grid grid-cols-2 gap-3">
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Max Tokens</label>
+          <label class="block text-sm font-medium text-slate-300 mb-2 font-mono">Max Tokens</label>
           <input
             type="number"
             value=${maxTokens}
             onInput=${(e) => setMaxTokens(parseInt(e.target.value, 10))}
             min="1"
             max="8192"
-            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            class="w-full px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none text-sm font-mono text-slate-100 hover:border-slate-600 transition-colors"
           />
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Temperature</label>
+          <label class="block text-sm font-medium text-slate-300 mb-2 font-mono">Temperature</label>
           <input
             type="number"
             value=${temperature}
@@ -102,12 +102,12 @@ function ModelSelector() {
             min="0"
             max="1"
             step="0.1"
-            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            class="w-full px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none text-sm font-mono text-slate-100 hover:border-slate-600 transition-colors"
           />
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Top P</label>
+          <label class="block text-sm font-medium text-slate-300 mb-2 font-mono">Top P</label>
           <input
             type="number"
             value=${topP}
@@ -115,19 +115,19 @@ function ModelSelector() {
             min="0"
             max="1"
             step="0.1"
-            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            class="w-full px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none text-sm font-mono text-slate-100 hover:border-slate-600 transition-colors"
           />
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Top K</label>
+          <label class="block text-sm font-medium text-slate-300 mb-2 font-mono">Top K</label>
           <input
             type="number"
             value=${topK}
             onInput=${(e) => setTopK(parseInt(e.target.value, 10))}
             min="0"
             max="500"
-            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            class="w-full px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none text-sm font-mono text-slate-100 hover:border-slate-600 transition-colors"
           />
         </div>
       </div>
@@ -157,30 +157,30 @@ function MessageBuilder() {
   return html`
     <div class="space-y-4">
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">System Prompt (Optional)</label>
+        <label class="block text-sm font-medium text-slate-300 mb-2 font-mono">System Prompt (Optional)</label>
         <textarea
           value=${system}
           onInput=${(e) => setSystem(e.target.value)}
           placeholder="You are a helpful assistant..."
           rows="3"
-          class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm resize-none"
+          class="w-full px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none text-sm resize-none text-slate-100 placeholder-slate-600 hover:border-slate-600 transition-colors"
         ></textarea>
       </div>
 
       <div>
         <div class="flex items-center justify-between mb-2">
-          <label class="block text-sm font-medium text-gray-700">Messages</label>
+          <label class="block text-sm font-medium text-slate-300 font-mono">Messages</label>
           <${Button} variant="ghost" size="sm" onClick=${addMessage}>+ Add Message</${Button}>
         </div>
 
         <div class="space-y-3">
           ${messages.map((message, index) => html`
-            <div key=${index} class="border border-gray-200 rounded-lg p-3">
+            <div key=${index} class="border border-slate-700 rounded-lg p-3 bg-slate-800/30 backdrop-blur-sm">
               <div class="flex items-center justify-between mb-2">
                 <select
                   value=${message.role}
                   onChange=${(e) => updateMessage(index, 'role', e.target.value)}
-                  class="px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  class="px-3 py-1.5 bg-slate-800 border border-slate-700 rounded text-sm focus:outline-none font-mono text-slate-100 cursor-pointer hover:border-slate-600 transition-colors"
                 >
                   <option value="user">User</option>
                   <option value="assistant">Assistant</option>
@@ -189,7 +189,7 @@ function MessageBuilder() {
                 ${messages.length > 1 && html`
                   <button
                     onClick=${() => removeMessage(index)}
-                    class="text-red-600 hover:text-red-700 text-sm"
+                    class="text-red-400 hover:text-red-300 text-sm font-mono transition-colors"
                   >
                     Remove
                   </button>
@@ -201,7 +201,7 @@ function MessageBuilder() {
                 onInput=${(e) => updateMessage(index, 'content', e.target.value)}
                 placeholder="Enter ${message.role} message..."
                 rows="4"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm resize-none"
+                class="w-full px-3 py-2.5 bg-slate-900 border border-slate-700 rounded-lg focus:outline-none text-sm resize-none text-slate-100 placeholder-slate-600 hover:border-slate-600 transition-colors"
               ></textarea>
             </div>
           `)}
@@ -420,7 +420,7 @@ function AdvancedOptions() {
       <div class="pt-2">
         ${activeTab === 'vision' && html`
           <div class="space-y-3">
-            <p class="text-sm text-gray-600">Add images to your messages</p>
+            <p class="text-sm text-slate-400 font-mono">Add images to your messages</p>
 
             <div class="flex flex-wrap gap-2">
               <label class="cursor-pointer">
@@ -431,7 +431,7 @@ function AdvancedOptions() {
                   onChange=${handleFileUpload}
                   class="hidden"
                 />
-                <span class="inline-block px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">
+                <span class="inline-block px-3 py-2 bg-gradient-to-r from-amber-500 to-amber-600 text-slate-900 text-sm rounded-lg hover:from-amber-400 hover:to-amber-500 transition-all font-mono font-medium shadow-lg shadow-amber-500/30">
                   Upload File
                 </span>
               </label>
@@ -443,15 +443,15 @@ function AdvancedOptions() {
 
             ${images.length > 0 && html`
               <div class="space-y-2">
-                <p class="text-sm font-medium text-gray-700">${images.length} image(s) added</p>
+                <p class="text-sm font-medium text-slate-300 font-mono">${images.length} image(s) added</p>
                 ${images.map((img, index) => html`
-                  <div key=${index} class="flex items-center justify-between p-2 bg-gray-50 rounded">
-                    <span class="text-sm text-gray-600 truncate">
+                  <div key=${index} class="flex items-center justify-between p-2 bg-slate-800/50 border border-slate-700 rounded-lg">
+                    <span class="text-sm text-slate-300 truncate font-mono">
                       Image ${index + 1} (${img.source.type})
                     </span>
                     <button
                       onClick=${() => removeImage(index)}
-                      class="text-red-600 hover:text-red-700 text-sm"
+                      class="text-red-400 hover:text-red-300 text-sm font-mono transition-colors"
                     >
                       Remove
                     </button>
@@ -464,13 +464,13 @@ function AdvancedOptions() {
 
         ${activeTab === 'tools' && html`
           <div class="space-y-3">
-            <p class="text-sm text-gray-600">Configure tools for Claude to use. These demonstrate tool calling capabilities but don't actually execute.</p>
+            <p class="text-sm text-slate-400 font-mono">Configure tools for Claude to use. These demonstrate tool calling capabilities but don't actually execute.</p>
 
             <div class="space-y-3">
-              <p class="text-sm font-medium text-gray-700">Predefined Tools</p>
+              <p class="text-sm font-medium text-slate-300 font-mono">Predefined Tools</p>
 
               <div class="space-y-2">
-                <div class="text-xs font-medium text-gray-600 uppercase">Data & Information</div>
+                <div class="text-xs font-medium text-slate-500 uppercase font-mono">Data & Information</div>
                 <div class="grid grid-cols-2 gap-2">
                   <${Button} variant="secondary" size="sm" onClick=${() => addPredefinedTool('get_weather')}>
                     🌤️ Weather
@@ -488,7 +488,7 @@ function AdvancedOptions() {
               </div>
 
               <div class="space-y-2">
-                <div class="text-xs font-medium text-gray-600 uppercase">Computation</div>
+                <div class="text-xs font-medium text-slate-500 uppercase font-mono">Computation</div>
                 <div class="grid grid-cols-2 gap-2">
                   <${Button} variant="secondary" size="sm" onClick=${() => addPredefinedTool('calculator')}>
                     🧮 Calculator
@@ -500,7 +500,7 @@ function AdvancedOptions() {
               </div>
 
               <div class="space-y-2">
-                <div class="text-xs font-medium text-gray-600 uppercase">Actions</div>
+                <div class="text-xs font-medium text-slate-500 uppercase font-mono">Actions</div>
                 <div class="grid grid-cols-2 gap-2">
                   <${Button} variant="secondary" size="sm" onClick=${() => addPredefinedTool('send_email')}>
                     📧 Send Email
@@ -513,13 +513,13 @@ function AdvancedOptions() {
             </div>
 
             <div class="space-y-2">
-              <p class="text-sm font-medium text-gray-700">Custom Tool (JSON)</p>
+              <p class="text-sm font-medium text-slate-300 font-mono">Custom Tool (JSON)</p>
               <textarea
                 value=${toolJson}
                 onInput=${(e) => setToolJson(e.target.value)}
                 placeholder='{"name": "my_tool", "description": "...", "input_schema": {...}}'
                 rows="4"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-mono resize-none"
+                class="w-full px-3 py-2.5 bg-slate-900 border border-slate-700 rounded-lg focus:outline-none text-sm font-mono resize-none text-slate-100 placeholder-slate-600 hover:border-slate-600 transition-colors"
               ></textarea>
               <${Button} variant="primary" size="sm" onClick=${addToolFromJson}>
                 Add Tool
@@ -527,32 +527,32 @@ function AdvancedOptions() {
             </div>
 
             ${tools.length > 0 && html`
-              <div class="space-y-2 border-t pt-3">
+              <div class="space-y-2 border-t border-slate-700 pt-3">
                 <div class="flex items-center justify-between">
-                  <p class="text-sm font-medium text-gray-700">${tools.length} tool(s) configured</p>
+                  <p class="text-sm font-medium text-slate-300 font-mono">${tools.length} tool(s) configured</p>
                   <button
                     onClick=${() => setTools([])}
-                    class="text-xs text-red-600 hover:text-red-700"
+                    class="text-xs text-red-400 hover:text-red-300 font-mono transition-colors"
                   >
                     Clear All
                   </button>
                 </div>
                 <div class="space-y-2 max-h-48 overflow-y-auto">
                   ${tools.map((tool, index) => html`
-                    <div key=${index} class="p-3 bg-gray-50 border border-gray-200 rounded">
+                    <div key=${index} class="p-3 bg-slate-800/50 border border-slate-700 rounded-lg backdrop-blur-sm">
                       <div class="flex items-start justify-between mb-1">
-                        <span class="text-sm text-gray-900 font-medium">${tool.name}</span>
+                        <span class="text-sm text-slate-100 font-medium font-mono">${tool.name}</span>
                         <button
                           onClick=${() => removeTool(index)}
-                          class="text-red-600 hover:text-red-700 text-xs ml-2"
+                          class="text-red-400 hover:text-red-300 text-xs ml-2 font-mono transition-colors"
                         >
                           Remove
                         </button>
                       </div>
                       ${tool.description && html`
-                        <p class="text-xs text-gray-600">${tool.description}</p>
+                        <p class="text-xs text-slate-400 font-mono">${tool.description}</p>
                       `}
-                      <div class="mt-1 text-xs text-gray-500">
+                      <div class="mt-1 text-xs text-slate-500 font-mono">
                         ${tool.input_schema?.required?.length > 0
                           ? `Required: ${tool.input_schema.required.join(', ')}`
                           : 'No required parameters'
@@ -577,21 +577,21 @@ function MessagesPanel() {
     <div class="space-y-6">
       <${ModelSelector} />
 
-      <div class="border-t pt-4">
+      <div class="border-t border-slate-800 pt-4">
         <${MessageBuilder} />
       </div>
 
-      <div class="border-t pt-4">
+      <div class="border-t border-slate-800 pt-4">
         <button
           onClick=${() => setShowAdvanced(!showAdvanced)}
-          class="w-full flex items-center justify-between text-sm font-medium text-gray-700 hover:text-gray-900"
+          class="w-full flex items-center justify-between text-sm font-medium text-slate-300 hover:text-amber-400 transition-colors"
         >
-          <span>Advanced Options (Vision & Tools)</span>
-          <span>${showAdvanced ? '▼' : '▶'}</span>
+          <span class="font-mono">Advanced Options (Vision & Tools)</span>
+          <span class="text-amber-400">${showAdvanced ? '▼' : '▶'}</span>
         </button>
 
         ${showAdvanced && html`
-          <div class="mt-4">
+          <div class="mt-4 animate-slide-up">
             <${AdvancedOptions} />
           </div>
         `}
@@ -606,29 +606,30 @@ function ModelsPanel() {
   return html`
     <div class="space-y-4">
       <div>
-        <p class="text-sm text-gray-600 mb-4">
+        <p class="text-sm text-slate-400 mb-4 font-mono">
           List all available Claude models from the Anthropic API
         </p>
         <${Button}
           onClick=${() => handleListModels({ limit: 20 })}
           disabled=${modelsLoading}
           variant="primary"
+          loading=${modelsLoading}
         >
-          ${modelsLoading ? 'Loading...' : 'List Models'}
+          List Models
         </${Button}>
       </div>
 
       ${modelsList && html`
-        <div class="border-t pt-4">
-          <h3 class="text-sm font-medium text-gray-900 mb-2">
+        <div class="border-t border-slate-800 pt-4">
+          <h3 class="text-sm font-medium text-slate-100 mb-3 font-mono">
             Found ${modelsList.data?.length || 0} models
           </h3>
           <div class="space-y-2 max-h-96 overflow-y-auto">
             ${modelsList.data?.map((model) => html`
-              <div key=${model.id} class="p-3 bg-gray-50 rounded border border-gray-200">
-                <div class="font-medium text-sm text-gray-900">${model.display_name || model.id}</div>
-                <div class="text-xs text-gray-600 font-mono mt-1">${model.id}</div>
-                <div class="text-xs text-gray-500 mt-1">
+              <div key=${model.id} class="p-3 bg-slate-800/50 rounded-lg border border-slate-700 backdrop-blur-sm hover-lift">
+                <div class="font-medium text-sm text-slate-100 font-mono">${model.display_name || model.id}</div>
+                <div class="text-xs text-amber-400 font-mono mt-1">${model.id}</div>
+                <div class="text-xs text-slate-500 mt-1 font-mono">
                   Created: ${new Date(model.created_at).toLocaleDateString()}
                 </div>
               </div>
@@ -677,33 +678,33 @@ function BatchesPanel() {
 
   return html`
     <div class="space-y-4">
-      <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
-        <p class="text-sm text-blue-900">
+      <div class="bg-amber-900/20 border border-amber-700/50 rounded-lg p-3 backdrop-blur-sm">
+        <p class="text-sm text-amber-300 font-mono">
           💡 Message Batches process requests asynchronously at 50% cost
         </p>
       </div>
 
       <div>
         <div class="flex items-center justify-between mb-2">
-          <label class="block text-sm font-medium text-gray-700">Batch Requests</label>
+          <label class="block text-sm font-medium text-slate-300 font-mono">Batch Requests</label>
           <${Button} variant="ghost" size="sm" onClick=${addBatchRequest}>+ Add Request</${Button}>
         </div>
 
         <div class="space-y-3 max-h-64 overflow-y-auto">
           ${batchRequests.map((req, index) => html`
-            <div key=${index} class="border border-gray-200 rounded-lg p-3 space-y-2">
+            <div key=${index} class="border border-slate-700 rounded-lg p-3 space-y-2 bg-slate-800/30 backdrop-blur-sm">
               <div class="flex items-center justify-between">
                 <input
                   type="text"
                   value=${req.custom_id}
                   onInput=${(e) => updateBatchRequest(index, 'custom_id', e.target.value)}
                   placeholder="Custom ID (unique identifier)"
-                  class="flex-1 px-2 py-1 border border-gray-300 rounded text-sm"
+                  class="flex-1 px-3 py-2 bg-slate-900 border border-slate-700 rounded text-sm font-mono text-slate-100 placeholder-slate-600 hover:border-slate-600 transition-colors"
                 />
                 ${batchRequests.length > 1 && html`
                   <button
                     onClick=${() => removeBatchRequest(index)}
-                    class="ml-2 text-red-600 hover:text-red-700 text-sm"
+                    class="ml-2 text-red-400 hover:text-red-300 text-sm font-mono transition-colors"
                   >
                     Remove
                   </button>
@@ -714,14 +715,14 @@ function BatchesPanel() {
                 onInput=${(e) => updateBatchRequest(index, 'message', e.target.value)}
                 placeholder="Message content..."
                 rows="2"
-                class="w-full px-2 py-1 border border-gray-300 rounded text-sm resize-none"
+                class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded text-sm resize-none font-mono text-slate-100 placeholder-slate-600 hover:border-slate-600 transition-colors"
               ></textarea>
             </div>
           `)}
         </div>
       </div>
 
-      <div class="border-t pt-4">
+      <div class="border-t border-slate-800 pt-4">
         <${Button}
           onClick=${handleCreateBatch}
           variant="primary"
@@ -731,15 +732,15 @@ function BatchesPanel() {
         </${Button}>
       </div>
 
-      <div class="border-t pt-4">
-        <label class="block text-sm font-medium text-gray-700 mb-2">Check Batch Status</label>
+      <div class="border-t border-slate-800 pt-4">
+        <label class="block text-sm font-medium text-slate-300 mb-2 font-mono">Check Batch Status</label>
         <div class="flex gap-2">
           <input
             type="text"
             value=${batchId}
             onInput=${(e) => setBatchId(e.target.value)}
             placeholder="Batch ID"
-            class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+            class="flex-1 px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-sm font-mono text-slate-100 placeholder-slate-600 hover:border-slate-600 transition-colors"
           />
           <${Button}
             onClick=${() => handleGetBatchStatus(batchId)}
@@ -752,17 +753,17 @@ function BatchesPanel() {
       </div>
 
       ${batchStatus && html`
-        <div class="border-t pt-4">
-          <div class="p-3 bg-gray-50 rounded border border-gray-200">
-            <div class="text-sm font-medium text-gray-900 mb-2">Batch Status</div>
-            <div class="text-xs text-gray-600 space-y-1">
-              <div>ID: ${batchStatus.id}</div>
-              <div>Status: ${batchStatus.processing_status || 'unknown'}</div>
+        <div class="border-t border-slate-800 pt-4">
+          <div class="p-3 bg-slate-800/50 rounded-lg border border-slate-700 backdrop-blur-sm">
+            <div class="text-sm font-medium text-slate-100 mb-2 font-mono">Batch Status</div>
+            <div class="text-xs text-slate-400 space-y-1 font-mono">
+              <div>ID: <span class="text-amber-400">${batchStatus.id}</span></div>
+              <div>Status: <span class="text-mint-400">${batchStatus.processing_status || 'unknown'}</span></div>
               ${batchStatus.request_counts && html`
-                <div class="mt-2">
-                  Processing: ${batchStatus.request_counts.processing || 0} |
-                  Succeeded: ${batchStatus.request_counts.succeeded || 0} |
-                  Errored: ${batchStatus.request_counts.errored || 0}
+                <div class="mt-2 pt-2 border-t border-slate-700">
+                  <span class="text-slate-500">Processing:</span> <span class="text-mint-400">${batchStatus.request_counts.processing || 0}</span> |
+                  <span class="text-slate-500">Succeeded:</span> <span class="text-mint-400">${batchStatus.request_counts.succeeded || 0}</span> |
+                  <span class="text-slate-500">Errored:</span> <span class="text-red-400">${batchStatus.request_counts.errored || 0}</span>
                 </div>
               `}
             </div>
@@ -815,40 +816,40 @@ function UsagePanel() {
 
   return html`
     <div class="space-y-4">
-      <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
-        <p class="text-xs text-blue-900 font-medium mb-1">Admin API Key Required</p>
-        <p class="text-xs text-blue-800">
+      <div class="bg-amber-900/20 border border-amber-700/50 rounded-lg p-3 backdrop-blur-sm">
+        <p class="text-xs text-amber-400 font-medium mb-1 font-mono">Admin API Key Required</p>
+        <p class="text-xs text-amber-300/80 font-mono">
           This endpoint requires an Admin API key (sk-ant-admin...) available only to organization admins.
         </p>
       </div>
 
       <div class="space-y-3">
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Starting At (ISO 8601)</label>
+          <label class="block text-sm font-medium text-slate-300 mb-2 font-mono">Starting At (ISO 8601)</label>
           <input
             type="datetime-local"
             value=${startingAt.slice(0, 16)}
             onChange=${(e) => setStartingAt(e.target.value + ':00Z')}
-            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            class="w-full px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none text-sm font-mono text-slate-100 hover:border-slate-600 transition-colors"
           />
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Ending At (ISO 8601)</label>
+          <label class="block text-sm font-medium text-slate-300 mb-2 font-mono">Ending At (ISO 8601)</label>
           <input
             type="datetime-local"
             value=${endingAt.slice(0, 16)}
             onChange=${(e) => setEndingAt(e.target.value + ':00Z')}
-            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            class="w-full px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none text-sm font-mono text-slate-100 hover:border-slate-600 transition-colors"
           />
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Bucket Width</label>
+          <label class="block text-sm font-medium text-slate-300 mb-2 font-mono">Bucket Width</label>
           <select
             value=${bucketWidth}
             onChange=${(e) => setBucketWidth(e.target.value)}
-            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            class="w-full px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none text-sm font-mono text-slate-100 hover:border-slate-600 transition-colors cursor-pointer"
           >
             <option value="1m">1 minute (real-time monitoring)</option>
             <option value="1h">1 hour (daily patterns)</option>
@@ -857,17 +858,17 @@ function UsagePanel() {
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Group By (Optional)</label>
+          <label class="block text-sm font-medium text-slate-300 mb-2 font-mono">Group By (Optional)</label>
           <div class="space-y-2 text-sm">
             ${['model', 'workspace_id', 'service_tier', 'api_key_id'].map(option => html`
-              <label class="flex items-center gap-2">
+              <label class="flex items-center gap-2 cursor-pointer group">
                 <input
                   type="checkbox"
                   checked=${groupBy.includes(option)}
                   onChange=${() => toggleArrayValue(groupBy, setGroupBy, option)}
-                  class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  class="rounded border-slate-600 bg-slate-800 text-amber-500 focus:ring-amber-500 focus:ring-offset-slate-900"
                 />
-                <span class="text-gray-700">${option}</span>
+                <span class="text-slate-300 font-mono group-hover:text-slate-200 transition-colors">${option}</span>
               </label>
             `)}
           </div>
@@ -922,46 +923,46 @@ function CostPanel() {
 
   return html`
     <div class="space-y-4">
-      <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
-        <p class="text-xs text-blue-900 font-medium mb-1">Admin API Key Required</p>
-        <p class="text-xs text-blue-800">
+      <div class="bg-amber-900/20 border border-amber-700/50 rounded-lg p-3 backdrop-blur-sm">
+        <p class="text-xs text-amber-400 font-medium mb-1 font-mono">Admin API Key Required</p>
+        <p class="text-xs text-amber-300/80 font-mono">
           This endpoint requires an Admin API key (sk-ant-admin...). All costs are in USD (cents).
         </p>
       </div>
 
       <div class="space-y-3">
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Starting At (ISO 8601)</label>
+          <label class="block text-sm font-medium text-slate-300 mb-2 font-mono">Starting At (ISO 8601)</label>
           <input
             type="datetime-local"
             value=${startingAt.slice(0, 16)}
             onChange=${(e) => setStartingAt(e.target.value + ':00Z')}
-            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            class="w-full px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none text-sm font-mono text-slate-100 hover:border-slate-600 transition-colors"
           />
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Ending At (ISO 8601)</label>
+          <label class="block text-sm font-medium text-slate-300 mb-2 font-mono">Ending At (ISO 8601)</label>
           <input
             type="datetime-local"
             value=${endingAt.slice(0, 16)}
             onChange=${(e) => setEndingAt(e.target.value + ':00Z')}
-            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            class="w-full px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none text-sm font-mono text-slate-100 hover:border-slate-600 transition-colors"
           />
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Group By (Optional)</label>
+          <label class="block text-sm font-medium text-slate-300 mb-2 font-mono">Group By (Optional)</label>
           <div class="space-y-2 text-sm">
             ${['workspace_id', 'description'].map(option => html`
-              <label class="flex items-center gap-2">
+              <label class="flex items-center gap-2 cursor-pointer group">
                 <input
                   type="checkbox"
                   checked=${groupBy.includes(option)}
                   onChange=${() => toggleArrayValue(groupBy, setGroupBy, option)}
-                  class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  class="rounded border-slate-600 bg-slate-800 text-amber-500 focus:ring-amber-500 focus:ring-offset-slate-900"
                 />
-                <span class="text-gray-700">${option}</span>
+                <span class="text-slate-300 font-mono group-hover:text-slate-200 transition-colors">${option}</span>
               </label>
             `)}
           </div>
@@ -1006,16 +1007,18 @@ function ConfigPanel() {
   const showActionButton = selectedEndpoint === 'messages' || selectedEndpoint === 'batches';
 
   return html`
-    <div class="h-full flex flex-col bg-white border-r border-gray-200">
-      <div class="p-4 border-b border-gray-200">
-        <h2 class="text-lg font-semibold text-gray-900">Configuration</h2>
+    <div class="h-full flex flex-col bg-slate-900">
+      <div class="p-4 border-b border-slate-800">
+        <h2 class="text-lg font-semibold text-slate-100 font-mono tracking-wide flex items-center gap-2">
+          <span class="text-amber-400">▸</span> Configuration
+        </h2>
       </div>
 
       <div class="flex-1 overflow-y-auto p-4 space-y-6">
         <${ApiKeySection} />
 
         ${selectedEndpoint === 'messages' && html`
-          <div class="border-t pt-4">
+          <div class="border-t border-slate-800 pt-4">
             <${Button}
               variant="secondary"
               size="sm"
@@ -1027,7 +1030,7 @@ function ConfigPanel() {
           </div>
         `}
 
-        <div class="border-t pt-4">
+        <div class="border-t border-slate-800 pt-4">
           ${selectedEndpoint === 'messages' && html`<${MessagesPanel} />`}
           ${selectedEndpoint === 'batches' && html`<${BatchesPanel} />`}
           ${selectedEndpoint === 'models' && html`<${ModelsPanel} />`}
@@ -1036,19 +1039,19 @@ function ConfigPanel() {
         </div>
 
         ${selectedEndpoint === 'messages' && html`
-          <div class="border-t pt-4">
+          <div class="border-t border-slate-800 pt-4">
             <button
               onClick=${() => setShowHistory(!showHistory)}
-              class="w-full flex items-center justify-between text-sm font-medium text-gray-700 hover:text-gray-900"
+              class="w-full flex items-center justify-between text-sm font-medium text-slate-300 hover:text-amber-400 transition-colors"
             >
-              <span>Request History (${history.length})</span>
-              <span>${showHistory ? '▼' : '▶'}</span>
+              <span class="font-mono">Request History (${history.length})</span>
+              <span class="text-amber-400">${showHistory ? '▼' : '▶'}</span>
             </button>
 
             ${showHistory && html`
-              <div class="mt-4 space-y-2">
+              <div class="mt-4 space-y-2 animate-slide-up">
                 ${history.length === 0 ? html`
-                  <p class="text-sm text-gray-500 text-center py-4">No history yet</p>
+                  <p class="text-sm text-slate-500 text-center py-4 font-mono">No history yet</p>
                 ` : html`
                   <div class="flex gap-2 mb-3">
                     <${Button} variant="secondary" size="sm" onClick=${exportHistory} fullWidth=${true}>
@@ -1064,18 +1067,19 @@ function ConfigPanel() {
                       <div
                         key=${item.id}
                         onClick=${() => loadFromHistory(item)}
-                        class="p-3 bg-gray-50 rounded cursor-pointer hover:bg-gray-100 transition-colors"
+                        class="p-3 bg-slate-800/50 border border-slate-700 rounded-lg cursor-pointer hover:bg-slate-800 hover:border-amber-500/50 transition-all hover-lift"
                       >
                         <div class="flex items-start justify-between mb-1">
-                          <span class="text-xs font-medium text-gray-700">${item.model}</span>
-                          <span class="text-xs text-gray-500">
+                          <span class="text-xs font-medium text-amber-400 font-mono">${item.model}</span>
+                          <span class="text-xs text-slate-500 font-mono">
                             ${new Date(item.timestamp).toLocaleTimeString()}
                           </span>
                         </div>
-                        <p class="text-xs text-gray-600 truncate">${item.prompt}</p>
+                        <p class="text-xs text-slate-300 truncate font-mono">${item.prompt}</p>
                         ${item.tokenUsage && html`
-                          <p class="text-xs text-gray-500 mt-1">
-                            ${item.tokenUsage.input_tokens} in / ${item.tokenUsage.output_tokens} out
+                          <p class="text-xs text-slate-500 mt-1 font-mono">
+                            <span class="text-mint-400">${item.tokenUsage.input_tokens}</span> in /
+                            <span class="text-mint-400">${item.tokenUsage.output_tokens}</span> out
                           </p>
                         `}
                       </div>
@@ -1089,7 +1093,7 @@ function ConfigPanel() {
       </div>
 
       ${showActionButton && html`
-        <div class="p-4 border-t border-gray-200 bg-gray-50">
+        <div class="p-4 border-t border-slate-800 bg-slate-900/50">
           <${Button}
             onClick=${handleAction}
             disabled=${loading || !apiKey}
@@ -1124,26 +1128,32 @@ function ResponsePanel() {
   const responseType = getResponseType();
 
   return html`
-    <div class="h-full flex flex-col bg-white">
-      <div class="p-4 border-b border-gray-200">
+    <div class="h-full flex flex-col bg-slate-900">
+      <div class="p-4 border-b border-slate-800">
         <div class="flex items-center justify-between mb-3">
-          <h2 class="text-lg font-semibold text-gray-900">Response</h2>
+          <h2 class="text-lg font-semibold text-slate-100 font-mono tracking-wide flex items-center gap-2">
+            <span class="text-mint-400">▸</span> Response
+          </h2>
 
           ${showViewModeToggle && html`
             <div class="flex items-center gap-2">
-              <span class="text-sm text-gray-600">View:</span>
+              <span class="text-sm text-slate-400 font-mono">View:</span>
               <button
                 onClick=${() => setViewMode('formatted')}
-                class="px-3 py-1 text-sm font-medium rounded ${
-                  viewMode === 'formatted' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'
+                class="px-3 py-1.5 text-sm font-medium rounded-lg font-mono transition-all ${
+                  viewMode === 'formatted'
+                    ? 'bg-amber-500 text-slate-900 shadow-lg shadow-amber-500/30'
+                    : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200'
                 }"
               >
                 Formatted
               </button>
               <button
                 onClick=${() => setViewMode('json')}
-                class="px-3 py-1 text-sm font-medium rounded ${
-                  viewMode === 'json' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'
+                class="px-3 py-1.5 text-sm font-medium rounded-lg font-mono transition-all ${
+                  viewMode === 'json'
+                    ? 'bg-amber-500 text-slate-900 shadow-lg shadow-amber-500/30'
+                    : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200'
                 }"
               >
                 JSON
@@ -1153,9 +1163,9 @@ function ResponsePanel() {
         </div>
 
         ${loading && html`
-          <div class="flex items-center gap-2 text-blue-600">
-            <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-            <span class="text-sm font-medium">
+          <div class="flex items-center gap-3 text-mint-400 bg-slate-800/50 border border-slate-700 rounded-lg px-4 py-3">
+            <div class="rounded-full h-5 w-5 spinner-glow"></div>
+            <span class="text-sm font-medium font-mono terminal-glow">
               ${toolExecutionStatus || 'Processing request...'}
             </span>
           </div>
@@ -1164,46 +1174,48 @@ function ResponsePanel() {
 
       <div class="flex-1 overflow-y-auto p-4">
         ${error && html`
-          <div class="bg-red-50 border border-red-200 rounded-lg p-4">
-            <h3 class="text-sm font-semibold text-red-800 mb-1">Error</h3>
-            <p class="text-sm text-red-700">${error}</p>
+          <div class="bg-red-900/20 border border-red-700/50 rounded-lg p-4 backdrop-blur-sm animate-slide-up">
+            <h3 class="text-sm font-semibold text-red-400 mb-2 font-mono flex items-center gap-2">
+              <span>⚠</span> Error
+            </h3>
+            <p class="text-sm text-red-300 font-mono">${error}</p>
           </div>
         `}
 
         ${!loading && !error && viewMode === 'json' && (response || modelsList || batchStatus || usageReport || costReport) && html`
-          <pre class="bg-gray-900 text-green-300 p-6 rounded-lg overflow-x-auto text-sm font-mono leading-relaxed">
+          <pre class="bg-slate-950 text-mint-300 p-6 rounded-lg overflow-x-auto text-sm font-mono leading-relaxed border border-slate-800 shadow-xl terminal-glow animate-fade-in">
             ${JSON.stringify(response || modelsList || batchStatus || usageReport || costReport, null, 2)}
           </pre>
         `}
 
         ${!loading && !error && viewMode === 'formatted' && responseType === 'message' && response && html`
-          <div class="space-y-4">
-            <div class="bg-gray-50 border border-gray-300 rounded-lg p-6">
-              <div class="text-base leading-relaxed text-gray-900 whitespace-pre-wrap font-sans">
+          <div class="space-y-4 animate-slide-up">
+            <div class="bg-slate-800/50 border border-slate-700 rounded-lg p-6 backdrop-blur-sm hover-lift">
+              <div class="text-base leading-relaxed text-slate-100 whitespace-pre-wrap">
                 ${extractMessageText(response.content)}
               </div>
             </div>
 
             ${toolExecutionDetails && toolExecutionDetails.length > 0 && html`
-              <div class="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                <h3 class="text-sm font-semibold text-purple-900 mb-3 flex items-center gap-2">
+              <div class="bg-purple-900/20 border border-purple-700/50 rounded-lg p-4 backdrop-blur-sm">
+                <h3 class="text-sm font-semibold text-purple-400 mb-3 flex items-center gap-2 font-mono">
                   <span>🔧</span>
                   <span>Tools Executed (${toolExecutionDetails.length})</span>
                 </h3>
                 <div class="space-y-3">
                   ${toolExecutionDetails.map((tool, idx) => html`
-                    <div key=${idx} class="bg-white rounded-lg p-3 border border-purple-100">
-                      <div class="font-medium text-purple-900 mb-2">
+                    <div key=${idx} class="bg-slate-800/50 rounded-lg p-3 border border-purple-700/30">
+                      <div class="font-medium text-purple-300 mb-2 font-mono">
                         ${tool.tool_name}
                       </div>
                       <div class="space-y-2 text-xs">
                         <div>
-                          <div class="text-purple-700 font-medium mb-1">Input:</div>
-                          <pre class="bg-purple-50 p-2 rounded text-purple-900 overflow-x-auto">${JSON.stringify(tool.tool_input, null, 2)}</pre>
+                          <div class="text-purple-400 font-medium mb-1 font-mono">Input:</div>
+                          <pre class="bg-slate-950 p-2 rounded text-purple-200 overflow-x-auto font-mono border border-slate-700">${JSON.stringify(tool.tool_input, null, 2)}</pre>
                         </div>
                         <div>
-                          <div class="text-purple-700 font-medium mb-1">Result:</div>
-                          <pre class="bg-green-50 p-2 rounded text-green-900 overflow-x-auto">${tool.tool_result}</pre>
+                          <div class="text-mint-400 font-medium mb-1 font-mono">Result:</div>
+                          <pre class="bg-slate-950 p-2 rounded text-mint-200 overflow-x-auto font-mono border border-slate-700">${tool.tool_result}</pre>
                         </div>
                       </div>
                     </div>
@@ -1213,29 +1225,29 @@ function ResponsePanel() {
             `}
 
             ${response.usage && html`
-              <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-2">
+              <div class="bg-slate-800/30 border border-slate-700 rounded-lg p-4 space-y-2 backdrop-blur-sm">
                 <div class="flex items-center justify-between text-sm">
-                  <span class="text-gray-700 font-medium">Model:</span>
-                  <span class="font-semibold text-gray-900">${response.model}</span>
+                  <span class="text-slate-400 font-medium font-mono">Model:</span>
+                  <span class="font-semibold text-amber-400 font-mono">${response.model}</span>
                 </div>
                 <div class="flex items-center justify-between text-sm">
-                  <span class="text-gray-700 font-medium">Input Tokens:</span>
-                  <span class="font-semibold text-gray-900">${response.usage.input_tokens}</span>
+                  <span class="text-slate-400 font-medium font-mono">Input Tokens:</span>
+                  <span class="font-semibold text-mint-400 font-mono">${response.usage.input_tokens.toLocaleString()}</span>
                 </div>
                 <div class="flex items-center justify-between text-sm">
-                  <span class="text-gray-700 font-medium">Output Tokens:</span>
-                  <span class="font-semibold text-gray-900">${response.usage.output_tokens}</span>
+                  <span class="text-slate-400 font-medium font-mono">Output Tokens:</span>
+                  <span class="font-semibold text-mint-400 font-mono">${response.usage.output_tokens.toLocaleString()}</span>
                 </div>
-                <div class="flex items-center justify-between text-sm">
-                  <span class="text-gray-700 font-medium">Total Tokens:</span>
-                  <span class="font-semibold text-gray-900">
-                    ${response.usage.input_tokens + response.usage.output_tokens}
+                <div class="flex items-center justify-between text-sm border-t border-slate-700 pt-2 mt-2">
+                  <span class="text-slate-300 font-medium font-mono">Total Tokens:</span>
+                  <span class="font-bold text-mint-300 font-mono">
+                    ${(response.usage.input_tokens + response.usage.output_tokens).toLocaleString()}
                   </span>
                 </div>
                 ${response.stop_reason && html`
                   <div class="flex items-center justify-between text-sm">
-                    <span class="text-gray-700 font-medium">Stop Reason:</span>
-                    <span class="font-semibold text-gray-900">${response.stop_reason}</span>
+                    <span class="text-slate-400 font-medium font-mono">Stop Reason:</span>
+                    <span class="font-semibold text-slate-300 font-mono">${response.stop_reason}</span>
                   </div>
                 `}
               </div>
@@ -1244,49 +1256,49 @@ function ResponsePanel() {
         `}
 
         ${!loading && !error && viewMode === 'formatted' && responseType === 'batch' && (response || batchStatus) && html`
-          <div class="space-y-4">
-            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <h3 class="text-sm font-semibold text-blue-900 mb-3">Batch Information</h3>
+          <div class="space-y-4 animate-slide-up">
+            <div class="bg-slate-800/50 border border-slate-700 rounded-lg p-4 backdrop-blur-sm">
+              <h3 class="text-sm font-semibold text-slate-100 mb-3 font-mono">Batch Information</h3>
               <div class="space-y-2 text-sm">
                 <div class="flex justify-between">
-                  <span class="text-blue-700 font-medium">Batch ID:</span>
-                  <span class="font-mono text-blue-900">${(response || batchStatus).id}</span>
+                  <span class="text-slate-400 font-medium font-mono">Batch ID:</span>
+                  <span class="font-mono text-amber-400">${(response || batchStatus).id}</span>
                 </div>
                 <div class="flex justify-between">
-                  <span class="text-blue-700 font-medium">Status:</span>
-                  <span class="font-semibold text-blue-900">${(response || batchStatus).processing_status}</span>
+                  <span class="text-slate-400 font-medium font-mono">Status:</span>
+                  <span class="font-semibold text-mint-400 font-mono">${(response || batchStatus).processing_status}</span>
                 </div>
                 ${(response || batchStatus).request_counts && html`
-                  <div class="mt-3 pt-3 border-t border-blue-200">
-                    <div class="text-blue-700 font-medium mb-2">Request Counts:</div>
+                  <div class="mt-3 pt-3 border-t border-slate-700">
+                    <div class="text-slate-300 font-medium mb-2 font-mono">Request Counts:</div>
                     <div class="grid grid-cols-2 gap-2 text-xs">
                       <div class="flex justify-between">
-                        <span class="text-blue-600">Processing:</span>
-                        <span class="font-semibold">${(response || batchStatus).request_counts.processing || 0}</span>
+                        <span class="text-slate-500 font-mono">Processing:</span>
+                        <span class="font-semibold text-slate-300 font-mono">${(response || batchStatus).request_counts.processing || 0}</span>
                       </div>
                       <div class="flex justify-between">
-                        <span class="text-green-600">Succeeded:</span>
-                        <span class="font-semibold">${(response || batchStatus).request_counts.succeeded || 0}</span>
+                        <span class="text-slate-500 font-mono">Succeeded:</span>
+                        <span class="font-semibold text-mint-400 font-mono">${(response || batchStatus).request_counts.succeeded || 0}</span>
                       </div>
                       <div class="flex justify-between">
-                        <span class="text-red-600">Errored:</span>
-                        <span class="font-semibold">${(response || batchStatus).request_counts.errored || 0}</span>
+                        <span class="text-slate-500 font-mono">Errored:</span>
+                        <span class="font-semibold text-red-400 font-mono">${(response || batchStatus).request_counts.errored || 0}</span>
                       </div>
                       <div class="flex justify-between">
-                        <span class="text-gray-600">Canceled:</span>
-                        <span class="font-semibold">${(response || batchStatus).request_counts.canceled || 0}</span>
+                        <span class="text-slate-500 font-mono">Canceled:</span>
+                        <span class="font-semibold text-slate-400 font-mono">${(response || batchStatus).request_counts.canceled || 0}</span>
                       </div>
                     </div>
                   </div>
                 `}
                 ${(response || batchStatus).results_url && html`
-                  <div class="mt-3 pt-3 border-t border-blue-200">
-                    <div class="text-blue-700 font-medium mb-1">Results URL:</div>
+                  <div class="mt-3 pt-3 border-t border-slate-700">
+                    <div class="text-slate-300 font-medium mb-1 font-mono">Results URL:</div>
                     <a
                       href=${(response || batchStatus).results_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      class="text-xs text-blue-600 hover:underline break-all"
+                      class="text-xs text-amber-400 hover:text-amber-300 break-all font-mono transition-colors"
                     >
                       ${(response || batchStatus).results_url}
                     </a>
@@ -1298,25 +1310,25 @@ function ResponsePanel() {
         `}
 
         ${!loading && !error && viewMode === 'formatted' && responseType === 'models' && modelsList && html`
-          <div class="space-y-3">
-            <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
-              <h3 class="text-sm font-semibold text-blue-900">
+          <div class="space-y-3 animate-slide-up">
+            <div class="bg-slate-800/50 border border-slate-700 rounded-lg p-3 backdrop-blur-sm">
+              <h3 class="text-sm font-semibold text-slate-100 font-mono">
                 Found ${modelsList.data?.length || 0} models
               </h3>
             </div>
             ${modelsList.data?.map((model) => html`
-              <div key=${model.id} class="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                <div class="font-medium text-base text-gray-900 mb-1">
+              <div key=${model.id} class="bg-slate-800/50 border border-slate-700 rounded-lg p-4 backdrop-blur-sm hover-lift">
+                <div class="font-medium text-base text-slate-100 mb-1 font-mono">
                   ${model.display_name || model.id}
                 </div>
-                <div class="text-sm text-gray-600 font-mono mb-2">${model.id}</div>
-                <div class="text-xs text-gray-500">
+                <div class="text-sm text-amber-400 font-mono mb-2">${model.id}</div>
+                <div class="text-xs text-slate-500 font-mono">
                   Created: ${new Date(model.created_at).toLocaleDateString()}
                 </div>
               </div>
             `)}
             ${modelsList.has_more && html`
-              <div class="text-sm text-gray-500 text-center py-2">
+              <div class="text-sm text-slate-500 text-center py-2 font-mono">
                 More models available (use pagination parameters)
               </div>
             `}
@@ -1324,56 +1336,56 @@ function ResponsePanel() {
         `}
 
         ${!loading && !error && viewMode === 'formatted' && responseType === 'usage' && (usageReport || response) && html`
-          <div class="space-y-3">
+          <div class="space-y-3 animate-slide-up">
             ${((usageReport || response)?.data || []).map((bucket, idx) => html`
-              <div key=${idx} class="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                <div class="font-medium text-base text-gray-900 mb-3">
+              <div key=${idx} class="bg-slate-800/50 border border-slate-700 rounded-lg p-4 backdrop-blur-sm hover-lift">
+                <div class="font-medium text-base text-slate-100 mb-3 font-mono">
                   ${new Date(bucket.start_time).toLocaleString()} - ${new Date(bucket.end_time).toLocaleString()}
                 </div>
                 <div class="grid grid-cols-2 gap-3 text-sm">
                   <div class="space-y-1">
-                    <div class="text-gray-600 text-xs font-medium">Input Tokens</div>
-                    <div class="text-lg font-semibold text-gray-900">
+                    <div class="text-slate-400 text-xs font-medium font-mono">Input Tokens</div>
+                    <div class="text-lg font-semibold text-mint-400 font-mono">
                       ${(bucket.input_tokens || 0).toLocaleString()}
                     </div>
                   </div>
                   <div class="space-y-1">
-                    <div class="text-gray-600 text-xs font-medium">Output Tokens</div>
-                    <div class="text-lg font-semibold text-gray-900">
+                    <div class="text-slate-400 text-xs font-medium font-mono">Output Tokens</div>
+                    <div class="text-lg font-semibold text-mint-400 font-mono">
                       ${(bucket.output_tokens || 0).toLocaleString()}
                     </div>
                   </div>
                   ${bucket.cache_creation_input_tokens !== undefined && html`
                     <div class="space-y-1">
-                      <div class="text-gray-600 text-xs font-medium">Cache Creation</div>
-                      <div class="text-base font-semibold text-blue-900">
+                      <div class="text-slate-400 text-xs font-medium font-mono">Cache Creation</div>
+                      <div class="text-base font-semibold text-amber-400 font-mono">
                         ${(bucket.cache_creation_input_tokens || 0).toLocaleString()}
                       </div>
                     </div>
                   `}
                   ${bucket.cache_read_input_tokens !== undefined && html`
                     <div class="space-y-1">
-                      <div class="text-gray-600 text-xs font-medium">Cache Read</div>
-                      <div class="text-base font-semibold text-green-900">
+                      <div class="text-slate-400 text-xs font-medium font-mono">Cache Read</div>
+                      <div class="text-base font-semibold text-mint-300 font-mono">
                         ${(bucket.cache_read_input_tokens || 0).toLocaleString()}
                       </div>
                     </div>
                   `}
                 </div>
                 ${bucket.model && html`
-                  <div class="mt-3 pt-3 border-t border-gray-200 text-xs text-gray-600">
-                    Model: <span class="font-mono">${bucket.model}</span>
+                  <div class="mt-3 pt-3 border-t border-slate-700 text-xs text-slate-400 font-mono">
+                    Model: <span class="text-amber-400">${bucket.model}</span>
                   </div>
                 `}
                 ${bucket.workspace_id && html`
-                  <div class="mt-1 text-xs text-gray-600">
-                    Workspace: <span class="font-mono">${bucket.workspace_id}</span>
+                  <div class="mt-1 text-xs text-slate-400 font-mono">
+                    Workspace: <span class="text-amber-400">${bucket.workspace_id}</span>
                   </div>
                 `}
               </div>
             `)}
             ${(usageReport || response)?.has_more && html`
-              <div class="text-sm text-gray-500 text-center py-2">
+              <div class="text-sm text-slate-500 text-center py-2 font-mono">
                 More data available (use pagination)
               </div>
             `}
@@ -1381,45 +1393,45 @@ function ResponsePanel() {
         `}
 
         ${!loading && !error && viewMode === 'formatted' && responseType === 'cost' && (costReport || response) && html`
-          <div class="space-y-3">
-            <div class="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+          <div class="space-y-3 animate-slide-up">
+            <div class="bg-mint-900/20 border border-mint-700/50 rounded-lg p-4 mb-4 backdrop-blur-sm">
               <div class="flex justify-between items-center">
-                <span class="text-sm font-medium text-green-900">Total Cost</span>
-                <span class="text-2xl font-bold text-green-900">
+                <span class="text-sm font-medium text-mint-300 font-mono">Total Cost</span>
+                <span class="text-2xl font-bold text-mint-400 font-mono">
                   $${((costReport || response)?.data?.reduce((sum, item) => sum + parseFloat(item.amount || 0), 0) / 100).toFixed(2)}
                 </span>
               </div>
             </div>
 
             ${((costReport || response)?.data || []).map((item, idx) => html`
-              <div key=${idx} class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+              <div key=${idx} class="bg-slate-800/50 border border-slate-700 rounded-lg p-4 backdrop-blur-sm hover-lift">
                 <div class="flex justify-between items-start mb-2">
                   <div>
                     ${item.description && html`
-                      <div class="font-medium text-base text-gray-900">${item.description}</div>
+                      <div class="font-medium text-base text-slate-100 font-mono">${item.description}</div>
                     `}
                     ${item.workspace_id && html`
-                      <div class="text-xs text-gray-600 font-mono mt-1">
-                        Workspace: ${item.workspace_id}
+                      <div class="text-xs text-slate-400 font-mono mt-1">
+                        Workspace: <span class="text-amber-400">${item.workspace_id}</span>
                       </div>
                     `}
                   </div>
                   <div class="text-right">
-                    <div class="text-xl font-bold text-gray-900">
+                    <div class="text-xl font-bold text-mint-400 font-mono">
                       $${(parseFloat(item.amount || 0) / 100).toFixed(2)}
                     </div>
-                    <div class="text-xs text-gray-500">USD</div>
+                    <div class="text-xs text-slate-500 font-mono">USD</div>
                   </div>
                 </div>
                 ${item.start_time && item.end_time && html`
-                  <div class="text-xs text-gray-500 mt-2 pt-2 border-t border-gray-200">
+                  <div class="text-xs text-slate-500 mt-2 pt-2 border-t border-slate-700 font-mono">
                     ${new Date(item.start_time).toLocaleDateString()} - ${new Date(item.end_time).toLocaleDateString()}
                   </div>
                 `}
               </div>
             `)}
             ${(costReport || response)?.has_more && html`
-              <div class="text-sm text-gray-500 text-center py-2">
+              <div class="text-sm text-slate-500 text-center py-2 font-mono">
                 More data available (use pagination)
               </div>
             `}
@@ -1427,23 +1439,25 @@ function ResponsePanel() {
         `}
 
         ${!loading && !error && !response && !modelsList && !batchStatus && !usageReport && !costReport && html`
-          <div class="flex items-center justify-center h-full text-gray-400">
+          <div class="flex items-center justify-center h-full text-slate-500">
             <div class="text-center">
-              <svg
-                class="mx-auto h-12 w-12 mb-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="1.5"
-                  d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-                />
-              </svg>
-              <p class="text-sm">No response yet</p>
-              <p class="text-xs mt-1">Configure your request and send</p>
+              <div class="w-16 h-16 mx-auto mb-4 bg-slate-800/50 rounded-lg flex items-center justify-center border border-slate-700">
+                <svg
+                  class="h-8 w-8 text-slate-600"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="1.5"
+                    d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                  />
+                </svg>
+              </div>
+              <p class="text-sm font-mono text-slate-400">No response yet</p>
+              <p class="text-xs mt-1 font-mono text-slate-600">Configure your request and send</p>
             </div>
           </div>
         `}
@@ -1464,37 +1478,48 @@ function AppContent() {
   ];
 
   return html`
-    <div class="h-screen flex flex-col bg-gray-100">
-      <header class="bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg">
-        <div class="px-6 py-4">
-          <h1 class="text-2xl font-bold">Claude API Explorer</h1>
-          <p class="text-blue-100 text-sm mt-1">
-            Test and explore Anthropic's Claude API with an interactive interface
-          </p>
+    <div class="h-screen flex flex-col bg-slate-950 gradient-mesh">
+      <header class="bg-slate-900 border-b border-slate-800 shadow-2xl relative overflow-hidden">
+        <div class="absolute inset-0 bg-gradient-to-r from-amber-500/10 via-transparent to-mint-500/10"></div>
+        <div class="relative px-6 py-5">
+          <div class="flex items-center gap-3 mb-2">
+            <div class="w-10 h-10 bg-gradient-to-br from-amber-400 to-amber-600 rounded-lg flex items-center justify-center shadow-lg">
+              <span class="text-slate-900 font-bold text-lg font-mono">C</span>
+            </div>
+            <div>
+              <h1 class="text-2xl font-bold text-slate-100 tracking-tight">Claude API Explorer</h1>
+              <p class="text-slate-400 text-xs font-mono mt-0.5">
+                <span class="text-amber-400">v2.1</span> • Developer Command Center
+              </p>
+            </div>
+          </div>
         </div>
       </header>
 
-      <div class="bg-white border-b border-gray-200 px-6">
-        <div class="flex gap-1">
+      <div class="bg-slate-900/50 backdrop-blur-sm border-b border-slate-800 px-6">
+        <div class="flex gap-2">
           ${endpointTabs.map((tab) => html`
             <button
               key=${tab.id}
               onClick=${() => setSelectedEndpoint(tab.id)}
-              class="px-4 py-3 text-sm font-medium transition-colors relative ${
+              class="px-5 py-3 text-sm font-medium transition-all duration-200 relative group ${
                 selectedEndpoint === tab.id
-                  ? 'text-blue-600 border-b-2 border-blue-600'
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'text-amber-400 tab-indicator'
+                  : 'text-slate-400 hover:text-slate-200'
               }"
               title=${tab.description}
             >
-              ${tab.label}
+              <span class="relative z-10">${tab.label}</span>
+              ${selectedEndpoint !== tab.id && html`
+                <span class="absolute inset-0 bg-slate-800/0 group-hover:bg-slate-800/50 rounded-t-lg transition-colors"></span>
+              `}
             </button>
           `)}
         </div>
       </div>
 
       <div class="flex-1 flex overflow-hidden">
-        <div class="w-2/5 min-w-[400px] max-w-[600px]">
+        <div class="w-2/5 min-w-[400px] max-w-[600px] border-r border-slate-800">
           <${ConfigPanel} />
         </div>
 
@@ -1503,23 +1528,26 @@ function AppContent() {
         </div>
       </div>
 
-      <footer class="bg-white border-t border-gray-200 px-6 py-3">
-        <div class="flex items-center justify-between text-xs text-gray-500">
-          <div>Built with React, htm, and the Anthropic API</div>
+      <footer class="bg-slate-900 border-t border-slate-800 px-6 py-3">
+        <div class="flex items-center justify-between text-xs text-slate-500">
+          <div class="flex items-center gap-2">
+            <span class="w-2 h-2 bg-mint-500 rounded-full status-dot"></span>
+            <span class="font-mono">Built with React, htm & Anthropic API</span>
+          </div>
           <div class="flex items-center gap-4">
             <a
               href="https://docs.anthropic.com"
               target="_blank"
               rel="noopener noreferrer"
-              class="hover:text-blue-600 transition-colors"
+              class="hover:text-amber-400 transition-colors font-mono"
             >
-              API Documentation →
+              Docs →
             </a>
             <a
               href="https://console.anthropic.com"
               target="_blank"
               rel="noopener noreferrer"
-              class="hover:text-blue-600 transition-colors"
+              class="hover:text-amber-400 transition-colors font-mono"
             >
               Console →
             </a>
