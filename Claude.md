@@ -175,14 +175,542 @@ return html`<button onClick=${() => {
 
 ```javascript
 // ✅ Use Tailwind classes directly in htm
-html`<div class="flex items-center gap-2 p-4 bg-gray-50 rounded-lg">`
+html`<div class="flex items-center gap-2 p-4 bg-slate-800 rounded-lg">`
 
 // ✅ Dynamic classes with template literals
-html`<div class="px-4 py-2 ${isActive ? 'bg-blue-600' : 'bg-gray-200'}">`
+html`<div class="px-4 py-2 ${isActive ? 'bg-amber-500' : 'bg-slate-700'}">`
 
 // ❌ Don't use className (React convention doesn't work in htm)
 html`<div className="container">`  // Wrong!
 ```
+
+## UI Design Standards
+
+**CRITICAL:** This application uses a sophisticated dark theme design system. All new components and modifications MUST follow these standards to maintain visual consistency.
+
+### Design Philosophy
+
+**"Developer's Command Center"** - A refined, technical aesthetic that feels professional and distinctive, avoiding generic "AI slop" design patterns.
+
+**Core Principles:**
+- Terminal-inspired aesthetic with glowing effects
+- Precise micro-interactions and smooth animations
+- Atmospheric depth with layering and transparency
+- Monospace typography for technical elements
+- Cohesive color system with intentional accents
+
+### Color Palette
+
+**Background Colors (Dark Slate):**
+```javascript
+// Primary backgrounds
+bg-slate-950  // #0a0d12 - Main app background
+bg-slate-900  // #0f1419 - Panel backgrounds, inputs
+bg-slate-850  // #1a202e - Secondary panels
+bg-slate-800  // Dark input fields, cards
+
+// Borders and dividers
+border-slate-800  // Primary borders
+border-slate-700  // Interactive borders, hover states
+border-slate-600  // Lighter accent borders
+```
+
+**Accent Colors:**
+```javascript
+// Amber - Primary actions, highlights, key information
+text-amber-400   // #fbbf24 - Primary accent text
+text-amber-500   // #f59e0b - Hover states
+bg-amber-500     // Primary button backgrounds
+bg-gradient-to-r from-amber-500 to-amber-600  // Button gradients
+
+// Mint Green - Success, metrics, positive values
+text-mint-400    // #4ade80 - Success text, token counts
+text-mint-500    // #22c55e - Hover states
+bg-mint-500      // Status indicators
+
+// Slate Text - Content hierarchy
+text-slate-100   // Primary text, headings
+text-slate-200   // Secondary text
+text-slate-300   // Interactive text, labels
+text-slate-400   // Tertiary text, descriptions
+text-slate-500   // Muted text
+text-slate-600   // Disabled text
+
+// Semantic Colors
+text-red-400     // Errors, destructive actions
+text-purple-400  // Tool execution, special features
+```
+
+**DO NOT use:**
+- ❌ Blue gradients (too generic)
+- ❌ White backgrounds
+- ❌ Gray-50, gray-100, gray-200 (use slate equivalents)
+- ❌ Generic primary colors without context
+
+### Typography
+
+**MANDATORY font usage:**
+
+```javascript
+// Technical elements - ALWAYS use font-mono (JetBrains Mono)
+font-mono  // Code, API keys, IDs, timestamps, data, parameters
+
+// UI labels and text - Use default (Outfit)
+// Labels, buttons, headings, descriptions
+
+// Examples:
+✅ html`<input class="font-mono text-slate-100" />`  // Input fields
+✅ html`<label class="font-mono text-slate-300">API Key</label>`  // Labels
+✅ html`<span class="font-mono text-amber-400">${model.id}</span>`  // Technical data
+✅ html`<div class="text-sm text-slate-400 font-mono">Processing...</div>`  // Status text
+```
+
+**Font Scale:**
+```javascript
+text-xs    // 0.75rem - Metadata, timestamps, secondary info
+text-sm    // 0.875rem - Labels, descriptions, body text
+text-base  // 1rem - Primary text
+text-lg    // 1.125rem - Section headings
+text-xl    // 1.25rem - Metrics, important numbers
+text-2xl   // 1.5rem - Page titles, large metrics
+```
+
+### Component Patterns
+
+**Input Fields:**
+```javascript
+// Standard input/textarea/select pattern
+class="
+  w-full px-3 py-2.5
+  bg-slate-800 border border-slate-700 rounded-lg
+  focus:outline-none
+  text-sm font-mono text-slate-100
+  placeholder-slate-600
+  hover:border-slate-600 transition-colors
+"
+
+// Focus state is handled by global CSS with amber glow
+```
+
+**Buttons (use Button component):**
+```javascript
+<${Button} variant="primary">Primary Action</${Button}>    // Amber gradient
+<${Button} variant="secondary">Secondary</${Button}>       // Dark slate
+<${Button} variant="danger">Delete</${Button}>            // Red accent
+<${Button} variant="ghost">Cancel</${Button}>             // Transparent
+```
+
+**Cards/Panels:**
+```javascript
+// Standard card pattern
+class="
+  bg-slate-800/50 border border-slate-700 rounded-lg p-4
+  backdrop-blur-sm hover-lift
+"
+
+// Info/alert cards
+class="
+  bg-amber-900/20 border border-amber-700/50 rounded-lg p-3
+  backdrop-blur-sm
+"
+```
+
+**Section Dividers:**
+```javascript
+class="border-t border-slate-800 pt-4"  // Between sections
+class="border-b border-slate-800"       // Under headers
+```
+
+### Animations
+
+**REQUIRED animations for new content:**
+
+```javascript
+// Appearing content (dropdowns, modals, panels)
+class="animate-slide-up"
+
+// Fading in responses
+class="animate-fade-in"
+
+// Cards and interactive elements
+class="hover-lift"  // Defined in index.html
+
+// Loading spinners
+class="spinner-glow"  // Amber glowing spinner
+```
+
+**Transition classes:**
+```javascript
+transition-colors    // Color changes
+transition-all       // Multiple properties
+duration-200         // Standard timing
+```
+
+### Icons and Visual Elements
+
+**Status Indicators:**
+```javascript
+// Active/online indicator
+html`<span class="w-2 h-2 bg-mint-500 rounded-full status-dot"></span>`
+
+// Section markers
+html`<span class="text-amber-400">▸</span> Configuration`
+html`<span class="text-mint-400">▸</span> Response`
+```
+
+**Emojis:** Use sparingly, only for:
+- Tool categories (🔧, 📊, 🌤️)
+- Info notices (💡)
+- Warnings (⚠)
+
+### Response Panel Formatting
+
+**Message responses:**
+```javascript
+// Main response card
+bg-slate-800/50 border border-slate-700 rounded-lg p-6 backdrop-blur-sm hover-lift
+
+// Metadata panel
+bg-slate-800/30 border border-slate-700 rounded-lg p-4 backdrop-blur-sm
+
+// Token usage display
+text-slate-400 font-mono  // Labels
+text-mint-400 font-mono   // Token counts
+text-amber-400 font-mono  // Model names
+```
+
+**Terminal-style JSON:**
+```javascript
+class="
+  bg-slate-950 text-mint-300 p-6 rounded-lg
+  border border-slate-800 shadow-xl terminal-glow
+  font-mono animate-fade-in
+"
+```
+
+### Common Anti-Patterns to AVOID
+
+```javascript
+❌ bg-white                     → ✅ bg-slate-900
+❌ bg-gray-50                   → ✅ bg-slate-800
+❌ border-gray-300              → ✅ border-slate-700
+❌ text-gray-700                → ✅ text-slate-300
+❌ bg-blue-600                  → ✅ bg-amber-500
+❌ focus:ring-2 focus:ring-blue → ✅ (handled globally with amber)
+❌ <input class="text-sm" />    → ✅ <input class="text-sm font-mono" />
+❌ Stark white text inputs      → ✅ Dark slate with light text
+```
+
+### Testing Your Design
+
+**Visual Checklist:**
+- [ ] All text inputs are dark slate with monospace font
+- [ ] Primary actions use amber gradient buttons
+- [ ] Borders use slate-700 or slate-800
+- [ ] All technical data uses font-mono
+- [ ] Cards have backdrop-blur-sm
+- [ ] Hover states have smooth transitions
+- [ ] New panels match existing panel aesthetic
+- [ ] No generic blue or stark white elements
+
+### Design Debt to Avoid
+
+1. **Inconsistent borders** - Always use slate-700/slate-800
+2. **Missing font-mono** - All code/data MUST be monospace
+3. **Wrong accent colors** - Amber for actions, mint for success, red for errors
+4. **No transitions** - All interactive elements need transition-colors
+5. **Stark backgrounds** - Use transparency and backdrop-blur for depth
+
+## Design Enforcement Sub-Agent
+
+**Purpose:** Automatically review code changes to ensure they comply with the UI Design Standards defined above.
+
+### Sub-Agent Specification
+
+**Agent Type:** `design-reviewer`
+**Trigger:** After any code modifications to UI components
+**Scope:** `src/FullApp.js`, `src/components/common/*.js`, `index.html`
+
+### Implementation Approach
+
+**Option 1: Post-Edit Hook (Recommended)**
+```javascript
+// .claude/hooks/post-edit.js
+// Triggered after any file edit
+if (isUIFile(filePath)) {
+  await runDesignReviewAgent(filePath, changes);
+}
+```
+
+**Option 2: Pre-Commit Hook**
+```bash
+# .git/hooks/pre-commit
+# Run design review before allowing commit
+claude-agent design-review --files=$(git diff --cached --name-only)
+```
+
+**Option 3: On-Demand Slash Command**
+```bash
+# .claude/commands/design-review.md
+/design-review src/FullApp.js
+```
+
+### Agent Behavior
+
+**1. Pattern Detection**
+
+The agent scans for anti-patterns:
+```javascript
+const antiPatterns = {
+  colors: [
+    { pattern: /bg-white/g, fix: 'bg-slate-900', severity: 'high' },
+    { pattern: /bg-gray-50/g, fix: 'bg-slate-800', severity: 'high' },
+    { pattern: /border-gray-300/g, fix: 'border-slate-700', severity: 'high' },
+    { pattern: /text-gray-700/g, fix: 'text-slate-300', severity: 'medium' },
+    { pattern: /bg-blue-600/g, fix: 'bg-amber-500', severity: 'high' },
+    { pattern: /focus:ring-blue/g, fix: '(remove - handled globally)', severity: 'medium' },
+  ],
+  typography: [
+    { pattern: /<input[^>]*class="(?!.*font-mono)/g, fix: 'Add font-mono', severity: 'high' },
+    { pattern: /<textarea[^>]*class="(?!.*font-mono)/g, fix: 'Add font-mono', severity: 'high' },
+    { pattern: /<select[^>]*class="(?!.*font-mono)/g, fix: 'Add font-mono', severity: 'high' },
+  ],
+  structure: [
+    { pattern: /className=/g, fix: 'Use class= instead', severity: 'high' },
+    { pattern: /style={{/g, fix: 'Use Tailwind classes', severity: 'medium' },
+  ]
+};
+```
+
+**2. Component Analysis**
+
+```javascript
+// Check for required patterns
+const requiredPatterns = {
+  Button: {
+    mustHave: ['font-mono', 'transition-all', 'rounded-lg'],
+    variants: ['primary', 'secondary', 'danger', 'ghost']
+  },
+  Input: {
+    mustHave: ['bg-slate-800', 'border-slate-700', 'font-mono', 'text-slate-100'],
+    shouldHave: ['hover:border-slate-600', 'transition-colors']
+  },
+  Card: {
+    mustHave: ['bg-slate-800', 'border-slate-700', 'rounded-lg'],
+    shouldHave: ['backdrop-blur-sm', 'hover-lift']
+  }
+};
+```
+
+**3. Review Output Format**
+
+```markdown
+## Design Review Results for src/FullApp.js
+
+### ❌ Critical Issues (Must Fix)
+- Line 245: Input field missing `font-mono` class
+  ```diff
+  - class="w-full px-3 py-2 bg-slate-800 border border-slate-700"
+  + class="w-full px-3 py-2 bg-slate-800 border border-slate-700 font-mono"
+  ```
+
+- Line 389: Using generic blue color instead of amber
+  ```diff
+  - class="bg-blue-600 text-white"
+  + class="bg-gradient-to-r from-amber-500 to-amber-600 text-slate-900"
+  ```
+
+### ⚠️ Warnings (Should Fix)
+- Line 512: Card missing hover effect
+  ```diff
+  - class="bg-slate-800/50 border border-slate-700 rounded-lg p-4"
+  + class="bg-slate-800/50 border border-slate-700 rounded-lg p-4 hover-lift"
+  ```
+
+### ✅ Passed Checks
+- All buttons use correct variant system
+- Consistent border colors (slate-700/800)
+- Monospace fonts on all technical data
+- Proper animation classes on dynamic content
+
+### Summary
+- Critical: 2 issues
+- Warnings: 1 issue
+- Passed: 15 checks
+
+**Recommendation:** Fix critical issues before committing.
+```
+
+### Agent Prompt Template
+
+```markdown
+You are a UI design enforcement agent for the Claude API Explorer project.
+
+Your task is to review the provided code changes and ensure they comply with
+the project's UI Design Standards documented in CLAUDE.md.
+
+Review the following file:
+{filePath}
+
+Changed lines:
+{diffContent}
+
+Check for:
+1. **Color Compliance**: No white/gray backgrounds, use slate instead
+2. **Typography**: All inputs/code must have font-mono
+3. **Accent Colors**: Amber for actions, mint for success
+4. **Animations**: Dynamic content should have animate-slide-up or animate-fade-in
+5. **Component Patterns**: Match established patterns for inputs, buttons, cards
+6. **Transitions**: Interactive elements need transition-colors or transition-all
+
+For each violation found:
+- Identify the line number
+- Explain why it violates the design standard
+- Provide a specific fix with before/after code
+
+Categorize issues as:
+- CRITICAL: Breaks design system (wrong colors, missing font-mono on inputs)
+- WARNING: Inconsistent with best practices (missing animations, hover states)
+- INFO: Suggestions for improvement
+
+Format your response as a structured design review report.
+```
+
+### Integration Methods
+
+**Method 1: Claude Code Plugin (Recommended)**
+```javascript
+// .claude/plugins/design-reviewer/agent.js
+export default {
+  name: 'design-reviewer',
+  trigger: 'post-edit',
+  files: ['src/**/*.js', 'src/components/**/*.js'],
+  async run(context) {
+    const { filePath, changes } = context;
+    const violations = await detectViolations(filePath, changes);
+
+    if (violations.critical.length > 0) {
+      return {
+        status: 'error',
+        message: `Found ${violations.critical.length} critical design violations`,
+        details: formatViolations(violations)
+      };
+    }
+
+    return {
+      status: 'success',
+      warnings: violations.warnings
+    };
+  }
+};
+```
+
+**Method 2: Slash Command**
+```bash
+# Usage: /design-review [filepath]
+# Runs design review on demand
+
+/design-review src/FullApp.js
+/design-review src/components/common/Button.js
+/design-review --all  # Review all UI files
+```
+
+**Method 3: Pre-Commit Git Hook**
+```bash
+#!/bin/bash
+# .git/hooks/pre-commit
+
+echo "Running design review..."
+changed_files=$(git diff --cached --name-only | grep -E '\.(js|jsx)$')
+
+for file in $changed_files; do
+  if [[ $file == src/* ]]; then
+    claude-agent run design-reviewer --file="$file"
+    if [ $? -ne 0 ]; then
+      echo "Design review failed for $file"
+      echo "Fix design violations before committing"
+      exit 1
+    fi
+  fi
+done
+```
+
+### Example Sub-Agent Session
+
+```
+User: [Edits src/FullApp.js, adding a new input field]
+
+Design Reviewer Agent: 🎨 Running design review on src/FullApp.js...
+
+❌ CRITICAL: Line 456 - Input field violates design standards
+
+Found:
+  <input class="w-full px-3 py-2 border border-gray-300 rounded text-sm" />
+
+Issues:
+  1. Using border-gray-300 instead of border-slate-700
+  2. Missing font-mono class
+  3. Missing background color (should be bg-slate-800)
+  4. Missing text color (should be text-slate-100)
+
+Recommended fix:
+  <input class="w-full px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-lg
+                focus:outline-none text-sm font-mono text-slate-100
+                placeholder-slate-600 hover:border-slate-600 transition-colors" />
+
+Would you like me to apply this fix automatically? [y/n]
+```
+
+### Configuration File
+
+```json
+// .claude/design-review.config.json
+{
+  "enabled": true,
+  "autoFix": false,
+  "strictMode": true,
+  "rules": {
+    "colors": {
+      "severity": "error",
+      "allowList": ["slate", "amber", "mint", "red", "purple"]
+    },
+    "typography": {
+      "severity": "error",
+      "requireFontMono": ["input", "textarea", "select", "code", "pre"]
+    },
+    "animations": {
+      "severity": "warning",
+      "requireAnimations": ["modal", "dropdown", "panel"]
+    }
+  },
+  "exclude": [
+    "*.test.js",
+    "*.spec.js"
+  ]
+}
+```
+
+### Future Enhancements
+
+1. **Visual Regression Testing**
+   - Screenshot comparison before/after changes
+   - Detect color drift over time
+
+2. **Accessibility Checks**
+   - Contrast ratio validation
+   - Focus state verification
+
+3. **Performance Monitoring**
+   - CSS bundle size tracking
+   - Animation performance analysis
+
+4. **Auto-Fix Mode**
+   - Automatically apply common fixes
+   - Generate PR with design corrections
+
+5. **Design Metrics Dashboard**
+   - Track design consistency over time
+   - Report on technical debt accumulation
 
 ## Project Structure Rules
 
