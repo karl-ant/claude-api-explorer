@@ -11,11 +11,15 @@ A visual, interactive web application for testing and exploring Anthropic's Clau
 - **Model Selection**: Choose from Claude Opus 4, Sonnet 4, Sonnet 4.5, Haiku, and legacy models
 - **Request Configuration**: Adjust parameters like max_tokens, temperature, top_p, top_k
 - **Multi-Message Support**: Build conversations with multiple user/assistant message pairs
-- **Streaming Support**: Toggle between streaming and non-streaming responses (coming soon)
+- **Multiple API Endpoints**: Messages, Message Batches, Models, Usage Reports, Cost Reports
 
 ### Advanced Features
 - **Vision Support**: Upload images via file picker or add by URL
-- **Tool Use**: Configure predefined tools (calculator) or define custom tools via JSON
+- **Hybrid Tool System**:
+  - Demo mode with mock data for offline testing
+  - Real mode with actual API integrations (Weather, Web Search)
+  - 5 developer tools: Enhanced Calculator, JSON Validator, Code Formatter, Token Counter, Regex Tester
+  - Automatic tool execution when Claude requests tools
 - **Request History**: Automatically saves last 50 requests with full request/response data
 - **Export/Import**: Export history as JSON for backup or sharing
 - **API Key Management**: Option to persist key or clear on browser close
@@ -49,21 +53,14 @@ A visual, interactive web application for testing and exploring Anthropic's Clau
    npm install
    ```
 
-3. Start both servers (use two terminals):
-
-   **Terminal 1 - Start the proxy server:**
+3. Start the server:
    ```bash
    npm start
    ```
 
-   **Terminal 2 - Start the static file server:**
-   ```bash
-   python3 -m http.server 8000
-   ```
-
 4. Open your browser and navigate to:
    ```
-   http://localhost:8000
+   http://localhost:3001
    ```
 
 ### First Use
@@ -80,12 +77,14 @@ A visual, interactive web application for testing and exploring Anthropic's Clau
 ```
 claude-api-explorer/
 ├── index.html                    # Entry point
-├── server.js                     # Express proxy server (CORS handling)
+├── server.js                     # Express proxy server (CORS + API proxies)
 ├── package.json                  # Dependencies
 ├── README.md                     # This file
+├── CLAUDE.md                     # AI development guide
+├── TODO.md                       # Remaining work (feature branch)
 └── src/
     ├── main.js                   # React root renderer
-    ├── FullApp.js                # Main application (all components in one file)
+    ├── FullApp.js                # Main application (~1450 lines)
     ├── components/
     │   └── common/              # Reusable UI components
     │       ├── Button.js
@@ -95,10 +94,20 @@ claude-api-explorer/
     │   └── AppContext.js         # Global state management
     ├── config/
     │   ├── models.js             # Available models
-    │   └── parameters.js         # Parameter definitions
+    │   ├── endpoints.js          # API endpoint definitions
+    │   └── toolConfig.js         # Tool registry and configuration
     └── utils/
         ├── localStorage.js       # Storage helpers
-        └── formatters.js         # Formatting utilities
+        ├── formatters.js         # Demo tool implementations
+        └── toolExecutors/       # Real tool implementations
+            ├── index.js          # Tool execution router
+            ├── calculator.js     # Enhanced math expressions
+            ├── jsonValidator.js  # JSON validation
+            ├── codeFormatter.js  # Code formatting
+            ├── tokenCounter.js   # Token estimation
+            ├── regexTester.js    # Regex testing
+            ├── weather.js        # OpenWeatherMap API
+            └── search.js         # Brave Search API
 ```
 
 ## Architecture
@@ -157,7 +166,11 @@ Tested on:
 ✅ System prompt
 ✅ Multi-message conversations
 ✅ Vision API (image uploads)
-✅ Tool use configuration
+✅ Multiple API endpoints (Messages, Batches, Models, Usage, Cost)
+✅ Hybrid tool system with demo/real modes
+✅ 5 developer tools (calculator, JSON validator, code formatter, token counter, regex tester)
+✅ 2 external API integrations (weather, web search)
+✅ Automatic tool execution
 ✅ Request history (50 items, export/import)
 ✅ Response view toggle (Message/JSON)
 ✅ Token usage statistics
@@ -166,7 +179,9 @@ Tested on:
 
 ## Limitations
 
-- Streaming responses not yet implemented (shows loading state only)
+- Tool UI (mode toggle, API key panel) not yet implemented - backend only (see TODO.md)
+- New developer tools not yet in predefined tools list (backend ready)
+- Streaming responses not implemented
 - No image previews (only metadata shown)
 - Limited to 50 history items
 - No dark mode
@@ -175,8 +190,11 @@ Tested on:
 ## Future Enhancements
 
 Potential improvements for the future:
+- Complete tool UI (mode toggle, API key configuration panel) - see TODO.md
+- Add 4 new developer tools to predefined tools list
 - Implement streaming response display
 - Add image previews in Vision tab
+- Add more external API integrations (stock prices, email, etc.)
 - Add dark mode
 - Add keyboard shortcuts
 - Add cost calculator
@@ -184,10 +202,34 @@ Potential improvements for the future:
 - Migrate to TypeScript
 - Add unit tests
 
+## Hybrid Tool System
+
+The application includes a hybrid tool execution system with two modes:
+
+### Demo Mode (Default)
+- Uses mock data for all tool responses
+- Works offline without any API keys
+- Great for testing and development
+- Calculator supports enhanced expressions (sqrt, sin, cos, pow, etc.)
+
+### Real Mode (Backend Ready, UI Pending)
+**Developer Tools (No API Keys Required):**
+- Enhanced Calculator: Full math expression support with functions
+- JSON Validator: Validate and format JSON with analysis
+- Code Formatter: Format JavaScript, Python, JSON
+- Token Counter: Estimate Claude token counts
+- Regex Tester: Test regex patterns with match details
+
+**External APIs (Require API Keys):**
+- Weather: Real weather data from OpenWeatherMap
+- Web Search: Real search results from Brave Search
+
+**Note:** UI for switching modes and entering API keys is pending (see TODO.md). Backend infrastructure is complete.
+
 ## Troubleshooting
 
 **"Failed to fetch" error:**
-- Make sure both servers are running (proxy on :3001, static on :8000)
+- Make sure the server is running (`npm start` on port 3001)
 - Check that your API key is valid
 - Check browser console for detailed errors
 
@@ -200,6 +242,11 @@ Potential improvements for the future:
 - Check your API key is correct
 - Verify you have credits in your Anthropic account
 - Check the error message in the Response panel for details
+
+**Tool execution errors:**
+- Currently in demo mode by default
+- Enhanced calculator supports: sqrt, sin, cos, tan, pow, log, abs, min, max, etc.
+- Use expressions like `sqrt(16)` or `sin(pi/2)` instead of operation-based format
 
 ## Development
 

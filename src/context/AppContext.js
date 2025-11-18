@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import htm from 'htm';
 import { storage } from '../utils/localStorage.js';
-import { executeTool } from '../utils/formatters.js';
+import { executeTool } from '../utils/toolExecutors/index.js';
+import { TOOL_MODES } from '../config/toolConfig.js';
 import modelsConfig from '../config/models.js';
 import endpoints from '../config/endpoints.js';
 
@@ -36,6 +37,10 @@ export function AppProvider({ children }) {
   // Advanced features
   const [tools, setTools] = useState([]);
   const [images, setImages] = useState([]);
+
+  // Tool execution mode and API keys
+  const [toolMode, setToolMode] = useState(storage.getToolMode() || TOOL_MODES.DEMO);
+  const [toolApiKeys, setToolApiKeys] = useState(storage.getToolApiKeys() || {});
 
   // Endpoint-specific state
   // Batches API
@@ -72,6 +77,15 @@ export function AppProvider({ children }) {
       storage.saveApiKey(apiKey, persistKey);
     }
   }, [apiKey, persistKey]);
+
+  // Persist tool mode and API keys
+  useEffect(() => {
+    storage.saveToolMode(toolMode);
+  }, [toolMode]);
+
+  useEffect(() => {
+    storage.saveToolApiKeys(toolApiKeys);
+  }, [toolApiKeys]);
 
   // Load last configuration on mount
   useEffect(() => {
@@ -180,8 +194,8 @@ export function AppProvider({ children }) {
 
         // Execute each tool and create tool_result blocks
         const executionDetails = [];
-        const toolResults = toolUseBlocks.map(toolUse => {
-          const result = executeTool(toolUse.name, toolUse.input);
+        const toolResults = await Promise.all(toolUseBlocks.map(async (toolUse) => {
+          const result = await executeTool(toolUse.name, toolUse.input, toolMode, toolApiKeys);
 
           // Store execution details for display
           executionDetails.push({
@@ -195,7 +209,7 @@ export function AppProvider({ children }) {
             tool_use_id: toolUse.id,
             content: result
           };
-        });
+        }));
 
         // Store tool execution details
         setToolExecutionDetails(executionDetails);
@@ -614,6 +628,12 @@ export function AppProvider({ children }) {
     images,
     setImages,
 
+    // Tool execution mode and API keys
+    toolMode,
+    setToolMode,
+    toolApiKeys,
+    setToolApiKeys,
+
     // Batches API
     batchRequests,
     setBatchRequests,
@@ -662,6 +682,7 @@ export function AppProvider({ children }) {
     selectedEndpoint,
     model, messages, system, maxTokens, temperature, topP, topK,
     tools, images,
+    toolMode, toolApiKeys,
     batchRequests, batchStatus, batchResults,
     modelsList, modelsLoading,
     usageReport, usageLoading,

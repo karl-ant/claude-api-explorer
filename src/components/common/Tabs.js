@@ -5,16 +5,16 @@ const html = htm.bind(React.createElement);
 
 export function Tabs({ tabs, activeTab, onChange }) {
   return html`
-    <div class="border-b border-gray-200">
-      <nav class="flex space-x-4" aria-label="Tabs">
+    <div class="border-b border-slate-700">
+      <nav class="flex space-x-2" aria-label="Tabs">
         ${tabs.map((tab) => html`
           <button
             key=${tab.id}
             onClick=${() => onChange(tab.id)}
-            class="py-2 px-3 text-sm font-medium border-b-2 transition-colors duration-200 ${
+            class="py-2.5 px-4 text-sm font-medium font-mono border-b-2 transition-all duration-200 relative ${
               activeTab === tab.id
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                ? 'border-amber-500 text-amber-400 shadow-[0_2px_10px_rgba(251,191,36,0.3)]'
+                : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-600'
             }"
           >
             ${tab.label}
