@@ -981,26 +981,131 @@ function CostPanel() {
   `;
 }
 
-function ConfigPanel() {
-  const { selectedEndpoint, handleSendRequest, handleCreateBatch, loading, apiKey, history, loadFromHistory, clearHistory, exportHistory, clearConfiguration } = useApp();
-  const [showHistory, setShowHistory] = useState(false);
+function TokenCountCard({ tokenCount, costs, stale, onClear }) {
+  return html`
+    <div class="bg-slate-800/50 border ${stale ? 'border-amber-700/50' : 'border-mint-700/50'} rounded-lg p-3 backdrop-blur-sm animate-slide-up">
+      ${stale && html`
+        <div class="flex items-center gap-2 text-xs text-amber-400 font-mono mb-2">
+          <span>⚠</span>
+          <span>Config changed - recount for accuracy</span>
+        </div>
+      `}
 
-  // Determine which action handler to use
-  const handleAction = () => {
-    if (selectedEndpoint === 'messages') {
-      handleSendRequest();
-    } else if (selectedEndpoint === 'batches') {
-      handleCreateBatch();
-    }
-    // Models and Admin don't have a primary action button
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-sm font-medium text-slate-300 font-mono">Input Tokens</span>
+        <span class="text-xl font-bold ${stale ? 'text-slate-400' : 'text-mint-400'} font-mono">
+          ${tokenCount.toLocaleString()}
+        </span>
+      </div>
+
+      ${costs && html`
+        <div class="space-y-1 text-xs font-mono border-t border-slate-700 pt-2 mt-2">
+          <div class="flex justify-between text-slate-400">
+            <span>Est. input cost:</span>
+            <span class="text-amber-400">$${costs.inputCost.toFixed(5)}</span>
+          </div>
+          <div class="flex justify-between text-slate-500">
+            <span>+ Max output cost:</span>
+            <span>$${costs.maxOutputCost.toFixed(5)}</span>
+          </div>
+          <div class="flex justify-between text-slate-300 font-medium pt-1 border-t border-slate-700/50">
+            <span>Total range:</span>
+            <span class="text-amber-400">$${costs.inputCost.toFixed(4)} - $${costs.total.toFixed(4)}</span>
+          </div>
+          <div class="text-slate-600 text-center pt-1">
+            Prices as of Nov 2025
+          </div>
+        </div>
+      `}
+
+      <button
+        onClick=${onClear}
+        class="mt-2 text-xs text-slate-500 hover:text-slate-400 transition-colors font-mono"
+      >
+        Clear
+      </button>
+    </div>
+  `;
+}
+
+function ActualCostCard({ usage, model, models, maxTokens, tokenCount, selectedModel }) {
+  const getPricing = (modelId) => {
+    const modelConfig = models.find(m => m.id === modelId);
+    return modelConfig?.pricing || { input: 3, output: 15 };
   };
 
-  // Determine button text
-  const getButtonText = () => {
-    if (loading) return 'Processing...';
-    if (selectedEndpoint === 'messages') return 'Send Request';
-    if (selectedEndpoint === 'batches') return 'Create Batch';
-    return 'Execute';
+  // Actual costs use response model pricing
+  const actualPricing = getPricing(model);
+  const inputCost = (usage.input_tokens / 1_000_000) * actualPricing.input;
+  const outputCost = (usage.output_tokens / 1_000_000) * actualPricing.output;
+  const totalCost = inputCost + outputCost;
+  const totalTokens = usage.input_tokens + usage.output_tokens;
+
+  // Estimated costs use selected model pricing (what user expected before sending)
+  const estPricing = getPricing(selectedModel || model);
+  const estInputCost = tokenCount ? (tokenCount / 1_000_000) * estPricing.input : inputCost;
+  const estOutputCost = (maxTokens / 1_000_000) * estPricing.output;
+  const estTotalCost = estInputCost + estOutputCost;
+
+  return html`
+    <div class="bg-slate-800/50 border border-mint-700/50 rounded-lg p-3 backdrop-blur-sm">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-sm font-medium text-slate-300 font-mono">Total Tokens</span>
+        <span class="text-xl font-bold text-mint-400 font-mono">
+          ${totalTokens.toLocaleString()}
+        </span>
+      </div>
+
+      <div class="text-xs font-mono border-t border-slate-700 pt-2 mt-2">
+        <div class="grid grid-cols-3 gap-2 mb-1">
+          <span class="text-slate-500"></span>
+          <span class="text-slate-500 text-right">Estimate</span>
+          <span class="text-slate-500 text-right">Actual</span>
+        </div>
+        <div class="grid grid-cols-3 gap-2 text-slate-400">
+          <span>Input:</span>
+          <span class="text-right text-slate-500">$${estInputCost.toFixed(5)}</span>
+          <span class="text-right text-mint-400">$${inputCost.toFixed(5)}</span>
+        </div>
+        <div class="grid grid-cols-3 gap-2 text-slate-400">
+          <span>Output:</span>
+          <span class="text-right text-slate-500">$${estOutputCost.toFixed(5)}</span>
+          <span class="text-right text-mint-400">$${outputCost.toFixed(5)}</span>
+        </div>
+        <div class="grid grid-cols-3 gap-2 text-slate-300 font-medium pt-1 border-t border-slate-700/50 mt-1">
+          <span>Total:</span>
+          <span class="text-right text-slate-400">$${estTotalCost.toFixed(5)}</span>
+          <span class="text-right text-amber-400">$${totalCost.toFixed(5)}</span>
+        </div>
+        <div class="text-slate-600 text-center pt-2">
+          Prices as of Nov 2025
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function ConfigPanel() {
+  const {
+    selectedEndpoint, handleSendRequest, handleCreateBatch, loading, apiKey,
+    history, loadFromHistory, clearHistory, exportHistory, clearConfiguration,
+    handleCountTokens, tokenCount, tokenCountLoading, tokenCountStale, setTokenCount,
+    model, maxTokens, models
+  } = useApp();
+  const [showHistory, setShowHistory] = useState(false);
+
+  // Cost calculation helpers
+  const getModelPricing = () => {
+    const modelConfig = models.find(m => m.id === model);
+    return modelConfig?.pricing || { input: 3, output: 15 }; // Default to Sonnet pricing
+  };
+
+  const calculateCosts = () => {
+    if (!tokenCount) return null;
+    const pricing = getModelPricing();
+    const inputCost = (tokenCount / 1_000_000) * pricing.input;
+    const maxOutputCost = (maxTokens / 1_000_000) * pricing.output;
+    return { inputCost, maxOutputCost, total: inputCost + maxOutputCost };
   };
 
   // Check if action button should be shown
@@ -1093,15 +1198,47 @@ function ConfigPanel() {
       </div>
 
       ${showActionButton && html`
-        <div class="p-4 border-t border-slate-800 bg-slate-900/50">
-          <${Button}
-            onClick=${handleAction}
-            disabled=${loading || !apiKey}
-            fullWidth=${true}
-            size="lg"
-          >
-            ${getButtonText()}
-          </${Button}>
+        <div class="p-4 border-t border-slate-800 bg-slate-900/50 space-y-3">
+          ${selectedEndpoint === 'messages' && html`
+            <div class="flex gap-2">
+              <${Button}
+                onClick=${handleSendRequest}
+                disabled=${loading || !apiKey}
+                fullWidth=${true}
+                size="lg"
+              >
+                ${loading ? 'Processing...' : 'Send Request'}
+              </${Button}>
+              <${Button}
+                onClick=${handleCountTokens}
+                disabled=${tokenCountLoading || loading || !apiKey}
+                variant="secondary"
+                size="lg"
+                loading=${tokenCountLoading}
+              >
+                ${tokenCountStale ? 'Recount' : 'Count'}
+              </${Button}>
+            </div>
+
+            ${tokenCount !== null && html`
+              <${TokenCountCard}
+                tokenCount=${tokenCount}
+                costs=${calculateCosts()}
+                stale=${tokenCountStale}
+                onClear=${() => setTokenCount(null)}
+              />
+            `}
+          `}
+          ${selectedEndpoint === 'batches' && html`
+            <${Button}
+              onClick=${handleCreateBatch}
+              disabled=${loading || !apiKey}
+              fullWidth=${true}
+              size="lg"
+            >
+              ${loading ? 'Processing...' : 'Create Batch'}
+            </${Button}>
+          `}
         </div>
       `}
     </div>
@@ -1109,7 +1246,7 @@ function ConfigPanel() {
 }
 
 function ResponsePanel() {
-  const { response, loading, error, selectedEndpoint, modelsList, batchStatus, usageReport, costReport, toolExecutionStatus, toolExecutionDetails } = useApp();
+  const { response, loading, error, selectedEndpoint, modelsList, batchStatus, usageReport, costReport, toolExecutionStatus, toolExecutionDetails, models, maxTokens, tokenCount, model } = useApp();
   const [viewMode, setViewMode] = useState('formatted');
 
   // Determine if we should show view mode toggle
@@ -1225,27 +1362,21 @@ function ResponsePanel() {
             `}
 
             ${response.usage && html`
-              <div class="bg-slate-800/30 border border-slate-700 rounded-lg p-4 space-y-2 backdrop-blur-sm">
-                <div class="flex items-center justify-between text-sm">
+              <div class="space-y-3">
+                <div class="flex items-center justify-between text-sm bg-slate-800/30 border border-slate-700 rounded-lg px-4 py-2 backdrop-blur-sm">
                   <span class="text-slate-400 font-medium font-mono">Model:</span>
                   <span class="font-semibold text-amber-400 font-mono">${response.model}</span>
                 </div>
-                <div class="flex items-center justify-between text-sm">
-                  <span class="text-slate-400 font-medium font-mono">Input Tokens:</span>
-                  <span class="font-semibold text-mint-400 font-mono">${response.usage.input_tokens.toLocaleString()}</span>
-                </div>
-                <div class="flex items-center justify-between text-sm">
-                  <span class="text-slate-400 font-medium font-mono">Output Tokens:</span>
-                  <span class="font-semibold text-mint-400 font-mono">${response.usage.output_tokens.toLocaleString()}</span>
-                </div>
-                <div class="flex items-center justify-between text-sm border-t border-slate-700 pt-2 mt-2">
-                  <span class="text-slate-300 font-medium font-mono">Total Tokens:</span>
-                  <span class="font-bold text-mint-300 font-mono">
-                    ${(response.usage.input_tokens + response.usage.output_tokens).toLocaleString()}
-                  </span>
-                </div>
+                <${ActualCostCard}
+                  usage=${response.usage}
+                  model=${response.model}
+                  models=${models}
+                  maxTokens=${maxTokens}
+                  tokenCount=${tokenCount}
+                  selectedModel=${model}
+                />
                 ${response.stop_reason && html`
-                  <div class="flex items-center justify-between text-sm">
+                  <div class="flex items-center justify-between text-sm bg-slate-800/30 border border-slate-700 rounded-lg px-4 py-2 backdrop-blur-sm">
                     <span class="text-slate-400 font-medium font-mono">Stop Reason:</span>
                     <span class="font-semibold text-slate-300 font-mono">${response.stop_reason}</span>
                   </div>

@@ -66,6 +66,11 @@ app.post('/v1/messages', async (req, res) => {
   await proxyToAnthropic(req, res, 'POST', '/v1/messages');
 });
 
+// Token Counting API - Count tokens
+app.post('/v1/messages/count_tokens', async (req, res) => {
+  await proxyToAnthropic(req, res, 'POST', '/v1/messages/count_tokens');
+});
+
 // Message Batches API - Create batch
 app.post('/v1/messages/batches', async (req, res) => {
   await proxyToAnthropic(req, res, 'POST', '/v1/messages/batches');

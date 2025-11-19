@@ -60,6 +60,11 @@ export function AppProvider({ children }) {
   const [costReport, setCostReport] = useState(null);
   const [costLoading, setCostLoading] = useState(false);
 
+  // Token Count
+  const [tokenCount, setTokenCount] = useState(null);
+  const [tokenCountLoading, setTokenCountLoading] = useState(false);
+  const [tokenCountStale, setTokenCountStale] = useState(false);
+
   // Response state
   const [response, setResponse] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -113,6 +118,13 @@ export function AppProvider({ children }) {
       tools
     });
   }, [model, maxTokens, temperature, topP, topK, system, tools]);
+
+  // Mark token count as stale when relevant config changes
+  useEffect(() => {
+    if (tokenCount !== null) {
+      setTokenCountStale(true);
+    }
+  }, [messages, system, tools, images, model]);
 
   const handleSendRequest = async () => {
     if (!apiKey) {
@@ -278,6 +290,73 @@ export function AppProvider({ children }) {
       setToolExecutionStatus(null);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Token Count handler
+  const handleCountTokens = async () => {
+    if (!apiKey) {
+      setError('Please provide an API key');
+      return;
+    }
+
+    const hasValidContent = messages.some(msg => {
+      if (typeof msg.content === 'string') return msg.content.trim().length > 0;
+      if (Array.isArray(msg.content)) return msg.content.length > 0;
+      return false;
+    });
+
+    if (!messages.length || !hasValidContent) {
+      setError('Please provide at least one message with content');
+      return;
+    }
+
+    setTokenCountLoading(true);
+    setError(null);
+
+    // Integrate images into first user message (same logic as handleSendRequest)
+    const messagesWithImages = images.length > 0 ? messages.map((msg, idx) => {
+      if (idx === 0 && msg.role === 'user') {
+        const textContent = typeof msg.content === 'string' ? msg.content : '';
+        return {
+          ...msg,
+          content: [
+            { type: 'text', text: textContent },
+            ...images
+          ]
+        };
+      }
+      return msg;
+    }) : messages;
+
+    const requestBody = { model, messages: messagesWithImages };
+    if (system) requestBody.system = system;
+    if (tools.length > 0) requestBody.tools = tools;
+
+    try {
+      const res = await fetch('http://localhost:3001/v1/messages/count_tokens', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error?.message || `Token count failed`);
+      }
+
+      const data = await res.json();
+      setTokenCount(data.input_tokens);
+      setTokenCountStale(false);
+    } catch (err) {
+      console.error('Token Count Error:', err);
+      setError(err.message || 'Failed to count tokens');
+    } finally {
+      setTokenCountLoading(false);
     }
   };
 
@@ -662,6 +741,13 @@ export function AppProvider({ children }) {
     costLoading,
     handleGetCostReport,
 
+    // Token Count
+    tokenCount,
+    setTokenCount,
+    tokenCountLoading,
+    tokenCountStale,
+    handleCountTokens,
+
     // Response
     response,
     loading,
@@ -687,6 +773,7 @@ export function AppProvider({ children }) {
     modelsList, modelsLoading,
     usageReport, usageLoading,
     costReport, costLoading,
+    tokenCount, tokenCountLoading, tokenCountStale,
     response, loading, error, streamingText, toolExecutionStatus, toolExecutionDetails,
     history
   ]);
