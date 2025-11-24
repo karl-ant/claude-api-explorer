@@ -53,7 +53,14 @@ async function proxyToAnthropic(req, res, method, path) {
 
     const response = await fetch(`https://api.anthropic.com${path}`, fetchOptions);
 
-    const data = await response.json();
+    // Handle empty or non-JSON responses (common for DELETE)
+    const text = await response.text();
+    let data;
+    try {
+      data = text ? JSON.parse(text) : { success: true };
+    } catch (e) {
+      data = { success: true, raw: text };
+    }
 
     if (!response.ok) {
       return res.status(response.status).json(data);
@@ -140,14 +147,35 @@ app.delete('/v1/skills/:id', async (req, res) => {
   await proxyToAnthropic(req, res, 'DELETE', `/v1/skills/${encodeURIComponent(skillId)}`);
 });
 
+// Skills API - List skill versions
+app.get('/v1/skills/:id/versions', async (req, res) => {
+  const skillId = req.params.id;
+  await proxyToAnthropic(req, res, 'GET', `/v1/skills/${encodeURIComponent(skillId)}/versions?beta=true`);
+});
+
+// Skills API - Delete skill version
+app.delete('/v1/skills/:id/versions/:versionId', async (req, res) => {
+  const skillId = req.params.id;
+  const versionId = req.params.versionId;
+  await proxyToAnthropic(req, res, 'DELETE', `/v1/skills/${encodeURIComponent(skillId)}/versions/${encodeURIComponent(versionId)}?beta=true`);
+});
+
 // Skills API - Create skill (multipart/form-data)
-app.post('/v1/skills', upload.array('files'), async (req, res) => {
+app.post('/v1/skills', upload.array('files[]'), async (req, res) => {
   const apiKey = req.headers['x-api-key'];
   const anthropicVersion = req.headers['anthropic-version'] || '2023-06-01';
   const anthropicBeta = req.headers['anthropic-beta'];
 
   if (!apiKey) {
     return res.status(401).json({ error: 'API key is required' });
+  }
+
+  // Parse file paths from request body (contains relative paths like "my-skill/SKILL.md")
+  let filePaths = [];
+  try {
+    filePaths = req.body && req.body.file_paths ? JSON.parse(req.body.file_paths) : [];
+  } catch (e) {
+    return res.status(400).json({ error: 'Invalid file_paths format' });
   }
 
   try {
@@ -159,20 +187,75 @@ app.post('/v1/skills', upload.array('files'), async (req, res) => {
       formData.append('display_title', req.body.display_title);
     }
 
-    // Add files
+    // Helper to get proper MIME type for common skill files
+    const getMimeType = (filename) => {
+      const ext = filename.split('.').pop().toLowerCase();
+      const mimeTypes = {
+        'md': 'text/markdown',
+        'txt': 'text/plain',
+        'py': 'text/x-python',
+        'js': 'text/javascript',
+        'json': 'application/json',
+        'yaml': 'text/yaml',
+        'yml': 'text/yaml',
+      };
+      return mimeTypes[ext] || 'application/octet-stream';
+    };
+
+    // Build multipart body manually to preserve folder paths in filenames
+    // The form-data library strips directory components from filenames
+    const boundary = '----SkillUploadBoundary' + Date.now();
+    const parts = [];
+
+    // Add display_title if provided
+    if (req.body && req.body.display_title) {
+      parts.push(
+        `--${boundary}\r\n` +
+        `Content-Disposition: form-data; name="display_title"\r\n\r\n` +
+        `${req.body.display_title}\r\n`
+      );
+    }
+
+    // Sort files to ensure SKILL.md comes first
     if (req.files && req.files.length > 0) {
-      for (const file of req.files) {
-        formData.append('files', file.buffer, {
-          filename: file.originalname,
-          contentType: file.mimetype,
-        });
+      const filesWithPaths = req.files.map((file, i) => ({
+        file,
+        relativePath: filePaths[i] || file.originalname
+      }));
+
+      filesWithPaths.sort((a, b) => {
+        const aIsSkillMd = a.relativePath.endsWith('/SKILL.md');
+        const bIsSkillMd = b.relativePath.endsWith('/SKILL.md');
+        if (aIsSkillMd && !bIsSkillMd) return -1;
+        if (!aIsSkillMd && bIsSkillMd) return 1;
+        return 0;
+      });
+
+      for (const { file, relativePath } of filesWithPaths) {
+        const contentType = getMimeType(relativePath);
+
+        // Build the part header with full path in filename
+        const partHeader =
+          `--${boundary}\r\n` +
+          `Content-Disposition: form-data; name="files[]"; filename="${relativePath}"\r\n` +
+          `Content-Type: ${contentType}\r\n\r\n`;
+
+        parts.push(Buffer.from(partHeader));
+        parts.push(file.buffer);
+        parts.push(Buffer.from('\r\n'));
       }
     }
+
+    // Add closing boundary
+    parts.push(Buffer.from(`--${boundary}--\r\n`));
+
+    // Combine all parts into a single buffer
+    const formBuffer = Buffer.concat(parts.map(p => typeof p === 'string' ? Buffer.from(p) : p));
 
     const headers = {
       'x-api-key': apiKey,
       'anthropic-version': anthropicVersion,
-      ...formData.getHeaders(),
+      'content-type': `multipart/form-data; boundary=${boundary}`,
     };
 
     if (anthropicBeta) {
@@ -182,7 +265,7 @@ app.post('/v1/skills', upload.array('files'), async (req, res) => {
     const response = await fetch('https://api.anthropic.com/v1/skills', {
       method: 'POST',
       headers: headers,
-      body: formData,
+      body: formBuffer,
     });
 
     const data = await response.json();

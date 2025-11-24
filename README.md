@@ -12,7 +12,8 @@ A visual, interactive web application for testing and exploring Anthropic's Clau
 - **Request Configuration**: Adjust parameters like max_tokens, temperature, top_p, top_k
 - **Multi-Message Support**: Build conversations with multiple user/assistant message pairs
 - **Multiple API Endpoints**: Messages, Message Batches, Models, Skills, Usage Reports, Cost Reports
-- **Skills API (Beta)**: List, create, and view custom skills with drag & drop file upload
+- **Skills API (Beta)**: List, create, get, and delete custom skills with folder drag & drop upload
+- **Skills Version Management**: List and delete skill versions before deleting skills
 
 ### Advanced Features
 - **Vision Support**: Upload images via file picker or add by URL
@@ -167,7 +168,8 @@ Tested on:
 ✅ Multi-message conversations
 ✅ Vision API (image uploads)
 ✅ Multiple API endpoints (Messages, Batches, Models, Skills, Usage, Cost)
-✅ Skills API tab (List, Create, Get) with drag & drop file upload
+✅ Skills API tab (List, Create, Get, Delete) with folder drag & drop upload
+✅ Skills version management (list/delete versions)
 ✅ Beta Headers toggle for experimental features
 ✅ Hybrid tool system with demo/real modes
 ✅ 5 developer tools (calculator, JSON validator, code formatter, token counter, regex tester)
@@ -186,6 +188,7 @@ Tested on:
 - Limited to 50 history items
 - Usage/Cost APIs require Admin API key (sk-ant-admin...)
 - History only for Messages endpoint
+- Skills version deletion may not be fully supported in Anthropic's beta API
 
 ## Future Enhancements
 

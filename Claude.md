@@ -16,7 +16,8 @@ A visual web app for testing Anthropic API endpoints. Uses React + htm (no build
 
 **Beta Features:**
 - Beta Headers - Toggle buttons for anthropic-beta header (Skills, Code Exec, Files API, etc.)
-- Skills Tab - Manage custom skills (List, Create, Get) with View buttons in Response panel
+- Skills Tab - Manage custom skills (List, Create, Get, Delete) with folder drag & drop upload
+- Skills Versions - List and manage skill versions before deletion
 - Container Skills - Configure container.skills for document processing in Messages API
 
 ## Architecture
@@ -200,12 +201,15 @@ A dedicated tab for managing custom skills via the Skills API (Beta). Features:
 
 **Operations:**
 - **List Skills** - Browse skills with source filter (custom vs anthropic)
-- **Create Skill** - Drag & drop files to create (requires SKILL.md)
+- **Create Skill** - Drag & drop a folder to create (auto-detects skill name from folder)
 - **Get Skill** - View buttons in Response panel to retrieve skill details
+- **Delete Skill** - List versions, delete versions, then delete skill
 
-**State:** `skillsList`, `skillDetail`, `skillsSourceFilter` in AppContext.
+**Folder Upload:** The Create tab accepts folder drag & drop. The skill name is inferred from the folder name, and all files maintain their relative paths (e.g., `my-skill/SKILL.md`).
 
-**Note:** The Skills API automatically includes `anthropic-beta: skills-2025-10-02` header.
+**State:** `skillsList`, `skillDetail`, `skillsSourceFilter`, `skillVersions` in AppContext.
+
+**Note:** The Skills API automatically includes `anthropic-beta: skills-2025-10-02` header. Version deletion may not be fully supported in the beta.
 
 ### Container Skills (Messages API)
 Located in Advanced Options → Skills tab. Configure `container.skills` for document processing.
@@ -277,6 +281,7 @@ setImages(prev => [...prev, newImage]);
 - Usage/Cost APIs require Admin key (sk-ant-admin...)
 - Hybrid tool UI incomplete (backend ready)
 - Token counting API doesn't support skills/beta headers
+- Skills version endpoints require `?beta=true` query parameter
 
 ## Technical Debt
 
@@ -287,11 +292,14 @@ setImages(prev => [...prev, newImage]);
 
 ---
 
-**Version:** 2.4 | **Updated:** 2025-11-24 | **Owner:** Karl
+**Version:** 2.5 | **Updated:** 2025-11-24 | **Owner:** Karl
 
 **Recent Changes:**
+- v2.5: Skills folder upload (drag & drop folders), Delete tab with version management, text wrapping fixes
 - v2.4: Added Skills API tab (List, Create, Get), dynamic model dropdown from /v1/models API
 - v2.3: Added Beta Headers toggle UI, Container Skills support
 - v2.2: Added Usage/Cost APIs, Claude Haiku 4.5
 - v2.1: Multi-endpoint architecture, Batches/Models APIs
 - v1.0: Initial release with Messages API
+
+**Note:** Keep the version displayed in the UI (FullApp.js header) in sync with this version.

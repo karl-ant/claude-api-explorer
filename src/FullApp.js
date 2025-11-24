@@ -1107,11 +1107,18 @@ function SkillsPanel() {
     setSkillsSourceFilter,
     handleListSkills,
     handleCreateSkill,
-    handleGetSkill
+    handleGetSkill,
+    handleDeleteSkill,
+    skillDetail,
+    skillVersions,
+    setSkillVersions,
+    handleListVersions,
+    handleDeleteVersion
   } = useApp();
 
   const [activeTab, setActiveTab] = useState('list');
   const [skillId, setSkillId] = useState('');
+  const [deleteSkillId, setDeleteSkillId] = useState('');
   const [displayTitle, setDisplayTitle] = useState('');
   const [uploadFiles, setUploadFiles] = useState([]);
   const [isDragging, setIsDragging] = useState(false);
@@ -1120,7 +1127,21 @@ function SkillsPanel() {
     { id: 'list', label: 'List' },
     { id: 'create', label: 'Create' },
     { id: 'get', label: 'Get' },
+    { id: 'delete', label: 'Delete' },
   ];
+
+  // Extract skill name from file paths (first folder in webkitRelativePath)
+  const getSkillNameFromFiles = (files) => {
+    for (const file of files) {
+      if (file.webkitRelativePath) {
+        const parts = file.webkitRelativePath.split('/');
+        if (parts.length > 1) {
+          return parts[0]; // Return the folder name
+        }
+      }
+    }
+    return null;
+  };
 
   // Drag and drop handlers
   const handleDragOver = (e) => {
@@ -1140,12 +1161,61 @@ function SkillsPanel() {
     e.stopPropagation();
     setIsDragging(false);
 
-    const files = Array.from(e.dataTransfer.files);
-    setUploadFiles(prev => [...prev, ...files]);
+    // Handle dropped items (files or folders)
+    const items = e.dataTransfer.items;
+    if (items) {
+      const filePromises = [];
+      for (const item of items) {
+        if (item.kind === 'file') {
+          const entry = item.webkitGetAsEntry && item.webkitGetAsEntry();
+          if (entry) {
+            filePromises.push(readEntry(entry, ''));
+          }
+        }
+      }
+      Promise.all(filePromises).then(results => {
+        const allFiles = results.flat();
+        setUploadFiles(prev => [...prev, ...allFiles]);
+      });
+    }
+  };
+
+  // Recursively read directory entries (skip hidden files)
+  const readEntry = (entry, path) => {
+    return new Promise((resolve) => {
+      // Skip hidden files and directories
+      if (entry.name.startsWith('.')) {
+        resolve([]);
+        return;
+      }
+
+      if (entry.isFile) {
+        entry.file(file => {
+          // Create a new file object with the relative path
+          const relativePath = path ? `${path}/${file.name}` : file.name;
+          Object.defineProperty(file, 'webkitRelativePath', {
+            value: relativePath,
+            writable: false
+          });
+          resolve([file]);
+        });
+      } else if (entry.isDirectory) {
+        const dirReader = entry.createReader();
+        const newPath = path ? `${path}/${entry.name}` : entry.name;
+        dirReader.readEntries(entries => {
+          Promise.all(entries.map(e => readEntry(e, newPath))).then(results => {
+            resolve(results.flat());
+          });
+        });
+      } else {
+        resolve([]);
+      }
+    });
   };
 
   const handleFileSelect = (e) => {
-    const files = Array.from(e.target.files);
+    // Filter out hidden files
+    const files = Array.from(e.target.files).filter(f => !f.name.startsWith('.'));
     setUploadFiles(prev => [...prev, ...files]);
   };
 
@@ -1153,10 +1223,12 @@ function SkillsPanel() {
     setUploadFiles(prev => prev.filter((_, i) => i !== index));
   };
 
+  const inferredSkillName = getSkillNameFromFiles(uploadFiles);
   const hasSkillMd = uploadFiles.some(f => f.name === 'SKILL.md');
+  const hasValidSkillName = !!inferredSkillName;
 
   const handleCreate = () => {
-    handleCreateSkill(uploadFiles, displayTitle);
+    handleCreateSkill(uploadFiles, inferredSkillName, displayTitle);
     setUploadFiles([]);
     setDisplayTitle('');
   };
@@ -1219,7 +1291,7 @@ function SkillsPanel() {
             </div>
 
             <div>
-              <label class="block text-sm font-medium text-slate-300 mb-2 font-mono">Files</label>
+              <label class="block text-sm font-medium text-slate-300 mb-2 font-mono">Skill Folder</label>
               <div
                 onDragOver=${handleDragOver}
                 onDragLeave=${handleDragLeave}
@@ -1232,17 +1304,17 @@ function SkillsPanel() {
               >
                 <input
                   type="file"
-                  multiple
+                  webkitdirectory=""
                   onChange=${handleFileSelect}
                   class="hidden"
                   id="skill-file-input"
                 />
                 <label for="skill-file-input" class="cursor-pointer">
                   <div class="text-slate-400 font-mono text-sm mb-1">
-                    Drop files here or click to select
+                    Drop a skill folder here or click to select
                   </div>
                   <div class="text-slate-500 font-mono text-xs">
-                    Must include SKILL.md
+                    Folder must contain SKILL.md
                   </div>
                 </label>
               </div>
@@ -1250,12 +1322,18 @@ function SkillsPanel() {
 
             ${uploadFiles.length > 0 && html`
               <div class="space-y-2">
+                ${inferredSkillName && html`
+                  <div class="flex items-center gap-2 text-sm font-mono">
+                    <span class="text-slate-400">Skill name:</span>
+                    <span class="text-amber-400 font-semibold">${inferredSkillName}</span>
+                  </div>
+                `}
                 <p class="text-sm font-medium text-slate-300 font-mono">Files to upload (${uploadFiles.length})</p>
                 ${uploadFiles.map((file, index) => html`
                   <div key=${index} class="flex items-center justify-between px-3 py-2 bg-slate-800 rounded-lg font-mono text-sm">
                     <span class="text-slate-100 flex items-center gap-2">
                       ${file.name === 'SKILL.md' && html`<span class="text-mint-400">✓</span>`}
-                      ${file.name}
+                      ${file.webkitRelativePath || file.name}
                       <span class="text-slate-500 text-xs">(${(file.size / 1024).toFixed(1)} KB)</span>
                     </span>
                     <button
@@ -1269,7 +1347,15 @@ function SkillsPanel() {
               </div>
             `}
 
-            ${!hasSkillMd && uploadFiles.length > 0 && html`
+            ${!hasValidSkillName && uploadFiles.length > 0 && html`
+              <div class="bg-amber-900/20 border border-amber-700/50 rounded-lg p-3 backdrop-blur-sm">
+                <p class="text-xs text-amber-300 font-mono">
+                  ⚠ Could not detect skill folder. Please select a folder containing your skill files.
+                </p>
+              </div>
+            `}
+
+            ${!hasSkillMd && uploadFiles.length > 0 && hasValidSkillName && html`
               <div class="bg-amber-900/20 border border-amber-700/50 rounded-lg p-3 backdrop-blur-sm">
                 <p class="text-xs text-amber-300 font-mono">
                   ⚠ SKILL.md file is required
@@ -1279,7 +1365,7 @@ function SkillsPanel() {
 
             <${Button}
               onClick=${handleCreate}
-              disabled=${skillsLoading || !hasSkillMd}
+              disabled=${skillsLoading || !hasSkillMd || !hasValidSkillName}
               loading=${skillsLoading}
               fullWidth=${true}
             >
@@ -1342,6 +1428,93 @@ function SkillsPanel() {
                 <div class="p-4 bg-mint-900/20 rounded-lg border border-mint-700/50 backdrop-blur-sm">
                   <p class="text-sm text-mint-300 font-mono">Skill deleted successfully</p>
                 </div>
+              </div>
+            `}
+          </div>
+        `}
+
+        ${activeTab === 'delete' && html`
+          <div class="space-y-3">
+            <div class="bg-red-900/20 border border-red-700/50 rounded-lg p-3 backdrop-blur-sm">
+              <p class="text-xs text-red-300 font-mono">
+                ⚠ Delete all versions before deleting the skill.
+              </p>
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-slate-300 mb-2 font-mono">Skill ID</label>
+              <input
+                type="text"
+                value=${deleteSkillId}
+                onInput=${(e) => { setDeleteSkillId(e.target.value); setSkillVersions(null); }}
+                placeholder="skill_..."
+                class="w-full px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none text-sm font-mono text-slate-100 placeholder-slate-600 hover:border-slate-600 transition-colors"
+              />
+            </div>
+
+            <${Button}
+              onClick=${() => handleListVersions(deleteSkillId)}
+              disabled=${skillsLoading || !deleteSkillId}
+              loading=${skillsLoading}
+              fullWidth=${true}
+              variant="secondary"
+            >
+              List Versions
+            </${Button}>
+
+            ${skillVersions && skillVersions.data && html`
+              <div class="space-y-2">
+                <p class="text-sm font-medium text-slate-300 font-mono">
+                  Versions (${skillVersions.data.length})
+                </p>
+                ${skillVersions.data.length === 0 && html`
+                  <div class="p-3 bg-mint-900/20 rounded-lg border border-mint-700/50">
+                    <p class="text-sm text-mint-300 font-mono">No versions found. You can now delete the skill.</p>
+                  </div>
+                `}
+                ${skillVersions.data.map(version => html`
+                  <div key=${version.id} class="flex items-center justify-between px-3 py-2 bg-slate-800 rounded-lg">
+                    <div class="flex-1 min-w-0">
+                      <span class="text-sm font-mono text-amber-400 truncate block">${version.id}</span>
+                      <span class="text-xs font-mono text-slate-500">
+                        ${version.created_at ? new Date(version.created_at).toLocaleString() : 'Unknown date'}
+                      </span>
+                    </div>
+                    <button
+                      onClick=${() => handleDeleteVersion(deleteSkillId, version.id)}
+                      disabled=${skillsLoading}
+                      class="ml-2 px-2 py-1 text-xs font-mono text-red-400 hover:text-red-300 hover:bg-red-900/30 rounded transition-colors disabled:opacity-50"
+                    >
+                      ${skillsLoading ? 'Deleting...' : 'Delete'}
+                    </button>
+                  </div>
+                `)}
+                <p class="text-xs text-slate-500 font-mono">
+                  Note: Version deletion may not be supported yet in the Skills API beta.
+                </p>
+              </div>
+            `}
+
+            <div class="border-t border-slate-800 pt-3">
+              <${Button}
+                onClick=${() => { handleDeleteSkill(deleteSkillId); setDeleteSkillId(''); setSkillVersions(null); }}
+                disabled=${skillsLoading || !deleteSkillId || (skillVersions && skillVersions.data && skillVersions.data.length > 0)}
+                loading=${skillsLoading}
+                fullWidth=${true}
+                variant="danger"
+              >
+                Delete Skill
+              </${Button}>
+              ${skillVersions && skillVersions.data && skillVersions.data.length > 0 && html`
+                <p class="text-xs text-slate-500 font-mono mt-2 text-center">
+                  Delete all versions first
+                </p>
+              `}
+            </div>
+
+            ${skillDetail && skillDetail.type === 'skill_deleted' && html`
+              <div class="p-4 bg-mint-900/20 rounded-lg border border-mint-700/50 backdrop-blur-sm">
+                <p class="text-sm text-mint-300 font-mono">Skill deleted successfully</p>
               </div>
             `}
           </div>
@@ -1693,7 +1866,7 @@ function ResponsePanel() {
         `}
 
         ${!loading && !error && viewMode === 'json' && (response || modelsList || batchStatus || usageReport || costReport || skillsList || skillDetail) && html`
-          <pre class="bg-slate-950 text-mint-300 p-6 rounded-lg overflow-x-auto text-sm font-mono leading-relaxed border border-slate-800 shadow-xl terminal-glow animate-fade-in">
+          <pre class="bg-slate-950 text-mint-300 p-6 rounded-lg overflow-x-auto text-sm font-mono leading-relaxed border border-slate-800 shadow-xl terminal-glow animate-fade-in whitespace-pre-wrap break-words">
             ${JSON.stringify(response || modelsList || batchStatus || usageReport || costReport || skillsList || skillDetail, null, 2)}
           </pre>
         `}
@@ -1721,11 +1894,11 @@ function ResponsePanel() {
                       <div class="space-y-2 text-xs">
                         <div>
                           <div class="text-purple-400 font-medium mb-1 font-mono">Input:</div>
-                          <pre class="bg-slate-950 p-2 rounded text-purple-200 overflow-x-auto font-mono border border-slate-700">${JSON.stringify(tool.tool_input, null, 2)}</pre>
+                          <pre class="bg-slate-950 p-2 rounded text-purple-200 overflow-x-auto font-mono border border-slate-700 whitespace-pre-wrap break-words">${JSON.stringify(tool.tool_input, null, 2)}</pre>
                         </div>
                         <div>
                           <div class="text-mint-400 font-medium mb-1 font-mono">Result:</div>
-                          <pre class="bg-slate-950 p-2 rounded text-mint-200 overflow-x-auto font-mono border border-slate-700">${tool.tool_result}</pre>
+                          <pre class="bg-slate-950 p-2 rounded text-mint-200 overflow-x-auto font-mono border border-slate-700 whitespace-pre-wrap break-words">${tool.tool_result}</pre>
                         </div>
                       </div>
                     </div>
@@ -2080,7 +2253,7 @@ function AppContent() {
             <div>
               <h1 class="text-2xl font-bold text-slate-100 tracking-tight">Claude API Explorer</h1>
               <p class="text-slate-400 text-xs font-mono mt-0.5">
-                <span class="text-amber-400">v2.1</span> • Developer Command Center
+                <span class="text-amber-400">v2.5</span> • Developer Command Center
               </p>
             </div>
           </div>
@@ -2114,7 +2287,7 @@ function AppContent() {
           <${ConfigPanel} />
         </div>
 
-        <div class="flex-1">
+        <div class="flex-1 min-w-0 overflow-hidden">
           <${ResponsePanel} />
         </div>
       </div>

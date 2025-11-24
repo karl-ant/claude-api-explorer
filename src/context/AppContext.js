@@ -69,6 +69,7 @@ export function AppProvider({ children }) {
   const [skillsLoading, setSkillsLoading] = useState(false);
   const [skillDetail, setSkillDetail] = useState(null);
   const [skillsSourceFilter, setSkillsSourceFilter] = useState('custom');
+  const [skillVersions, setSkillVersions] = useState(null);
 
   // Token Count
   const [tokenCount, setTokenCount] = useState(null);
@@ -642,7 +643,7 @@ export function AppProvider({ children }) {
     }
   };
 
-  const handleCreateSkill = async (files, displayTitle = '') => {
+  const handleCreateSkill = async (files, skillName, displayTitle = '') => {
     if (!apiKey) {
       setError('Please provide an API key');
       return;
@@ -660,6 +661,13 @@ export function AppProvider({ children }) {
       return;
     }
 
+    // Validate we have relative paths (from folder selection)
+    const hasRelativePaths = files.some(f => f.webkitRelativePath && f.webkitRelativePath.includes('/'));
+    if (!hasRelativePaths) {
+      setError('Please select a skill folder, not individual files');
+      return;
+    }
+
     setSkillsLoading(true);
     setError(null);
     setSkillDetail(null);
@@ -669,8 +677,11 @@ export function AppProvider({ children }) {
       if (displayTitle) {
         formData.append('display_title', displayTitle);
       }
+      // Send files and their relative paths (e.g., "my-skill/SKILL.md")
+      const relativePaths = files.map(file => file.webkitRelativePath || file.name);
+      formData.append('file_paths', JSON.stringify(relativePaths));
       files.forEach(file => {
-        formData.append('files', file);
+        formData.append('files[]', file);
       });
 
       const res = await fetch('http://localhost:3001/v1/skills', {
@@ -777,6 +788,88 @@ export function AppProvider({ children }) {
     } catch (err) {
       console.error('API Error:', err);
       setError(err.message || 'An error occurred while deleting the skill');
+    } finally {
+      setSkillsLoading(false);
+    }
+  };
+
+  const handleListVersions = async (skillId) => {
+    if (!apiKey) {
+      setError('Please provide an API key');
+      return;
+    }
+
+    if (!skillId) {
+      setError('Please provide a skill ID');
+      return;
+    }
+
+    setSkillsLoading(true);
+    setError(null);
+    setSkillVersions(null);
+
+    try {
+      const res = await fetch(`http://localhost:3001/v1/skills/${encodeURIComponent(skillId)}/versions`, {
+        method: 'GET',
+        headers: {
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-beta': SKILLS_BETA_HEADER,
+        },
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error?.message || `API request failed with status ${res.status}`);
+      }
+
+      const data = await res.json();
+      setSkillVersions(data);
+      setResponse(data);
+    } catch (err) {
+      console.error('API Error:', err);
+      setError(err.message || 'An error occurred while listing versions');
+    } finally {
+      setSkillsLoading(false);
+    }
+  };
+
+  const handleDeleteVersion = async (skillId, versionId) => {
+    if (!apiKey) {
+      setError('Please provide an API key');
+      return;
+    }
+
+    if (!skillId || !versionId) {
+      setError('Please provide both skill ID and version ID');
+      return;
+    }
+
+    setSkillsLoading(true);
+    setError(null);
+
+    try {
+      const res = await fetch(`http://localhost:3001/v1/skills/${encodeURIComponent(skillId)}/versions/${encodeURIComponent(versionId)}`, {
+        method: 'DELETE',
+        headers: {
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-beta': SKILLS_BETA_HEADER,
+        },
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error?.message || `API request failed with status ${res.status}`);
+      }
+
+      const data = await res.json();
+      setResponse(data);
+      // Refresh versions list
+      await handleListVersions(skillId);
+    } catch (err) {
+      console.error('API Error:', err);
+      setError(err.message || 'An error occurred while deleting the version');
     } finally {
       setSkillsLoading(false);
     }
@@ -1023,6 +1116,10 @@ export function AppProvider({ children }) {
     handleCreateSkill,
     handleGetSkill,
     handleDeleteSkill,
+    skillVersions,
+    setSkillVersions,
+    handleListVersions,
+    handleDeleteVersion,
 
     // Token Count
     tokenCount,
