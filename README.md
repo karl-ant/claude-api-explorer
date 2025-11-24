@@ -8,10 +8,11 @@ A visual, interactive web application for testing and exploring Anthropic's Clau
 
 ### Core Functionality
 - **Two-Panel Layout**: Configuration panel and Response display
-- **Model Selection**: Choose from Claude Opus 4, Sonnet 4, Sonnet 4.5, Haiku, and legacy models
+- **Dynamic Model Selection**: Auto-fetches available models from API, shows full model IDs
 - **Request Configuration**: Adjust parameters like max_tokens, temperature, top_p, top_k
 - **Multi-Message Support**: Build conversations with multiple user/assistant message pairs
-- **Multiple API Endpoints**: Messages, Message Batches, Models, Usage Reports, Cost Reports
+- **Multiple API Endpoints**: Messages, Message Batches, Models, Skills, Usage Reports, Cost Reports
+- **Skills API (Beta)**: List, create, and view custom skills with drag & drop file upload
 
 ### Advanced Features
 - **Vision Support**: Upload images via file picker or add by URL
@@ -81,10 +82,9 @@ claude-api-explorer/
 ├── package.json                  # Dependencies
 ├── README.md                     # This file
 ├── CLAUDE.md                     # AI development guide
-├── TODO.md                       # Remaining work (feature branch)
 └── src/
     ├── main.js                   # React root renderer
-    ├── FullApp.js                # Main application (~1450 lines)
+    ├── FullApp.js                # Main application (~2150 lines)
     ├── components/
     │   └── common/              # Reusable UI components
     │       ├── Button.js
@@ -161,44 +161,40 @@ Tested on:
 ## Features Implemented
 
 ✅ API Key management with persist option
-✅ Model selector (all Claude models)
+✅ Dynamic model selector (fetches from /v1/models API)
 ✅ Parameter controls (temperature, top_p, top_k, max_tokens)
 ✅ System prompt
 ✅ Multi-message conversations
 ✅ Vision API (image uploads)
-✅ Multiple API endpoints (Messages, Batches, Models, Usage, Cost)
+✅ Multiple API endpoints (Messages, Batches, Models, Skills, Usage, Cost)
+✅ Skills API tab (List, Create, Get) with drag & drop file upload
+✅ Beta Headers toggle for experimental features
 ✅ Hybrid tool system with demo/real modes
 ✅ 5 developer tools (calculator, JSON validator, code formatter, token counter, regex tester)
 ✅ 2 external API integrations (weather, web search)
 ✅ Automatic tool execution
 ✅ Request history (50 items, export/import)
-✅ Response view toggle (Message/JSON)
+✅ Response view toggle (Formatted/JSON)
 ✅ Token usage statistics
-✅ Error handling
+✅ Dark theme UI
 ✅ localStorage persistence
 
 ## Limitations
 
-- Tool UI (mode toggle, API key panel) not yet implemented - backend only (see TODO.md)
-- New developer tools not yet in predefined tools list (backend ready)
 - Streaming responses not implemented
 - No image previews (only metadata shown)
 - Limited to 50 history items
-- No dark mode
-- No keyboard shortcuts
+- Usage/Cost APIs require Admin API key (sk-ant-admin...)
+- History only for Messages endpoint
 
 ## Future Enhancements
 
 Potential improvements for the future:
-- Complete tool UI (mode toggle, API key configuration panel) - see TODO.md
-- Add 4 new developer tools to predefined tools list
 - Implement streaming response display
 - Add image previews in Vision tab
-- Add more external API integrations (stock prices, email, etc.)
-- Add dark mode
 - Add keyboard shortcuts
-- Add cost calculator
 - Add response comparison view
+- Split FullApp.js into smaller components
 - Migrate to TypeScript
 - Add unit tests
 
@@ -210,9 +206,8 @@ The application includes a hybrid tool execution system with two modes:
 - Uses mock data for all tool responses
 - Works offline without any API keys
 - Great for testing and development
-- Calculator supports enhanced expressions (sqrt, sin, cos, pow, etc.)
 
-### Real Mode (Backend Ready, UI Pending)
+### Real Mode
 **Developer Tools (No API Keys Required):**
 - Enhanced Calculator: Full math expression support with functions
 - JSON Validator: Validate and format JSON with analysis
@@ -223,8 +218,6 @@ The application includes a hybrid tool execution system with two modes:
 **External APIs (Require API Keys):**
 - Weather: Real weather data from OpenWeatherMap
 - Web Search: Real search results from Brave Search
-
-**Note:** UI for switching modes and entering API keys is pending (see TODO.md). Backend infrastructure is complete.
 
 ## Troubleshooting
 

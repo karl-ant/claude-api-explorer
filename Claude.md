@@ -16,21 +16,21 @@ A visual web app for testing Anthropic API endpoints. Uses React + htm (no build
 
 **Beta Features:**
 - Beta Headers - Toggle buttons for anthropic-beta header (Skills, Code Exec, Files API, etc.)
-- Skills Tab - Full CRUD for custom skills (List, Create, Get, Delete)
+- Skills Tab - Manage custom skills (List, Create, Get) with View buttons in Response panel
 - Container Skills - Configure container.skills for document processing in Messages API
 
 ## Architecture
 
 ### Core Philosophy
 - **No build step** - Edit → refresh → test (htm instead of JSX)
-- **Single file components** - Main app in `FullApp.js` (~2100 lines, consider splitting)
+- **Single file components** - Main app in `FullApp.js` (~2150 lines, consider splitting)
 - **Express proxy** - Required for CORS (browser can't call Anthropic directly)
 
 ### Project Structure
 ```
 src/
 ├── main.js                    # Entry point
-├── FullApp.js                 # All UI components (~1450 lines)
+├── FullApp.js                 # All UI components (~2150 lines)
 ├── components/common/         # Reusable components (Button, Toggle, Tabs)
 ├── context/AppContext.js      # Global state (API keys, config, history)
 ├── config/
@@ -201,8 +201,7 @@ A dedicated tab for managing custom skills via the Skills API (Beta). Features:
 **Operations:**
 - **List Skills** - Browse skills with source filter (custom vs anthropic)
 - **Create Skill** - Drag & drop files to create (requires SKILL.md)
-- **Get Skill** - Retrieve skill details by ID
-- **Delete Skill** - Remove custom skills
+- **Get Skill** - View buttons in Response panel to retrieve skill details
 
 **State:** `skillsList`, `skillDetail`, `skillsSourceFilter` in AppContext.
 
@@ -281,19 +280,18 @@ setImages(prev => [...prev, newImage]);
 
 ## Technical Debt
 
-1. FullApp.js ~2100 lines (needs splitting into separate panel components)
+1. FullApp.js ~2150 lines (needs splitting into separate panel components)
 2. No TypeScript
 3. No automated tests
 4. Response panel logic complex with multiple formats
-5. Skills API file upload could use better progress feedback
 
 ---
 
-**Version:** 2.3 | **Updated:** 2025-11-24 | **Owner:** Karl
+**Version:** 2.4 | **Updated:** 2025-11-24 | **Owner:** Karl
 
 **Recent Changes:**
-- v2.3: Added Skills API tab with full CRUD (List, Create, Get, Delete), drag & drop file upload
-- v2.2: Added Beta Headers toggle UI, Skills support (container.skills), Skills tab in Advanced Options
-- v2.1: Added Usage/Cost APIs, Claude Haiku 4.5
-- v2.0: Multi-endpoint architecture, Batches/Models APIs
+- v2.4: Added Skills API tab (List, Create, Get), dynamic model dropdown from /v1/models API
+- v2.3: Added Beta Headers toggle UI, Container Skills support
+- v2.2: Added Usage/Cost APIs, Claude Haiku 4.5
+- v2.1: Multi-endpoint architecture, Batches/Models APIs
 - v1.0: Initial release with Messages API
