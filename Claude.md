@@ -10,14 +10,20 @@ A visual web app for testing Anthropic API endpoints. Uses React + htm (no build
 - Messages API - Send messages to Claude
 - Message Batches API - Async batch processing at 50% cost
 - Models API - List available models
+- Skills API - Create and manage custom skills (Beta)
 - Usage Reports API - Token usage tracking (requires Admin key)
 - Cost Reports API - Cost breakdowns (requires Admin key)
+
+**Beta Features:**
+- Beta Headers - Toggle buttons for anthropic-beta header (Skills, Code Exec, Files API, etc.)
+- Skills Tab - Full CRUD for custom skills (List, Create, Get, Delete)
+- Container Skills - Configure container.skills for document processing in Messages API
 
 ## Architecture
 
 ### Core Philosophy
 - **No build step** - Edit → refresh → test (htm instead of JSX)
-- **Single file components** - Main app in `FullApp.js` (split at 1000+ lines)
+- **Single file components** - Main app in `FullApp.js` (~2100 lines, consider splitting)
 - **Express proxy** - Required for CORS (browser can't call Anthropic directly)
 
 ### Project Structure
@@ -176,6 +182,52 @@ Edit `src/config/models.js`:
 3. Add to executor router in `toolExecutors/index.js`
 4. Add tool definition in `FullApp.js`
 
+## Beta Headers & Skills
+
+### Beta Headers
+Located under API Key in the Configuration sidebar. Toggle buttons for:
+- `skills-2025-10-02` - Skills API
+- `code-execution-2025-08-25` - Code execution (required for container skills)
+- `files-api-2025-04-14` - Files API (required for container skills)
+- `prompt-caching-2024-07-31` - Prompt caching
+- `computer-use-2024-10-22` - Computer use
+- `max-tokens-3-5-sonnet-2024-07-15` - Extended max tokens
+
+State: `betaHeaders` (array) in AppContext, persisted to localStorage.
+
+### Skills API Tab
+A dedicated tab for managing custom skills via the Skills API (Beta). Features:
+
+**Operations:**
+- **List Skills** - Browse skills with source filter (custom vs anthropic)
+- **Create Skill** - Drag & drop files to create (requires SKILL.md)
+- **Get Skill** - Retrieve skill details by ID
+- **Delete Skill** - Remove custom skills
+
+**State:** `skillsList`, `skillDetail`, `skillsSourceFilter` in AppContext.
+
+**Note:** The Skills API automatically includes `anthropic-beta: skills-2025-10-02` header.
+
+### Container Skills (Messages API)
+Located in Advanced Options → Skills tab. Configure `container.skills` for document processing.
+
+**Pre-built skills:** xlsx, pdf, docx, pptx
+
+**API Format:**
+```json
+{
+  "container": {
+    "skills": [
+      { "type": "anthropic", "skill_id": "xlsx", "version": "latest" }
+    ]
+  }
+}
+```
+
+State: `skillsJson` (string) in AppContext, persisted to localStorage.
+
+**Note:** Container skills require all 3 beta headers (Skills, Code Exec, Files API) and the code_execution tool.
+
 ## Hybrid Tool System
 
 Tools run in two modes:
@@ -225,19 +277,23 @@ setImages(prev => [...prev, newImage]);
 - No error boundaries
 - Usage/Cost APIs require Admin key (sk-ant-admin...)
 - Hybrid tool UI incomplete (backend ready)
+- Token counting API doesn't support skills/beta headers
 
 ## Technical Debt
 
-1. FullApp.js ~1450 lines (approaching split threshold)
+1. FullApp.js ~2100 lines (needs splitting into separate panel components)
 2. No TypeScript
 3. No automated tests
 4. Response panel logic complex with multiple formats
+5. Skills API file upload could use better progress feedback
 
 ---
 
-**Version:** 2.1 | **Updated:** 2025-11-06 | **Owner:** Karl
+**Version:** 2.3 | **Updated:** 2025-11-24 | **Owner:** Karl
 
 **Recent Changes:**
+- v2.3: Added Skills API tab with full CRUD (List, Create, Get, Delete), drag & drop file upload
+- v2.2: Added Beta Headers toggle UI, Skills support (container.skills), Skills tab in Advanced Options
 - v2.1: Added Usage/Cost APIs, Claude Haiku 4.5
 - v2.0: Multi-endpoint architecture, Batches/Models APIs
 - v1.0: Initial release with Messages API

@@ -119,6 +119,58 @@ const endpoints = {
     requestType: 'synchronous',
     responseType: 'cost',
     note: 'Requires Admin API key (sk-ant-admin...). All costs are in USD (cents). Priority Tier costs not included.'
+  },
+
+  skills: {
+    id: 'skills',
+    name: 'Skills',
+    description: 'Create and manage custom skills for document processing (Beta)',
+    method: 'GET',
+    path: '/v1/skills',
+    requiresModel: false,
+    supportsStreaming: false,
+    parameters: {
+      required: [],
+      optional: ['source', 'limit', 'page']
+    },
+    requestType: 'synchronous',
+    responseType: 'skills',
+    note: 'Requires anthropic-beta: skills-2025-10-02 header (auto-included).',
+    subEndpoints: {
+      create: {
+        id: 'skills-create',
+        name: 'Create Skill',
+        description: 'Upload files to create a new skill (requires SKILL.md)',
+        method: 'POST',
+        path: '/v1/skills',
+        parameters: {
+          required: ['files'],
+          optional: ['display_title']
+        }
+      },
+      get: {
+        id: 'skills-get',
+        name: 'Get Skill',
+        description: 'Retrieve details of a specific skill',
+        method: 'GET',
+        path: '/v1/skills/:id',
+        parameters: {
+          required: ['skill_id'],
+          optional: []
+        }
+      },
+      delete: {
+        id: 'skills-delete',
+        name: 'Delete Skill',
+        description: 'Permanently remove a skill',
+        method: 'DELETE',
+        path: '/v1/skills/:id',
+        parameters: {
+          required: ['skill_id'],
+          optional: []
+        }
+      }
+    }
   }
 };
 

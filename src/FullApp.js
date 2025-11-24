@@ -59,24 +59,92 @@ function ApiKeySection() {
   `;
 }
 
+function BetaHeadersSection() {
+  const { betaHeaders, setBetaHeaders } = useApp();
+
+  const BETA_HEADER_OPTIONS = [
+    { id: 'skills-2025-10-02', label: 'Skills' },
+    { id: 'code-execution-2025-08-25', label: 'Code Exec' },
+    { id: 'files-api-2025-04-14', label: 'Files API' },
+    { id: 'prompt-caching-2024-07-31', label: 'Prompt Cache' },
+    { id: 'computer-use-2024-10-22', label: 'Computer Use' },
+    { id: 'max-tokens-3-5-sonnet-2024-07-15', label: 'Max Tokens' },
+  ];
+
+  const toggleBetaHeader = (headerId) => {
+    setBetaHeaders(prev =>
+      prev.includes(headerId)
+        ? prev.filter(h => h !== headerId)
+        : [...prev, headerId]
+    );
+  };
+
+  return html`
+    <div class="space-y-2">
+      <div class="flex items-center justify-between">
+        <label class="text-sm font-medium text-slate-300 font-mono">Beta Headers</label>
+        <span class="text-xs text-slate-500 font-mono">anthropic-beta</span>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        ${BETA_HEADER_OPTIONS.map(header => html`
+          <button
+            key=${header.id}
+            onClick=${() => toggleBetaHeader(header.id)}
+            class="px-3 py-1.5 text-xs font-mono rounded-lg transition-colors
+                   ${betaHeaders.includes(header.id)
+                     ? 'bg-amber-500 text-slate-900 hover:bg-amber-400'
+                     : 'bg-slate-800 text-slate-300 border border-slate-700 hover:border-slate-600'
+                   }"
+          >
+            ${header.label}
+          </button>
+        `)}
+      </div>
+      ${betaHeaders.length > 0 && html`
+        <p class="text-xs text-slate-500 font-mono break-all">
+          → ${betaHeaders.join(',')}
+        </p>
+      `}
+    </div>
+  `;
+}
+
 function ModelSelector() {
-  const { model, setModel, models, maxTokens, setMaxTokens, temperature, setTemperature, topP, setTopP, topK, setTopK } = useApp();
+  const { model, setModel, models: staticModels, modelsList, modelsLoading, maxTokens, setMaxTokens, temperature, setTemperature, topP, setTopP, topK, setTopK } = useApp();
+
+  // Use API models if available, merge with static config for pricing/description
+  // Always use model ID as name to distinguish between variants (e.g., multiple "Claude Haiku 4.5")
+  const availableModels = modelsList?.data
+    ? modelsList.data.map(apiModel => {
+        const staticMatch = staticModels.find(s => s.id === apiModel.id);
+        return {
+          id: apiModel.id,
+          name: apiModel.id,
+          description: staticMatch?.description || apiModel.display_name || '',
+          pricing: staticMatch?.pricing
+        };
+      })
+    : staticModels;
+
+  const selectedModel = availableModels.find((m) => m.id === model);
 
   return html`
     <div class="space-y-4">
       <div>
-        <label class="block text-sm font-medium text-slate-300 mb-2 font-mono">Model</label>
+        <label class="block text-sm font-medium text-slate-300 mb-2 font-mono">
+          Model ${modelsLoading ? html`<span class="text-amber-400 text-xs">(loading...)</span>` : modelsList?.data ? html`<span class="text-mint-400 text-xs">(${availableModels.length} available)</span>` : ''}
+        </label>
         <select
           value=${model}
           onChange=${(e) => setModel(e.target.value)}
           class="w-full px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none text-sm font-mono text-slate-100 hover:border-slate-600 transition-colors cursor-pointer"
         >
-          ${models.map((m) => html`
+          ${availableModels.map((m) => html`
             <option key=${m.id} value=${m.id}>${m.name}</option>
           `)}
         </select>
         <p class="text-xs text-slate-500 mt-2 font-mono">
-          ${models.find((m) => m.id === model)?.description}
+          ${selectedModel?.description || ''}
         </p>
       </div>
 
@@ -212,13 +280,27 @@ function MessageBuilder() {
 }
 
 function AdvancedOptions() {
-  const { tools, setTools, images, setImages } = useApp();
+  const { tools, setTools, images, setImages, skillsJson, setSkillsJson } = useApp();
   const [activeTab, setActiveTab] = useState('vision');
   const [toolJson, setToolJson] = useState('');
+
+  // Add a pre-built skill
+  const addSkill = (skillId) => {
+    try {
+      const current = skillsJson.trim() ? JSON.parse(skillsJson) : [];
+      if (!current.find(s => s.skill_id === skillId)) {
+        current.push({ type: 'anthropic', skill_id: skillId, version: 'latest' });
+        setSkillsJson(JSON.stringify(current, null, 2));
+      }
+    } catch (e) {
+      setSkillsJson(JSON.stringify([{ type: 'anthropic', skill_id: skillId, version: 'latest' }], null, 2));
+    }
+  };
 
   const tabs = [
     { id: 'vision', label: 'Vision' },
     { id: 'tools', label: 'Tools' },
+    { id: 'skills', label: 'Skills' },
   ];
 
   // Vision handlers
@@ -565,6 +647,43 @@ function AdvancedOptions() {
             `}
           </div>
         `}
+
+        ${activeTab === 'skills' && html`
+          <div class="space-y-3">
+            <p class="text-sm text-slate-400 font-mono">Configure skills for document processing. Requires beta headers: Skills, Code Exec, and Files API.</p>
+
+            <div class="space-y-2">
+              <p class="text-xs text-slate-400 font-mono">Pre-built Anthropic Skills:</p>
+              <div class="flex flex-wrap gap-2">
+                ${['xlsx', 'pdf', 'docx', 'pptx'].map(skill => html`
+                  <${Button} key=${skill} size="sm" variant="ghost" onClick=${() => addSkill(skill)}>
+                    ${skill.toUpperCase()}
+                  </${Button}>
+                `)}
+              </div>
+            </div>
+
+            <div class="space-y-2">
+              <p class="text-sm font-medium text-slate-300 font-mono">Skills JSON</p>
+              <textarea
+                value=${skillsJson}
+                onInput=${(e) => setSkillsJson(e.target.value)}
+                placeholder='[{"type":"anthropic","skill_id":"xlsx","version":"latest"}]'
+                rows="4"
+                class="w-full px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none text-sm font-mono text-slate-100 placeholder-slate-600 hover:border-slate-600 transition-colors resize-y"
+              ></textarea>
+            </div>
+
+            ${skillsJson.trim() && html`
+              <div class="flex items-center justify-between pt-2">
+                <p class="text-xs text-slate-500 font-mono">Skills will be added to container.skills</p>
+                <${Button} size="sm" variant="danger" onClick=${() => setSkillsJson('')}>
+                  Clear Skills
+                </${Button}>
+              </div>
+            `}
+          </div>
+        `}
       </div>
     </div>
   `;
@@ -586,7 +705,7 @@ function MessagesPanel() {
           onClick=${() => setShowAdvanced(!showAdvanced)}
           class="w-full flex items-center justify-between text-sm font-medium text-slate-300 hover:text-amber-400 transition-colors"
         >
-          <span class="font-mono">Advanced Options (Vision & Tools)</span>
+          <span class="font-mono">Advanced Options (Vision, Tools & Skills)</span>
           <span class="text-amber-400">${showAdvanced ? '▼' : '▶'}</span>
         </button>
 
@@ -981,6 +1100,257 @@ function CostPanel() {
   `;
 }
 
+function SkillsPanel() {
+  const {
+    skillsLoading,
+    skillsSourceFilter,
+    setSkillsSourceFilter,
+    handleListSkills,
+    handleCreateSkill,
+    handleGetSkill
+  } = useApp();
+
+  const [activeTab, setActiveTab] = useState('list');
+  const [skillId, setSkillId] = useState('');
+  const [displayTitle, setDisplayTitle] = useState('');
+  const [uploadFiles, setUploadFiles] = useState([]);
+  const [isDragging, setIsDragging] = useState(false);
+
+  const tabs = [
+    { id: 'list', label: 'List' },
+    { id: 'create', label: 'Create' },
+    { id: 'get', label: 'Get' },
+  ];
+
+  // Drag and drop handlers
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const files = Array.from(e.dataTransfer.files);
+    setUploadFiles(prev => [...prev, ...files]);
+  };
+
+  const handleFileSelect = (e) => {
+    const files = Array.from(e.target.files);
+    setUploadFiles(prev => [...prev, ...files]);
+  };
+
+  const removeFile = (index) => {
+    setUploadFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const hasSkillMd = uploadFiles.some(f => f.name === 'SKILL.md');
+
+  const handleCreate = () => {
+    handleCreateSkill(uploadFiles, displayTitle);
+    setUploadFiles([]);
+    setDisplayTitle('');
+  };
+
+  return html`
+    <div class="space-y-4">
+      <div class="bg-purple-900/20 border border-purple-700/50 rounded-lg p-3 backdrop-blur-sm">
+        <p class="text-xs text-purple-400 font-medium mb-1 font-mono">Skills API (Beta)</p>
+        <p class="text-xs text-purple-300/80 font-mono">
+          Create and manage custom skills for document processing. Beta header auto-included.
+        </p>
+      </div>
+
+      <${Tabs} tabs=${tabs} activeTab=${activeTab} onChange=${setActiveTab} />
+
+      <div class="pt-2">
+        ${activeTab === 'list' && html`
+          <div class="space-y-3">
+            <div class="space-y-2">
+              <label class="block text-sm font-medium text-slate-300 font-mono">Source Filter</label>
+              <div class="flex gap-2">
+                ${['custom', 'anthropic'].map(source => html`
+                  <button
+                    key=${source}
+                    onClick=${() => setSkillsSourceFilter(source)}
+                    class="px-3 py-1.5 text-xs font-mono rounded-lg transition-colors
+                           ${skillsSourceFilter === source
+                             ? 'bg-amber-500 text-slate-900 hover:bg-amber-400'
+                             : 'bg-slate-800 text-slate-300 border border-slate-700 hover:border-slate-600'
+                           }"
+                  >
+                    ${source === 'custom' ? 'Custom Skills' : 'Anthropic Skills'}
+                  </button>
+                `)}
+              </div>
+            </div>
+
+            <${Button}
+              onClick=${() => handleListSkills({ source: skillsSourceFilter })}
+              disabled=${skillsLoading}
+              loading=${skillsLoading}
+              fullWidth=${true}
+            >
+              List Skills
+            </${Button}>
+          </div>
+        `}
+
+        ${activeTab === 'create' && html`
+          <div class="space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-slate-300 mb-2 font-mono">Display Title (Optional)</label>
+              <input
+                type="text"
+                value=${displayTitle}
+                onInput=${(e) => setDisplayTitle(e.target.value)}
+                placeholder="My Custom Skill"
+                class="w-full px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none text-sm font-mono text-slate-100 placeholder-slate-600 hover:border-slate-600 transition-colors"
+              />
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-slate-300 mb-2 font-mono">Files</label>
+              <div
+                onDragOver=${handleDragOver}
+                onDragLeave=${handleDragLeave}
+                onDrop=${handleDrop}
+                class="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors
+                       ${isDragging
+                         ? 'border-amber-500 bg-amber-500/10'
+                         : 'border-slate-700 hover:border-slate-600'
+                       }"
+              >
+                <input
+                  type="file"
+                  multiple
+                  onChange=${handleFileSelect}
+                  class="hidden"
+                  id="skill-file-input"
+                />
+                <label for="skill-file-input" class="cursor-pointer">
+                  <div class="text-slate-400 font-mono text-sm mb-1">
+                    Drop files here or click to select
+                  </div>
+                  <div class="text-slate-500 font-mono text-xs">
+                    Must include SKILL.md
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            ${uploadFiles.length > 0 && html`
+              <div class="space-y-2">
+                <p class="text-sm font-medium text-slate-300 font-mono">Files to upload (${uploadFiles.length})</p>
+                ${uploadFiles.map((file, index) => html`
+                  <div key=${index} class="flex items-center justify-between px-3 py-2 bg-slate-800 rounded-lg font-mono text-sm">
+                    <span class="text-slate-100 flex items-center gap-2">
+                      ${file.name === 'SKILL.md' && html`<span class="text-mint-400">✓</span>`}
+                      ${file.name}
+                      <span class="text-slate-500 text-xs">(${(file.size / 1024).toFixed(1)} KB)</span>
+                    </span>
+                    <button
+                      onClick=${() => removeFile(index)}
+                      class="text-red-400 hover:text-red-300 transition-colors"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                `)}
+              </div>
+            `}
+
+            ${!hasSkillMd && uploadFiles.length > 0 && html`
+              <div class="bg-amber-900/20 border border-amber-700/50 rounded-lg p-3 backdrop-blur-sm">
+                <p class="text-xs text-amber-300 font-mono">
+                  ⚠ SKILL.md file is required
+                </p>
+              </div>
+            `}
+
+            <${Button}
+              onClick=${handleCreate}
+              disabled=${skillsLoading || !hasSkillMd}
+              loading=${skillsLoading}
+              fullWidth=${true}
+            >
+              Create Skill
+            </${Button}>
+          </div>
+        `}
+
+        ${activeTab === 'get' && html`
+          <div class="space-y-3">
+            <div>
+              <label class="block text-sm font-medium text-slate-300 mb-2 font-mono">Skill ID</label>
+              <input
+                type="text"
+                value=${skillId}
+                onInput=${(e) => setSkillId(e.target.value)}
+                placeholder="skill_..."
+                class="w-full px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none text-sm font-mono text-slate-100 placeholder-slate-600 hover:border-slate-600 transition-colors"
+              />
+            </div>
+
+            <${Button}
+              onClick=${() => handleGetSkill(skillId)}
+              disabled=${skillsLoading || !skillId}
+              loading=${skillsLoading}
+              fullWidth=${true}
+            >
+              Retrieve Skill
+            </${Button}>
+
+            ${skillDetail && skillDetail.type !== 'skill_deleted' && html`
+              <div class="border-t border-slate-800 pt-4">
+                <div class="p-4 bg-slate-800/50 rounded-lg border border-slate-700 backdrop-blur-sm">
+                  <div class="space-y-2 text-sm">
+                    <div class="flex justify-between">
+                      <span class="text-slate-400 font-mono">ID:</span>
+                      <span class="text-amber-400 font-mono truncate ml-2">${skillDetail.id}</span>
+                    </div>
+                    ${skillDetail.display_title && html`
+                      <div class="flex justify-between">
+                        <span class="text-slate-400 font-mono">Title:</span>
+                        <span class="text-slate-100 font-mono">${skillDetail.display_title}</span>
+                      </div>
+                    `}
+                    <div class="flex justify-between">
+                      <span class="text-slate-400 font-mono">Source:</span>
+                      <span class="text-mint-400 font-mono">${skillDetail.source || 'custom'}</span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span class="text-slate-400 font-mono">Created:</span>
+                      <span class="text-slate-300 font-mono">${new Date(skillDetail.created_at).toLocaleString()}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            `}
+
+            ${skillDetail && skillDetail.type === 'skill_deleted' && html`
+              <div class="border-t border-slate-800 pt-4">
+                <div class="p-4 bg-mint-900/20 rounded-lg border border-mint-700/50 backdrop-blur-sm">
+                  <p class="text-sm text-mint-300 font-mono">Skill deleted successfully</p>
+                </div>
+              </div>
+            `}
+          </div>
+        `}
+      </div>
+    </div>
+  `;
+}
+
 function TokenCountCard({ tokenCount, costs, stale, onClear }) {
   return html`
     <div class="bg-slate-800/50 border ${stale ? 'border-amber-700/50' : 'border-mint-700/50'} rounded-lg p-3 backdrop-blur-sm animate-slide-up">
@@ -1121,6 +1491,7 @@ function ConfigPanel() {
 
       <div class="flex-1 overflow-y-auto p-4 space-y-6">
         <${ApiKeySection} />
+        <${BetaHeadersSection} />
 
         ${selectedEndpoint === 'messages' && html`
           <div class="border-t border-slate-800 pt-4">
@@ -1139,6 +1510,7 @@ function ConfigPanel() {
           ${selectedEndpoint === 'messages' && html`<${MessagesPanel} />`}
           ${selectedEndpoint === 'batches' && html`<${BatchesPanel} />`}
           ${selectedEndpoint === 'models' && html`<${ModelsPanel} />`}
+          ${selectedEndpoint === 'skills' && html`<${SkillsPanel} />`}
           ${selectedEndpoint === 'usage' && html`<${UsagePanel} />`}
           ${selectedEndpoint === 'cost' && html`<${CostPanel} />`}
         </div>
@@ -1246,17 +1618,18 @@ function ConfigPanel() {
 }
 
 function ResponsePanel() {
-  const { response, loading, error, selectedEndpoint, modelsList, batchStatus, usageReport, costReport, toolExecutionStatus, toolExecutionDetails, models, maxTokens, tokenCount, model } = useApp();
+  const { response, loading, error, selectedEndpoint, modelsList, batchStatus, usageReport, costReport, skillsList, skillDetail, handleGetSkill, toolExecutionStatus, toolExecutionDetails, models, maxTokens, tokenCount, model } = useApp();
   const [viewMode, setViewMode] = useState('formatted');
 
   // Determine if we should show view mode toggle
-  const showViewModeToggle = response || modelsList || batchStatus || usageReport || costReport;
+  const showViewModeToggle = response || modelsList || batchStatus || usageReport || costReport || skillsList || skillDetail;
 
   // Determine the response type
   const getResponseType = () => {
     if (selectedEndpoint === 'models' && modelsList) return 'models';
     if (selectedEndpoint === 'batches' && (batchStatus || response?.id)) return 'batch';
     if (selectedEndpoint === 'messages' && response?.content) return 'message';
+    if (selectedEndpoint === 'skills' && (skillsList || skillDetail)) return 'skills';
     if (selectedEndpoint === 'usage' && (usageReport || response?.data)) return 'usage';
     if (selectedEndpoint === 'cost' && (costReport || response?.data)) return 'cost';
     return 'generic';
@@ -1319,9 +1692,9 @@ function ResponsePanel() {
           </div>
         `}
 
-        ${!loading && !error && viewMode === 'json' && (response || modelsList || batchStatus || usageReport || costReport) && html`
+        ${!loading && !error && viewMode === 'json' && (response || modelsList || batchStatus || usageReport || costReport || skillsList || skillDetail) && html`
           <pre class="bg-slate-950 text-mint-300 p-6 rounded-lg overflow-x-auto text-sm font-mono leading-relaxed border border-slate-800 shadow-xl terminal-glow animate-fade-in">
-            ${JSON.stringify(response || modelsList || batchStatus || usageReport || costReport, null, 2)}
+            ${JSON.stringify(response || modelsList || batchStatus || usageReport || costReport || skillsList || skillDetail, null, 2)}
           </pre>
         `}
 
@@ -1569,7 +1942,93 @@ function ResponsePanel() {
           </div>
         `}
 
-        ${!loading && !error && !response && !modelsList && !batchStatus && !usageReport && !costReport && html`
+        ${!loading && !error && viewMode === 'formatted' && responseType === 'skills' && (skillsList || skillDetail) && html`
+          <div class="space-y-3 animate-slide-up">
+            ${skillsList && html`
+              <div class="bg-slate-800/50 border border-slate-700 rounded-lg p-3 backdrop-blur-sm">
+                <h3 class="text-sm font-semibold text-slate-100 font-mono">
+                  Found ${skillsList.data?.length || 0} skills
+                </h3>
+              </div>
+              ${skillsList.data?.map((skill) => html`
+                <div key=${skill.id} class="bg-slate-800/50 border border-slate-700 rounded-lg p-4 backdrop-blur-sm hover-lift">
+                  <div class="flex items-start justify-between mb-1">
+                    <div class="font-medium text-base text-slate-100 font-mono">
+                      ${skill.display_title || skill.id}
+                    </div>
+                    <button
+                      onClick=${() => handleGetSkill(skill.id)}
+                      class="px-2 py-1 text-xs font-mono text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 rounded transition-colors"
+                    >
+                      View →
+                    </button>
+                  </div>
+                  <div class="text-sm text-amber-400 font-mono mb-2">${skill.id}</div>
+                  <div class="grid grid-cols-2 gap-2 text-xs font-mono">
+                    <div>
+                      <span class="text-slate-500">Source:</span>
+                      <span class="text-mint-400 ml-1">${skill.source || 'custom'}</span>
+                    </div>
+                    <div>
+                      <span class="text-slate-500">Created:</span>
+                      <span class="text-slate-300 ml-1">${new Date(skill.created_at).toLocaleDateString()}</span>
+                    </div>
+                  </div>
+                </div>
+              `)}
+              ${skillsList.has_more && html`
+                <div class="text-sm text-slate-500 text-center py-2 font-mono">
+                  More skills available (use pagination)
+                </div>
+              `}
+            `}
+
+            ${skillDetail && skillDetail.type !== 'skill_deleted' && !skillsList && html`
+              <div class="bg-slate-800/50 border border-slate-700 rounded-lg p-4 backdrop-blur-sm">
+                <h3 class="text-sm font-semibold text-slate-100 mb-3 font-mono">Skill Details</h3>
+                <div class="space-y-2 text-sm">
+                  <div class="flex justify-between">
+                    <span class="text-slate-400 font-mono">ID:</span>
+                    <span class="font-mono text-amber-400 truncate ml-2">${skillDetail.id}</span>
+                  </div>
+                  ${skillDetail.display_title && html`
+                    <div class="flex justify-between">
+                      <span class="text-slate-400 font-mono">Title:</span>
+                      <span class="font-mono text-slate-100">${skillDetail.display_title}</span>
+                    </div>
+                  `}
+                  <div class="flex justify-between">
+                    <span class="text-slate-400 font-mono">Source:</span>
+                    <span class="font-mono text-mint-400">${skillDetail.source || 'custom'}</span>
+                  </div>
+                  <div class="flex justify-between">
+                    <span class="text-slate-400 font-mono">Created:</span>
+                    <span class="font-mono text-slate-300">${new Date(skillDetail.created_at).toLocaleString()}</span>
+                  </div>
+                  ${skillDetail.updated_at && html`
+                    <div class="flex justify-between">
+                      <span class="text-slate-400 font-mono">Updated:</span>
+                      <span class="font-mono text-slate-300">${new Date(skillDetail.updated_at).toLocaleString()}</span>
+                    </div>
+                  `}
+                </div>
+              </div>
+            `}
+
+            ${skillDetail && skillDetail.type === 'skill_deleted' && html`
+              <div class="bg-mint-900/20 border border-mint-700/50 rounded-lg p-4 backdrop-blur-sm">
+                <h3 class="text-sm font-semibold text-mint-400 mb-2 font-mono flex items-center gap-2">
+                  <span>✓</span> Skill Deleted
+                </h3>
+                <p class="text-sm text-mint-300 font-mono">
+                  Skill ${skillDetail.id} has been permanently deleted.
+                </p>
+              </div>
+            `}
+          </div>
+        `}
+
+        ${!loading && !error && !response && !modelsList && !batchStatus && !usageReport && !costReport && !skillsList && !skillDetail && html`
           <div class="flex items-center justify-center h-full text-slate-500">
             <div class="text-center">
               <div class="w-16 h-16 mx-auto mb-4 bg-slate-800/50 rounded-lg flex items-center justify-center border border-slate-700">
@@ -1604,6 +2063,7 @@ function AppContent() {
     { id: 'messages', label: 'Messages', description: endpoints.messages.description },
     { id: 'batches', label: 'Batches', description: endpoints.batches.description },
     { id: 'models', label: 'Models', description: endpoints.models.description },
+    { id: 'skills', label: 'Skills', description: endpoints.skills.description },
     { id: 'usage', label: 'Usage', description: endpoints.usage.description },
     { id: 'cost', label: 'Cost', description: endpoints.cost.description },
   ];

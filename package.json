@@ -15,6 +15,8 @@
     "@anthropic-ai/sdk": "^0.66.0",
     "cors": "^2.8.5",
     "express": "^5.1.0",
+    "form-data": "^4.0.5",
+    "multer": "^2.0.2",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   }

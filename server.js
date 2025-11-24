@@ -2,6 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import multer from 'multer';
+import FormData from 'form-data';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -12,6 +14,9 @@ const PORT = 3001;
 // Enable CORS for all origins
 app.use(cors());
 app.use(express.json());
+
+// Multer setup for handling file uploads (Skills API)
+const upload = multer({ storage: multer.memoryStorage() });
 
 // Serve static files from the project root
 app.use(express.static(__dirname));
@@ -114,6 +119,83 @@ app.get('/v1/organizations/cost_report', async (req, res) => {
   const queryParams = new URLSearchParams(req.query).toString();
   const path = `/v1/organizations/cost_report${queryParams ? '?' + queryParams : ''}`;
   await proxyToAnthropic(req, res, 'GET', path);
+});
+
+// Skills API - List skills
+app.get('/v1/skills', async (req, res) => {
+  const queryParams = new URLSearchParams(req.query).toString();
+  const path = `/v1/skills${queryParams ? '?' + queryParams : ''}`;
+  await proxyToAnthropic(req, res, 'GET', path);
+});
+
+// Skills API - Get skill by ID
+app.get('/v1/skills/:id', async (req, res) => {
+  const skillId = req.params.id;
+  await proxyToAnthropic(req, res, 'GET', `/v1/skills/${encodeURIComponent(skillId)}`);
+});
+
+// Skills API - Delete skill
+app.delete('/v1/skills/:id', async (req, res) => {
+  const skillId = req.params.id;
+  await proxyToAnthropic(req, res, 'DELETE', `/v1/skills/${encodeURIComponent(skillId)}`);
+});
+
+// Skills API - Create skill (multipart/form-data)
+app.post('/v1/skills', upload.array('files'), async (req, res) => {
+  const apiKey = req.headers['x-api-key'];
+  const anthropicVersion = req.headers['anthropic-version'] || '2023-06-01';
+  const anthropicBeta = req.headers['anthropic-beta'];
+
+  if (!apiKey) {
+    return res.status(401).json({ error: 'API key is required' });
+  }
+
+  try {
+    // Create FormData for upstream request
+    const formData = new FormData();
+
+    // Add display_title if provided
+    if (req.body && req.body.display_title) {
+      formData.append('display_title', req.body.display_title);
+    }
+
+    // Add files
+    if (req.files && req.files.length > 0) {
+      for (const file of req.files) {
+        formData.append('files', file.buffer, {
+          filename: file.originalname,
+          contentType: file.mimetype,
+        });
+      }
+    }
+
+    const headers = {
+      'x-api-key': apiKey,
+      'anthropic-version': anthropicVersion,
+      ...formData.getHeaders(),
+    };
+
+    if (anthropicBeta) {
+      headers['anthropic-beta'] = anthropicBeta;
+    }
+
+    const response = await fetch('https://api.anthropic.com/v1/skills', {
+      method: 'POST',
+      headers: headers,
+      body: formData,
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return res.status(response.status).json(data);
+    }
+
+    res.json(data);
+  } catch (error) {
+    console.error('Skills API error:', error);
+    res.status(500).json({ error: 'Skills API proxy error: ' + error.message });
+  }
 });
 
 // Tool API Proxies

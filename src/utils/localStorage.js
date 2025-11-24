@@ -4,7 +4,9 @@ const STORAGE_KEYS = {
   HISTORY: 'claude_api_explorer_history',
   LAST_CONFIG: 'claude_api_explorer_last_config',
   TOOL_MODE: 'claude_api_explorer_tool_mode',
-  TOOL_API_KEYS: 'claude_api_explorer_tool_api_keys'
+  TOOL_API_KEYS: 'claude_api_explorer_tool_api_keys',
+  BETA_HEADERS: 'claude_api_explorer_beta_headers',
+  SKILLS_JSON: 'claude_api_explorer_skills_json'
 };
 
 const MAX_HISTORY_ITEMS = 50;
@@ -206,6 +208,41 @@ export const storage = {
     } catch (error) {
       console.error('Failed to load tool API keys:', error);
       return {};
+    }
+  },
+
+  // Beta headers (array of selected header IDs)
+  saveBetaHeaders(headers) {
+    try {
+      localStorage.setItem(STORAGE_KEYS.BETA_HEADERS, JSON.stringify(headers));
+    } catch (error) {
+      console.error('Failed to save beta headers:', error);
+    }
+  },
+
+  getBetaHeaders() {
+    try {
+      const headers = localStorage.getItem(STORAGE_KEYS.BETA_HEADERS);
+      return headers ? JSON.parse(headers) : [];
+    } catch (error) {
+      return [];
+    }
+  },
+
+  // Skills JSON string
+  saveSkillsJson(json) {
+    try {
+      localStorage.setItem(STORAGE_KEYS.SKILLS_JSON, json);
+    } catch (error) {
+      console.error('Failed to save skills:', error);
+    }
+  },
+
+  getSkillsJson() {
+    try {
+      return localStorage.getItem(STORAGE_KEYS.SKILLS_JSON) || '';
+    } catch (error) {
+      return '';
     }
   }
 };

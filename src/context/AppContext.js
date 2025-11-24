@@ -42,6 +42,10 @@ export function AppProvider({ children }) {
   const [toolMode, setToolMode] = useState(storage.getToolMode() || TOOL_MODES.DEMO);
   const [toolApiKeys, setToolApiKeys] = useState(storage.getToolApiKeys() || {});
 
+  // Beta headers and Skills
+  const [betaHeaders, setBetaHeaders] = useState(storage.getBetaHeaders());
+  const [skillsJson, setSkillsJson] = useState(storage.getSkillsJson());
+
   // Endpoint-specific state
   // Batches API
   const [batchRequests, setBatchRequests] = useState([{ custom_id: '', params: { model: 'claude-sonnet-4-20250514', messages: [{ role: 'user', content: '' }], max_tokens: 1024 } }]);
@@ -59,6 +63,12 @@ export function AppProvider({ children }) {
   // Cost API
   const [costReport, setCostReport] = useState(null);
   const [costLoading, setCostLoading] = useState(false);
+
+  // Skills API
+  const [skillsList, setSkillsList] = useState(null);
+  const [skillsLoading, setSkillsLoading] = useState(false);
+  const [skillDetail, setSkillDetail] = useState(null);
+  const [skillsSourceFilter, setSkillsSourceFilter] = useState('custom');
 
   // Token Count
   const [tokenCount, setTokenCount] = useState(null);
@@ -91,6 +101,14 @@ export function AppProvider({ children }) {
   useEffect(() => {
     storage.saveToolApiKeys(toolApiKeys);
   }, [toolApiKeys]);
+
+  useEffect(() => {
+    storage.saveBetaHeaders(betaHeaders);
+  }, [betaHeaders]);
+
+  useEffect(() => {
+    storage.saveSkillsJson(skillsJson);
+  }, [skillsJson]);
 
   // Load last configuration on mount
   useEffect(() => {
@@ -125,6 +143,13 @@ export function AppProvider({ children }) {
       setTokenCountStale(true);
     }
   }, [messages, system, tools, images, model]);
+
+  // Auto-fetch models when API key is set
+  useEffect(() => {
+    if (apiKey && !modelsList && !modelsLoading) {
+      handleListModels({ limit: 100 });
+    }
+  }, [apiKey]);
 
   const handleSendRequest = async () => {
     if (!apiKey) {
@@ -178,15 +203,33 @@ export function AppProvider({ children }) {
     if (topK !== 0) requestBody.top_k = topK;
     if (tools.length > 0) requestBody.tools = tools;
 
+    // Add container.skills if skillsJson is valid
+    if (skillsJson.trim()) {
+      try {
+        const parsedSkills = JSON.parse(skillsJson);
+        if (Array.isArray(parsedSkills) && parsedSkills.length > 0) {
+          requestBody.container = { skills: parsedSkills };
+        }
+      } catch (e) {
+        // Invalid JSON, skip
+      }
+    }
+
     try {
+      // Build headers
+      const headers = {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      };
+      if (betaHeaders.length > 0) {
+        headers['anthropic-beta'] = betaHeaders.join(',');
+      }
+
       // Make initial request
       const res = await fetch('http://localhost:3001/v1/messages', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-        },
+        headers,
         body: JSON.stringify(requestBody),
       });
 
@@ -198,11 +241,26 @@ export function AppProvider({ children }) {
       const data = await res.json();
 
       // Check if Claude wants to use tools
+      // Note: code_execution is a server-side tool that Claude executes automatically
+      // We only need to handle client-side tools here
       if (data.stop_reason === 'tool_use' && tools.length > 0) {
         setToolExecutionStatus('Executing tools...');
 
-        // Extract tool use blocks
-        const toolUseBlocks = data.content.filter(block => block.type === 'tool_use');
+        // Extract tool use blocks, excluding server-side tools like code_execution
+        const serverSideTools = ['code_execution'];
+        const toolUseBlocks = data.content.filter(
+          block => block.type === 'tool_use' && !serverSideTools.includes(block.name)
+        );
+
+        // If no client-side tools to execute, just show the response
+        if (toolUseBlocks.length === 0) {
+          setResponse(data);
+          setToolExecutionStatus(null);
+          storage.saveToHistory(requestBody, data);
+          setHistory(storage.getHistory());
+          setLoading(false);
+          return;
+        }
 
         // Execute each tool and create tool_result blocks
         const executionDetails = [];
@@ -249,18 +307,32 @@ export function AppProvider({ children }) {
         if (temperature !== 1.0) followUpBody.temperature = temperature;
         if (topP !== 1.0) followUpBody.top_p = topP;
         if (topK !== 0) followUpBody.top_k = topK;
-        if (tools.length > 0) followUpBody.tools = tools;
+        // Use requestBody.tools which may include auto-injected code_execution tool
+        if (requestBody.tools && requestBody.tools.length > 0) {
+          followUpBody.tools = requestBody.tools;
+        }
+
+        // Include container.skills in follow-up if present
+        if (requestBody.container) {
+          followUpBody.container = requestBody.container;
+        }
 
         setToolExecutionStatus('Getting final response...');
+
+        // Build follow-up headers
+        const followUpHeaders = {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+        };
+        if (betaHeaders.length > 0) {
+          followUpHeaders['anthropic-beta'] = betaHeaders.join(',');
+        }
 
         // Make follow-up request
         const followUpRes = await fetch('http://localhost:3001/v1/messages', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': apiKey,
-            'anthropic-version': '2023-06-01',
-          },
+          headers: followUpHeaders,
           body: JSON.stringify(followUpBody),
         });
 
@@ -332,6 +404,7 @@ export function AppProvider({ children }) {
     const requestBody = { model, messages: messagesWithImages };
     if (system) requestBody.system = system;
     if (tools.length > 0) requestBody.tools = tools;
+    // Note: Token counting API doesn't support container.skills or beta headers
 
     try {
       const res = await fetch('http://localhost:3001/v1/messages/count_tokens', {
@@ -523,6 +596,192 @@ export function AppProvider({ children }) {
     }
   };
 
+  // Skills API handlers
+  const SKILLS_BETA_HEADER = 'skills-2025-10-02';
+
+  const handleListSkills = async (queryParams = {}) => {
+    if (!apiKey) {
+      setError('Please provide an API key');
+      return;
+    }
+
+    setSkillsLoading(true);
+    setError(null);
+    setSkillDetail(null);
+
+    // Build query string
+    const params = new URLSearchParams();
+    if (queryParams.source) params.append('source', queryParams.source);
+    if (queryParams.limit) params.append('limit', queryParams.limit);
+    if (queryParams.page) params.append('page', queryParams.page);
+    const queryString = params.toString() ? `?${params.toString()}` : '';
+
+    try {
+      const res = await fetch(`http://localhost:3001/v1/skills${queryString}`, {
+        method: 'GET',
+        headers: {
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-beta': SKILLS_BETA_HEADER,
+        },
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error?.message || `API request failed with status ${res.status}`);
+      }
+
+      const data = await res.json();
+      setSkillsList(data);
+      setResponse(data);
+    } catch (err) {
+      console.error('API Error:', err);
+      setError(err.message || 'An error occurred while fetching skills');
+    } finally {
+      setSkillsLoading(false);
+    }
+  };
+
+  const handleCreateSkill = async (files, displayTitle = '') => {
+    if (!apiKey) {
+      setError('Please provide an API key');
+      return;
+    }
+
+    if (!files || files.length === 0) {
+      setError('Please provide at least one file');
+      return;
+    }
+
+    // Validate SKILL.md is present
+    const hasSkillMd = files.some(f => f.name === 'SKILL.md');
+    if (!hasSkillMd) {
+      setError('A SKILL.md file is required');
+      return;
+    }
+
+    setSkillsLoading(true);
+    setError(null);
+    setSkillDetail(null);
+
+    try {
+      const formData = new FormData();
+      if (displayTitle) {
+        formData.append('display_title', displayTitle);
+      }
+      files.forEach(file => {
+        formData.append('files', file);
+      });
+
+      const res = await fetch('http://localhost:3001/v1/skills', {
+        method: 'POST',
+        headers: {
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-beta': SKILLS_BETA_HEADER,
+        },
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error?.message || `API request failed with status ${res.status}`);
+      }
+
+      const data = await res.json();
+      setSkillDetail(data);
+      setResponse(data);
+    } catch (err) {
+      console.error('API Error:', err);
+      setError(err.message || 'An error occurred while creating the skill');
+    } finally {
+      setSkillsLoading(false);
+    }
+  };
+
+  const handleGetSkill = async (skillId) => {
+    if (!apiKey) {
+      setError('Please provide an API key');
+      return;
+    }
+
+    if (!skillId) {
+      setError('Please provide a skill ID');
+      return;
+    }
+
+    setSkillsLoading(true);
+    setError(null);
+    setSkillsList(null); // Clear list so detail view shows
+
+    try {
+      const res = await fetch(`http://localhost:3001/v1/skills/${encodeURIComponent(skillId)}`, {
+        method: 'GET',
+        headers: {
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-beta': SKILLS_BETA_HEADER,
+        },
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error?.message || `API request failed with status ${res.status}`);
+      }
+
+      const data = await res.json();
+      setSkillDetail(data);
+      setResponse(data);
+    } catch (err) {
+      console.error('API Error:', err);
+      setError(err.message || 'An error occurred while fetching skill details');
+    } finally {
+      setSkillsLoading(false);
+    }
+  };
+
+  const handleDeleteSkill = async (skillId) => {
+    if (!apiKey) {
+      setError('Please provide an API key');
+      return;
+    }
+
+    if (!skillId) {
+      setError('Please provide a skill ID');
+      return;
+    }
+
+    setSkillsLoading(true);
+    setError(null);
+
+    try {
+      const res = await fetch(`http://localhost:3001/v1/skills/${encodeURIComponent(skillId)}`, {
+        method: 'DELETE',
+        headers: {
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-beta': SKILLS_BETA_HEADER,
+        },
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error?.message || `API request failed with status ${res.status}`);
+      }
+
+      const data = await res.json();
+      setSkillDetail(data);
+      setResponse(data);
+      // Clear skills list to force refresh
+      setSkillsList(null);
+    } catch (err) {
+      console.error('API Error:', err);
+      setError(err.message || 'An error occurred while deleting the skill');
+    } finally {
+      setSkillsLoading(false);
+    }
+  };
+
   // Batches API handlers
   const handleCreateBatch = async () => {
     if (!apiKey) {
@@ -639,6 +898,8 @@ export function AppProvider({ children }) {
     setSystem('');
     setTools([]);
     setImages([]);
+    setBetaHeaders([]);
+    setSkillsJson('');
     setResponse(null);
     setError(null);
     setToolExecutionDetails(null);
@@ -654,6 +915,9 @@ export function AppProvider({ children }) {
     if (request.top_p !== undefined) setTopP(request.top_p);
     if (request.top_k !== undefined) setTopK(request.top_k);
     if (request.tools) setTools(request.tools);
+    if (request.container?.skills) {
+      setSkillsJson(JSON.stringify(request.container.skills, null, 2));
+    }
   };
 
   const clearHistory = () => {
@@ -713,6 +977,12 @@ export function AppProvider({ children }) {
     toolApiKeys,
     setToolApiKeys,
 
+    // Beta headers and Skills
+    betaHeaders,
+    setBetaHeaders,
+    skillsJson,
+    setSkillsJson,
+
     // Batches API
     batchRequests,
     setBatchRequests,
@@ -740,6 +1010,19 @@ export function AppProvider({ children }) {
     setCostReport,
     costLoading,
     handleGetCostReport,
+
+    // Skills API
+    skillsList,
+    setSkillsList,
+    skillsLoading,
+    skillDetail,
+    setSkillDetail,
+    skillsSourceFilter,
+    setSkillsSourceFilter,
+    handleListSkills,
+    handleCreateSkill,
+    handleGetSkill,
+    handleDeleteSkill,
 
     // Token Count
     tokenCount,
@@ -769,10 +1052,12 @@ export function AppProvider({ children }) {
     model, messages, system, maxTokens, temperature, topP, topK,
     tools, images,
     toolMode, toolApiKeys,
+    betaHeaders, skillsJson,
     batchRequests, batchStatus, batchResults,
     modelsList, modelsLoading,
     usageReport, usageLoading,
     costReport, costLoading,
+    skillsList, skillsLoading, skillDetail, skillsSourceFilter,
     tokenCount, tokenCountLoading, tokenCountStale,
     response, loading, error, streamingText, toolExecutionStatus, toolExecutionDetails,
     history
