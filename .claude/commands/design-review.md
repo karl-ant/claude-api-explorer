@@ -29,7 +29,8 @@ ACCENTS:
 Amber (primary actions):   text-amber-400, bg-amber-500, bg-gradient-to-r from-amber-500 to-amber-600
 Mint (success/metrics):    text-mint-400, bg-mint-500
 Red (errors):              text-red-400
-Purple (tool execution):   text-purple-400
+Purple (tool execution):   text-purple-400, bg-purple-900/20, border-purple-700/50
+Teal (skill execution):    text-teal-400, bg-teal-900/20, border-teal-700/50
 
 TEXT HIERARCHY:
 text-slate-100  Primary text, headings

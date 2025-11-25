@@ -202,7 +202,7 @@ export function AppProvider({ children }) {
     if (temperature !== 1.0) requestBody.temperature = temperature;
     if (topP !== 1.0) requestBody.top_p = topP;
     if (topK !== 0) requestBody.top_k = topK;
-    if (tools.length > 0) requestBody.tools = tools;
+    if (tools.length > 0) requestBody.tools = [...tools];
 
     // Add container.skills if skillsJson is valid
     if (skillsJson.trim()) {
@@ -210,6 +210,14 @@ export function AppProvider({ children }) {
         const parsedSkills = JSON.parse(skillsJson);
         if (Array.isArray(parsedSkills) && parsedSkills.length > 0) {
           requestBody.container = { skills: parsedSkills };
+          // Auto-inject code_execution tool (required for container skills)
+          if (!requestBody.tools) {
+            requestBody.tools = [];
+          }
+          const hasCodeExecution = requestBody.tools.some(t => t.type?.startsWith('code_execution'));
+          if (!hasCodeExecution) {
+            requestBody.tools.push({ type: 'code_execution_20250825', name: 'code_execution' });
+          }
         }
       } catch (e) {
         // Invalid JSON, skip

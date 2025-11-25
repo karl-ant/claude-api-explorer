@@ -114,17 +114,26 @@ function ModelSelector() {
 
   // Use API models if available, merge with static config for pricing/description
   // Always use model ID as name to distinguish between variants (e.g., multiple "Claude Haiku 4.5")
-  const availableModels = modelsList?.data
-    ? modelsList.data.map(apiModel => {
-        const staticMatch = staticModels.find(s => s.id === apiModel.id);
-        return {
-          id: apiModel.id,
-          name: apiModel.id,
-          description: staticMatch?.description || apiModel.display_name || '',
-          pricing: staticMatch?.pricing
-        };
-      })
-    : staticModels;
+  const availableModels = React.useMemo(() => {
+    return modelsList?.data
+      ? modelsList.data.map(apiModel => {
+          const staticMatch = staticModels.find(s => s.id === apiModel.id);
+          return {
+            id: apiModel.id,
+            name: apiModel.id,
+            description: staticMatch?.description || apiModel.display_name || '',
+            pricing: staticMatch?.pricing
+          };
+        })
+      : staticModels;
+  }, [modelsList, staticModels]);
+
+  // Ensure selected model exists in available models - sync state if not
+  React.useEffect(() => {
+    if (availableModels.length > 0 && !availableModels.find(m => m.id === model)) {
+      setModel(availableModels[0].id);
+    }
+  }, [availableModels, model, setModel]);
 
   const selectedModel = availableModels.find((m) => m.id === model);
 
@@ -1901,6 +1910,25 @@ function ResponsePanel() {
                           <pre class="bg-slate-950 p-2 rounded text-mint-200 overflow-x-auto font-mono border border-slate-700 whitespace-pre-wrap break-words">${tool.tool_result}</pre>
                         </div>
                       </div>
+                    </div>
+                  `)}
+                </div>
+              </div>
+            `}
+
+            ${response.container && html`
+              <div class="bg-teal-900/20 border border-teal-700/50 rounded-lg p-4 backdrop-blur-sm">
+                <h3 class="text-sm font-semibold text-teal-400 mb-3 flex items-center gap-2 font-mono">
+                  <span>📄</span>
+                  <span>Skills Executed</span>
+                </h3>
+                <div class="space-y-3">
+                  ${response.container.skills && response.container.skills.map((skill, idx) => html`
+                    <div key=${idx} class="bg-slate-800/50 rounded-lg p-3 border border-teal-700/30">
+                      <div class="font-medium text-teal-300 mb-2 font-mono">
+                        ${skill.skill_id || skill.type}
+                      </div>
+                      <pre class="bg-slate-950 p-2 rounded text-teal-200 overflow-x-auto font-mono border border-slate-700 text-xs whitespace-pre-wrap break-words">${JSON.stringify(skill, null, 2)}</pre>
                     </div>
                   `)}
                 </div>

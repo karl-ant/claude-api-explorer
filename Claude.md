@@ -109,6 +109,7 @@ text-amber-400 / bg-amber-500    // Primary actions
 text-mint-400 / bg-mint-500      // Success, metrics
 text-red-400                     // Errors
 text-purple-400                  // Tool execution
+text-teal-400                    // Skill execution
 
 // Text hierarchy
 text-slate-100  // Primary
