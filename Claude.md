@@ -234,14 +234,74 @@ State: `skillsJson` (string) in AppContext, persisted to localStorage.
 
 ## Hybrid Tool System
 
-Tools run in two modes:
-- **Demo Mode** (default): Mock data for offline testing
-- **Real Mode**: Actual API calls
+**Status:** Phase 4 Complete (UI implemented 2025-11-24)
 
-**Developer Tools (no API):** Calculator, JSON Validator, Code Formatter, Token Counter, Regex Tester
-**External API Tools:** Weather (OpenWeatherMap), Search (Brave)
+Tools execute in two modes that users can toggle in the UI:
+- **Demo Mode** (default): Returns mock data for offline testing
+- **Real Mode**: Makes actual API calls (requires API keys for external tools)
 
-State: `toolMode` and `toolApiKeys` in AppContext (persisted to localStorage)
+### Available Tools
+
+**Developer Tools (no API required):**
+- Calculator - Enhanced expression evaluator
+- JSON Validator - Validates and formats JSON
+- Code Formatter - Formats JavaScript, Python, JSON
+- Token Counter - Estimates Claude token counts
+- Regex Tester - Tests regex patterns with match results
+
+**External API Tools (require keys in Real mode):**
+- Weather - OpenWeatherMap API integration
+- Web Search - Brave Search API integration
+
+### UI Location
+
+**Advanced Options → Tools tab** (FullApp.js lines 561-627)
+
+**Components:**
+1. **Tool Mode Toggle** - Button toggle between Demo/Real modes
+2. **API Keys Panel** - Appears in Real mode with:
+   - Password inputs for OpenWeatherMap and Brave Search keys
+   - Info buttons (ⓘ) linking to API key provider pages
+   - Dynamic generation via `getRequiredApiKeys()`
+3. **Developer Category** - New tool button section (lines 743-759)
+
+### State Management
+
+**AppContext state:**
+- `toolMode` - Current mode ('demo' or 'real')
+- `toolApiKeys` - Object with API keys: `{ openweathermap: '...', brave_search: '...' }`
+- Both persist automatically via localStorage
+
+**Tool execution:**
+```javascript
+import { executeTool } from './utils/toolExecutors/index.js';
+const result = await executeTool(toolName, input, toolMode, toolApiKeys);
+```
+
+### Architecture
+
+**Configuration:** `src/config/toolConfig.js`
+- `TOOL_REGISTRY` - Metadata for all tools (requirements, categories)
+- `getRequiredApiKeys()` - Returns API key configuration
+- `isToolAvailable()` - Check if tool can run in given mode
+
+**Executors:** `src/utils/toolExecutors/`
+- `index.js` - Router that dispatches to demo or real implementations
+- Individual files for each tool (weather.js, search.js, calculator.js, etc.)
+
+**Proxy routes:** `server.js`
+- `GET /api/weather` - OpenWeatherMap proxy
+- `GET /api/search` - Brave Search proxy
+
+### Implementation Notes
+
+**Tool definitions:** Lines 353-565 in FullApp.js
+- All 12 tools defined with proper input schemas
+- Claude automatically discovers and can use any defined tool
+
+**Fallback behavior:**
+- If Real mode selected but API key missing, falls back to Demo mode
+- Tools without real implementations always use demo data
 
 ## Security
 
@@ -280,7 +340,6 @@ setImages(prev => [...prev, newImage]);
 - History only for Messages endpoint
 - No error boundaries
 - Usage/Cost APIs require Admin key (sk-ant-admin...)
-- Hybrid tool UI incomplete (backend ready)
 - Token counting API doesn't support skills/beta headers
 - Skills version endpoints require `?beta=true` query parameter
 
@@ -293,9 +352,10 @@ setImages(prev => [...prev, newImage]);
 
 ---
 
-**Version:** 2.5 | **Updated:** 2025-11-24 | **Owner:** Karl
+**Version:** 2.6 | **Updated:** 2025-12-03 | **Owner:** Karl
 
 **Recent Changes:**
+- v2.6: Hybrid Tool System UI complete - Tool mode toggle, API keys panel, 4 new developer tools
 - v2.5: Skills folder upload (drag & drop folders), Delete tab with version management, text wrapping fixes
 - v2.4: Added Skills API tab (List, Create, Get), dynamic model dropdown from /v1/models API
 - v2.3: Added Beta Headers toggle UI, Container Skills support
