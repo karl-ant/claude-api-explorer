@@ -24,63 +24,50 @@
 - [x] Implement web search API integration (search.js)
 - [x] Add proxy routes for external APIs in server.js
 
+## ✅ Phase 4: UI & Error Handling - COMPLETED
+
+**Completion Date:** 2025-11-24
+
+All UI components for the hybrid tool system have been implemented:
+
+#### 1. ✅ Tool Mode Toggle UI (FullApp.js)
+- Added button-style toggle: "🎭 Demo Mode" / "🚀 Real Mode"
+- Imported `TOOL_MODES` and `getRequiredApiKeys` from toolConfig.js
+- Integrated with `toolMode` and `setToolMode` from AppContext
+- Visual indicator shows current mode with descriptive text
+
+#### 2. ✅ API Keys Configuration Panel (FullApp.js)
+- Panel displays below tool mode toggle (only visible in Real mode)
+- Dynamic generation using `getRequiredApiKeys()` function
+- Input fields for:
+  - OpenWeatherMap API Key (weather)
+  - Brave Search API Key (web search)
+- Info button (ⓘ) next to each key linking to provider's API key page
+- Uses `toolApiKeys` and `setToolApiKeys` from AppContext with localStorage persistence
+- Conditional rendering based on tool mode
+
+#### 3. ✅ Developer Tools Added (FullApp.js)
+- Added 4 new tool definitions to predefined tools object:
+  - `json_validator` - Validate and format JSON
+  - `code_formatter` - Format JavaScript, Python, JSON
+  - `token_counter` - Estimate Claude token counts
+  - `regex_tester` - Test regular expressions
+- All tools include proper input schemas
+
+#### 4. ✅ Developer Category UI
+- New "Developer" category section added to tool buttons
+- 4 tool buttons with emojis: ✅ 📝 🔢 🔍
+- Matches existing design patterns (grid layout, button styling)
+
+#### Enhanced Tool Display (Deferred)
+**Status:** Not implemented in this phase
+**Rationale:** Current implementation is sufficient for MVP. Can be added later if needed.
+**Potential enhancements:**
+- Badge indicators showing DEMO/REAL mode per tool
+- Tool availability status (grayed out if API key missing)
+- Execution time/performance metrics
+
 ## 🚧 Remaining Work
-
-### Phase 4: UI & Error Handling (~2-3 hours)
-
-#### 1. Add Tool Mode Toggle UI (FullApp.js)
-**Location:** AdvancedOptions section, after Tools section
-**Tasks:**
-- Add toggle switch: "🎭 Demo Mode" / "🚀 Real Mode"
-- Import `TOOL_MODES` from toolConfig.js
-- Use `toolMode` and `setToolMode` from AppContext
-- Add visual indicator showing current mode
-
-#### 2. Add API Keys Configuration Panel (FullApp.js)
-**Location:** Below tool mode toggle
-**Tasks:**
-- Create collapsible section: "⚙️ API Keys for Real Tools"
-- Add input fields:
-  - OpenWeatherMap API Key (for weather)
-  - Brave Search API Key (for web search)
-- Include "Where to get API keys" help links:
-  - https://openweathermap.org/api
-  - https://brave.com/search/api/
-- Use `toolApiKeys` and `setToolApiKeys` from AppContext
-- Show/hide based on tool mode (only show in Real mode)
-
-#### 3. Update Tool Definitions with New Developer Tools (FullApp.js)
-**Location:** Line ~260, predefined tools array
-**Tasks:**
-- Add `json_validator` tool definition
-- Add `code_formatter` tool definition
-- Add `token_counter` tool definition
-- Add `regex_tester` tool definition
-- Each needs proper schema (input parameters, descriptions)
-
-**Example schema structure:**
-```javascript
-{
-  name: 'json_validator',
-  description: 'Validate and format JSON strings',
-  input_schema: {
-    type: 'object',
-    properties: {
-      json_string: {
-        type: 'string',
-        description: 'The JSON string to validate'
-      }
-    },
-    required: ['json_string']
-  }
-}
-```
-
-#### 4. Enhanced Tool Display (Optional)
-**Tasks:**
-- Show badge on each tool indicating "DEMO" or "REAL" mode
-- Show availability status (e.g., grayed out if API key missing)
-- Add tool execution time/performance metrics
 
 ### Phase 5: Documentation & Testing (~1 hour)
 

@@ -5,6 +5,7 @@ import { Button } from './components/common/Button.js';
 import { Toggle } from './components/common/Toggle.js';
 import { Tabs } from './components/common/Tabs.js';
 import { fileToBase64, getImageMediaType, extractMessageText } from './utils/formatters.js';
+import { TOOL_MODES, getRequiredApiKeys } from './config/toolConfig.js';
 
 const html = htm.bind(React.createElement);
 
@@ -289,7 +290,7 @@ function MessageBuilder() {
 }
 
 function AdvancedOptions() {
-  const { tools, setTools, images, setImages, skillsJson, setSkillsJson } = useApp();
+  const { tools, setTools, images, setImages, skillsJson, setSkillsJson, toolMode, setToolMode, toolApiKeys, setToolApiKeys } = useApp();
   const [activeTab, setActiveTab] = useState('vision');
   const [toolJson, setToolJson] = useState('');
 
@@ -493,6 +494,75 @@ function AdvancedOptions() {
           required: ['query', 'database']
         }
       },
+      json_validator: {
+        name: 'json_validator',
+        description: 'Validate and format JSON strings. Returns formatted JSON or validation errors.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            json_string: {
+              type: 'string',
+              description: 'The JSON string to validate'
+            }
+          },
+          required: ['json_string']
+        }
+      },
+      code_formatter: {
+        name: 'code_formatter',
+        description: 'Format code in various languages (JavaScript, Python, JSON).',
+        input_schema: {
+          type: 'object',
+          properties: {
+            code: {
+              type: 'string',
+              description: 'The code to format'
+            },
+            language: {
+              type: 'string',
+              enum: ['javascript', 'python', 'json'],
+              description: 'Programming language'
+            }
+          },
+          required: ['code', 'language']
+        }
+      },
+      token_counter: {
+        name: 'token_counter',
+        description: 'Estimate the number of Claude tokens in text.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            text: {
+              type: 'string',
+              description: 'The text to count tokens for'
+            }
+          },
+          required: ['text']
+        }
+      },
+      regex_tester: {
+        name: 'regex_tester',
+        description: 'Test a regular expression against text and return matches.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            pattern: {
+              type: 'string',
+              description: 'The regex pattern'
+            },
+            text: {
+              type: 'string',
+              description: 'The text to test against'
+            },
+            flags: {
+              type: 'string',
+              description: 'Regex flags (g, i, m, etc.)'
+            }
+          },
+          required: ['pattern', 'text']
+        }
+      },
     };
 
     if (predefined[toolType]) {
@@ -555,7 +625,75 @@ function AdvancedOptions() {
 
         ${activeTab === 'tools' && html`
           <div class="space-y-3">
-            <p class="text-sm text-slate-400 font-mono">Configure tools for Claude to use. These demonstrate tool calling capabilities but don't actually execute.</p>
+            <p class="text-sm text-slate-400 font-mono">Configure tools for Claude to use.</p>
+
+            <!-- Tool Mode Toggle -->
+            <div class="bg-slate-800/50 border border-slate-700 rounded-lg p-4 space-y-3">
+              <div class="flex items-center justify-between">
+                <label class="text-sm font-medium text-slate-300 font-mono">Tool Execution Mode</label>
+                <div class="flex gap-2">
+                  <button
+                    onClick=${() => setToolMode(TOOL_MODES.DEMO)}
+                    class="px-3 py-1.5 text-xs font-mono rounded-lg transition-colors ${
+                      toolMode === TOOL_MODES.DEMO
+                        ? 'bg-amber-500 text-slate-900 hover:bg-amber-400'
+                        : 'bg-slate-800 text-slate-300 border border-slate-700 hover:border-slate-600'
+                    }"
+                  >
+                    🎭 Demo Mode
+                  </button>
+                  <button
+                    onClick=${() => setToolMode(TOOL_MODES.REAL)}
+                    class="px-3 py-1.5 text-xs font-mono rounded-lg transition-colors ${
+                      toolMode === TOOL_MODES.REAL
+                        ? 'bg-amber-500 text-slate-900 hover:bg-amber-400'
+                        : 'bg-slate-800 text-slate-300 border border-slate-700 hover:border-slate-600'
+                    }"
+                  >
+                    🚀 Real Mode
+                  </button>
+                </div>
+              </div>
+              <p class="text-xs text-slate-500 font-mono">
+                ${toolMode === TOOL_MODES.DEMO
+                  ? '→ Tools return mock data for testing'
+                  : '→ Tools make real API calls (requires keys for external APIs)'}
+              </p>
+
+              ${toolMode === TOOL_MODES.REAL && html`
+                <div class="border-t border-slate-700 pt-3 space-y-3">
+                  <label class="text-sm font-medium text-slate-300 font-mono">API Keys for Real Mode</label>
+                  <p class="text-xs text-slate-500">Required for external API tools to return real data.</p>
+                  ${Object.values(getRequiredApiKeys()).map(key => html`
+                    <div key=${key.name}>
+                      <div class="flex items-center justify-between mb-1">
+                        <label class="text-xs text-slate-400 font-mono">${key.label}</label>
+                        ${key.url && html`
+                          <a
+                            href="${key.url}"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="w-5 h-5 flex items-center justify-center rounded-full
+                                   bg-slate-700 text-slate-400 hover:bg-amber-500 hover:text-slate-900
+                                   transition-colors text-xs font-bold"
+                            title="Get API Key"
+                          >ⓘ</a>
+                        `}
+                      </div>
+                      <input
+                        type="password"
+                        placeholder="Enter API key..."
+                        class="w-full px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-lg
+                               focus:outline-none text-sm font-mono text-slate-100
+                               placeholder-slate-600 hover:border-slate-600 transition-colors"
+                        value=${toolApiKeys[key.name] || ''}
+                        onInput=${(e) => setToolApiKeys(prev => ({...prev, [key.name]: e.target.value}))}
+                      />
+                    </div>
+                  `)}
+                </div>
+              `}
+            </div>
 
             <div class="space-y-3">
               <p class="text-sm font-medium text-slate-300 font-mono">Predefined Tools</p>
@@ -598,6 +736,24 @@ function AdvancedOptions() {
                   </${Button}>
                   <${Button} variant="secondary" size="sm" onClick=${() => addPredefinedTool('file_search')}>
                     📁 File Search
+                  </${Button}>
+                </div>
+              </div>
+
+              <div class="space-y-2">
+                <div class="text-xs font-medium text-slate-500 uppercase font-mono">Developer</div>
+                <div class="grid grid-cols-2 gap-2">
+                  <${Button} variant="secondary" size="sm" onClick=${() => addPredefinedTool('json_validator')}>
+                    ✅ JSON Validator
+                  </${Button}>
+                  <${Button} variant="secondary" size="sm" onClick=${() => addPredefinedTool('code_formatter')}>
+                    📝 Code Formatter
+                  </${Button}>
+                  <${Button} variant="secondary" size="sm" onClick=${() => addPredefinedTool('token_counter')}>
+                    🔢 Token Counter
+                  </${Button}>
+                  <${Button} variant="secondary" size="sm" onClick=${() => addPredefinedTool('regex_tester')}>
+                    🔍 Regex Tester
                   </${Button}>
                 </div>
               </div>
