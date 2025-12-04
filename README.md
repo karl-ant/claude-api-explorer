@@ -39,6 +39,7 @@ A visual, interactive web application for testing and exploring Anthropic's Clau
 - **Express** proxy server for CORS handling
 - **Vanilla JavaScript** ES6 modules
 - **localStorage** for persistence
+- **Jest 30** for unit testing
 
 ## Getting Started
 
@@ -79,36 +80,42 @@ A visual, interactive web application for testing and exploring Anthropic's Clau
 ```
 claude-api-explorer/
 ├── index.html                    # Entry point
-├── server.js                     # Express proxy server (CORS + API proxies)
+├── server.js                     # Express proxy server
+├── jest.config.js                # Jest test configuration
 ├── package.json                  # Dependencies
 ├── README.md                     # This file
 ├── CLAUDE.md                     # AI development guide
+├── .claude/                      # Claude Code configuration
+│   ├── agents/                   # Custom review subagents
+│   │   ├── design-reviewer.md
+│   │   ├── test-coverage-reviewer.md
+│   │   └── code-reviewer.md
+│   └── commands/                 # Slash commands
+│       ├── explore.md
+│       ├── design-review.md
+│       └── sync-docs.md
 └── src/
     ├── main.js                   # React root renderer
     ├── FullApp.js                # Main application (~2150 lines)
     ├── components/
-    │   └── common/              # Reusable UI components
-    │       ├── Button.js
-    │       ├── Toggle.js
-    │       └── Tabs.js
+    │   └── common/               # Reusable UI components
     ├── context/
     │   └── AppContext.js         # Global state management
     ├── config/
-    │   ├── models.js             # Available models
-    │   ├── endpoints.js          # API endpoint definitions
-    │   └── toolConfig.js         # Tool registry and configuration
+    │   ├── models.js + .test.js
+    │   ├── endpoints.js + .test.js
+    │   └── toolConfig.js + .test.js
     └── utils/
-        ├── localStorage.js       # Storage helpers
-        ├── formatters.js         # Demo tool implementations
-        └── toolExecutors/       # Real tool implementations
-            ├── index.js          # Tool execution router
-            ├── calculator.js     # Enhanced math expressions
-            ├── jsonValidator.js  # JSON validation
-            ├── codeFormatter.js  # Code formatting
-            ├── tokenCounter.js   # Token estimation
-            ├── regexTester.js    # Regex testing
-            ├── weather.js        # OpenWeatherMap API
-            └── search.js         # Brave Search API
+        ├── localStorage.js
+        ├── formatters.js + .test.js
+        └── toolExecutors/        # Each with .test.js file
+            ├── calculator.js
+            ├── jsonValidator.js
+            ├── regexTester.js
+            ├── codeFormatter.js
+            ├── tokenCounter.js
+            ├── weather.js
+            └── search.js
 ```
 
 ## Architecture
@@ -180,6 +187,7 @@ Tested on:
 ✅ Token usage statistics
 ✅ Dark theme UI
 ✅ localStorage persistence
+✅ Unit testing with Jest (101 tests, 42% coverage)
 
 ## Limitations
 
@@ -199,7 +207,7 @@ Potential improvements for the future:
 - Add response comparison view
 - Split FullApp.js into smaller components
 - Migrate to TypeScript
-- Add unit tests
+- Expand test coverage to main app components
 
 ## Hybrid Tool System
 
@@ -253,6 +261,22 @@ To modify the application:
 3. Common components are in `src/components/common/`
 4. State management is in `src/context/AppContext.js`
 5. Utilities are in `src/utils/`
+
+### Testing
+
+Run the test suite:
+
+```bash
+npm test              # Run all tests once
+npm run test:watch   # Run in watch mode (re-runs on changes)
+npm run test:coverage # Run with coverage report
+```
+
+**Test Coverage:**
+- 101 tests across 7 files
+- Utilities: calculator, JSON validator, regex tester, formatters
+- Config: models, endpoints, tool configuration
+- Colocated test files (e.g., `calculator.js` → `calculator.test.js`)
 
 ## Contributing
 
