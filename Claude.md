@@ -4,7 +4,7 @@ A visual web app for testing Anthropic API endpoints. Uses React + htm (no build
 
 ## Quick Reference
 
-**Tech Stack:** React 18 (CDN), htm 3.1.1, Express 5.x proxy, Tailwind CSS (CDN)
+**Tech Stack:** React 18 (CDN), htm 3.1.1, Express 5.x proxy, Tailwind CSS (CDN), Jest 30 (testing)
 
 **Supported Endpoints:**
 - Messages API - Send messages to Claude
@@ -29,6 +29,15 @@ A visual web app for testing Anthropic API endpoints. Uses React + htm (no build
 
 ### Project Structure
 ```
+.claude/
+├── agents/                    # Custom subagents
+│   ├── design-reviewer.md     # UI/UX consistency enforcement
+│   ├── test-coverage-reviewer.md  # Test adequacy validation
+│   └── code-reviewer.md       # Code quality review
+└── commands/                  # Slash commands
+    ├── explore.md             # Codebase exploration
+    ├── design-review.md       # Design enforcement
+    └── sync-docs.md           # Documentation sync
 src/
 ├── main.js                    # Entry point
 ├── FullApp.js                 # All UI components (~2150 lines)
@@ -36,12 +45,22 @@ src/
 ├── context/AppContext.js      # Global state (API keys, config, history)
 ├── config/
 │   ├── models.js              # Model definitions
+│   ├── models.test.js         # Model config tests
 │   ├── endpoints.js           # Endpoint definitions
-│   └── toolConfig.js          # Tool registry
+│   ├── endpoints.test.js      # Endpoint config tests
+│   ├── toolConfig.js          # Tool registry
+│   └── toolConfig.test.js     # Tool config tests
 └── utils/
     ├── localStorage.js        # Storage operations
     ├── formatters.js          # Demo tool implementations
+    ├── formatters.test.js     # Formatter tests
     └── toolExecutors/         # Real tool implementations
+        ├── calculator.js      # Math expression evaluator
+        ├── calculator.test.js # Calculator tests (17 tests)
+        ├── jsonValidator.js   # JSON validation
+        ├── jsonValidator.test.js  # JSON validator tests (10 tests)
+        ├── regexTester.js     # Regex pattern testing
+        └── regexTester.test.js    # Regex tester tests (14 tests)
 ```
 
 ## Code Standards
@@ -183,6 +202,18 @@ Edit `src/config/models.js`:
 2. Create real implementation in `src/utils/toolExecutors/`
 3. Add to executor router in `toolExecutors/index.js`
 4. Add tool definition in `FullApp.js`
+
+### Running Tests
+```bash
+npm test              # Run all tests once
+npm run test:watch   # Run in watch mode
+npm run test:coverage # Run with coverage report
+```
+
+**Test coverage targets:**
+- 101 tests across 7 files (utilities + config)
+- 42% overall coverage (excellent on tested files)
+- Colocated test files: `file.js` → `file.test.js`
 
 ## Beta Headers & Skills
 
@@ -346,14 +377,15 @@ setImages(prev => [...prev, newImage]);
 
 1. FullApp.js ~2150 lines (needs splitting into separate panel components)
 2. No TypeScript
-3. No automated tests
-4. Response panel logic complex with multiple formats
+3. Response panel logic complex with multiple formats
+4. Test coverage incomplete (main app and integration tests needed)
 
 ---
 
-**Version:** 2.7 | **Updated:** 2025-12-03 | **Owner:** Karl
+**Version:** 2.8 | **Updated:** 2025-12-04 | **Owner:** Karl
 
 **Recent Changes:**
+- v2.8: Unit testing infrastructure - 101 Jest tests (42% coverage), 3 custom review subagents, /sync-docs command
 - v2.7: Free APIs - Real mode now uses Open-Meteo & DuckDuckGo (no signup/keys required)
 - v2.6: Hybrid Tool System UI complete - Tool mode toggle, API keys panel, 4 new developer tools
 - v2.5: Skills folder upload (drag & drop folders), Delete tab with version management, text wrapping fixes
