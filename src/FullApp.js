@@ -961,7 +961,7 @@ function ChatInterface() {
                 <div class="text-xs text-slate-400 font-mono mb-1">
                   ${msg.role === 'user' ? 'You' : 'Claude'}
                 </div>
-                <div class="text-sm text-slate-100 whitespace-pre-wrap">
+                <div class="text-sm text-slate-100 whitespace-pre-wrap font-mono">
                   ${typeof msg.content === 'string' ? msg.content : extractMessageText(msg.content)}
                 </div>
               </div>
@@ -2232,7 +2232,7 @@ function ResponsePanel() {
         ${!loading && !error && viewMode === 'formatted' && responseType === 'message' && response && html`
           <div class="space-y-4 animate-slide-up">
             <div class="bg-slate-800/50 border border-slate-700 rounded-lg p-6 backdrop-blur-sm hover-lift">
-              <div class="text-base leading-relaxed text-slate-100 whitespace-pre-wrap">
+              <div class="text-base leading-relaxed text-slate-100 whitespace-pre-wrap font-mono">
                 ${extractMessageText(response.content)}
               </div>
             </div>
