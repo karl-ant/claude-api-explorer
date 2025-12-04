@@ -234,11 +234,11 @@ State: `skillsJson` (string) in AppContext, persisted to localStorage.
 
 ## Hybrid Tool System
 
-**Status:** Phase 4 Complete (UI implemented 2025-11-24)
+**Status:** Complete - Free APIs (no signup required, updated 2025-12-03)
 
 Tools execute in two modes that users can toggle in the UI:
 - **Demo Mode** (default): Returns mock data for offline testing
-- **Real Mode**: Makes actual API calls (requires API keys for external tools)
+- **Real Mode**: Makes actual API calls using **free APIs** (no signup or API keys required)
 
 ### Available Tools
 
@@ -249,59 +249,58 @@ Tools execute in two modes that users can toggle in the UI:
 - Token Counter - Estimates Claude token counts
 - Regex Tester - Tests regex patterns with match results
 
-**External API Tools (require keys in Real mode):**
-- Weather - OpenWeatherMap API integration
-- Web Search - Brave Search API integration
+**External API Tools (free, no signup required):**
+- Weather - **Open-Meteo API** (free weather data with geocoding)
+- Web Search - **DuckDuckGo Instant Answers** (Wikipedia, definitions, facts)
+
+**Note:** Search returns instant answers, not full web results. Good for factual queries.
 
 ### UI Location
 
-**Advanced Options → Tools tab** (FullApp.js lines 561-627)
+**Advanced Options → Tools tab** (FullApp.js ~line 630)
 
 **Components:**
 1. **Tool Mode Toggle** - Button toggle between Demo/Real modes
-2. **API Keys Panel** - Appears in Real mode with:
-   - Password inputs for OpenWeatherMap and Brave Search keys
-   - Info buttons (ⓘ) linking to API key provider pages
-   - Dynamic generation via `getRequiredApiKeys()`
-3. **Developer Category** - New tool button section (lines 743-759)
+2. **Developer Category** - Tool button section with 4 developer tools
+
+**No API Keys panel needed** - Real mode works instantly without configuration.
 
 ### State Management
 
 **AppContext state:**
 - `toolMode` - Current mode ('demo' or 'real')
-- `toolApiKeys` - Object with API keys: `{ openweathermap: '...', brave_search: '...' }`
-- Both persist automatically via localStorage
+- Persists automatically via localStorage
 
 **Tool execution:**
 ```javascript
 import { executeTool } from './utils/toolExecutors/index.js';
-const result = await executeTool(toolName, input, toolMode, toolApiKeys);
+const result = await executeTool(toolName, input, toolMode);
 ```
 
 ### Architecture
 
 **Configuration:** `src/config/toolConfig.js`
 - `TOOL_REGISTRY` - Metadata for all tools (requirements, categories)
-- `getRequiredApiKeys()` - Returns API key configuration
+- All tools have `requiresApiKey: false`
 - `isToolAvailable()` - Check if tool can run in given mode
 
 **Executors:** `src/utils/toolExecutors/`
 - `index.js` - Router that dispatches to demo or real implementations
 - Individual files for each tool (weather.js, search.js, calculator.js, etc.)
+- **weather.js** - Calls Open-Meteo geocoding + weather APIs directly
+- **search.js** - Calls DuckDuckGo Instant Answer API directly
 
-**Proxy routes:** `server.js`
-- `GET /api/weather` - OpenWeatherMap proxy
-- `GET /api/search` - Brave Search proxy
+**No proxy routes needed** - Tools call free APIs directly from the browser
 
 ### Implementation Notes
 
-**Tool definitions:** Lines 353-565 in FullApp.js
+**Tool definitions:** Lines ~387-565 in FullApp.js
 - All 12 tools defined with proper input schemas
 - Claude automatically discovers and can use any defined tool
 
-**Fallback behavior:**
-- If Real mode selected but API key missing, falls back to Demo mode
-- Tools without real implementations always use demo data
+**API Details:**
+- **Open-Meteo**: `https://api.open-meteo.com/v1/forecast` (free, no key)
+- **DuckDuckGo**: `https://api.duckduckgo.com/?format=json` (free, no key)
 
 ## Security
 
@@ -352,9 +351,10 @@ setImages(prev => [...prev, newImage]);
 
 ---
 
-**Version:** 2.6 | **Updated:** 2025-12-03 | **Owner:** Karl
+**Version:** 2.7 | **Updated:** 2025-12-03 | **Owner:** Karl
 
 **Recent Changes:**
+- v2.7: Free APIs - Real mode now uses Open-Meteo & DuckDuckGo (no signup/keys required)
 - v2.6: Hybrid Tool System UI complete - Tool mode toggle, API keys panel, 4 new developer tools
 - v2.5: Skills folder upload (drag & drop folders), Delete tab with version management, text wrapping fixes
 - v2.4: Added Skills API tab (List, Create, Get), dynamic model dropdown from /v1/models API
