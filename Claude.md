@@ -7,7 +7,7 @@ A visual web app for testing Anthropic API endpoints. Uses React + htm (no build
 **Tech Stack:** React 18 (CDN), htm 3.1.1, Express 5.x proxy, Tailwind CSS (CDN), Jest 30 (testing)
 
 **Supported Endpoints:**
-- Messages API - Send messages to Claude
+- Messages API - Send messages to Claude with multi-turn conversation support
 - Message Batches API - Async batch processing at 50% cost
 - Models API - List available models
 - Skills API - Create and manage custom skills (Beta)
@@ -19,6 +19,13 @@ A visual web app for testing Anthropic API endpoints. Uses React + htm (no build
 - Skills Tab - Manage custom skills (List, Create, Get, Delete) with folder drag & drop upload
 - Skills Versions - List and manage skill versions before deletion
 - Container Skills - Configure container.skills for document processing in Messages API
+
+**Multi-Turn Conversations:**
+- Conversation Mode toggle for chat-style interactions
+- Automatically maintains conversation context across multiple exchanges
+- Chat interface with user/assistant message display
+- Continue conversations from history with full context restoration
+- Seamless tool execution within conversations
 
 ## Architecture
 
@@ -41,8 +48,10 @@ A visual web app for testing Anthropic API endpoints. Uses React + htm (no build
 src/
 ├── main.js                    # Entry point
 ├── FullApp.js                 # All UI components (~2150 lines)
+│                              # Includes ConversationModeToggle, ChatInterface
 ├── components/common/         # Reusable components (Button, Toggle, Tabs)
-├── context/AppContext.js      # Global state (API keys, config, history)
+├── context/AppContext.js      # Global state (API keys, config, history, conversations)
+│                              # conversationMode, conversationHistory state
 ├── config/
 │   ├── models.js              # Model definitions
 │   ├── models.test.js         # Model config tests
@@ -51,7 +60,7 @@ src/
 │   ├── toolConfig.js          # Tool registry
 │   └── toolConfig.test.js     # Tool config tests
 └── utils/
-    ├── localStorage.js        # Storage operations
+    ├── localStorage.js        # Storage operations (includes conversation persistence)
     ├── formatters.js          # Demo tool implementations
     ├── formatters.test.js     # Formatter tests
     └── toolExecutors/         # Real tool implementations
@@ -182,6 +191,20 @@ transition-colors  // All interactive elements
 ```
 
 ## Common Tasks
+
+### Using Conversation Mode
+1. **Send first message** using normal MessageBuilder interface
+2. **Wait for response** - conversation toggle appears after first successful API call
+3. **Enable Conversation Mode** toggle (located above Send Request button)
+4. **Chat interface activates** - shows conversation history with chat bubbles
+5. **Send follow-up messages** - full context automatically maintained
+6. **Continue from history** - Use "Continue" button on history items marked with "Chat" badge
+
+**Technical notes:**
+- Toggle only appears after first response (prevents empty messages validation error)
+- Tool execution seamlessly integrates (tool_result messages filtered from display)
+- Conversation history passed directly to avoid React state timing issues
+- Use `handleSendRequest(overrideConversationHistory)` parameter for immediate context
 
 ### Adding a New Model
 Edit `src/config/models.js`:
@@ -372,6 +395,11 @@ setImages(prev => [...prev, newImage]);
 - Usage/Cost APIs require Admin key (sk-ant-admin...)
 - Token counting API doesn't support skills/beta headers
 - Skills version endpoints require `?beta=true` query parameter
+- **Conversation Mode:**
+  - Cannot edit past messages in chat (switch to MessageBuilder for edits)
+  - tool_result messages hidden from chat display (API plumbing)
+  - No conversation branching or forking
+  - Long conversations may hit context limits
 
 ## Technical Debt
 
@@ -379,12 +407,15 @@ setImages(prev => [...prev, newImage]);
 2. No TypeScript
 3. Response panel logic complex with multiple formats
 4. Test coverage incomplete (main app and integration tests needed)
+5. Conversation mode state management complex (React timing issues require parameter passing)
+6. No conversation branching or editing past messages in chat mode
 
 ---
 
-**Version:** 2.8 | **Updated:** 2025-12-04 | **Owner:** Karl
+**Version:** 2.9 | **Updated:** 2025-12-04 | **Owner:** Karl
 
 **Recent Changes:**
+- v2.9: Multi-turn conversation support - Conversation mode toggle, chat-style UI, history continuation, seamless tool execution in conversations
 - v2.8: Unit testing infrastructure - 101 Jest tests (42% coverage), 3 custom review subagents, /sync-docs command
 - v2.7: Free APIs - Real mode now uses Open-Meteo & DuckDuckGo (no signup/keys required)
 - v2.6: Hybrid Tool System UI complete - Tool mode toggle, API keys panel, 4 new developer tools

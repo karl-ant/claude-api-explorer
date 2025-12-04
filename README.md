@@ -11,6 +11,7 @@ A visual, interactive web application for testing and exploring Anthropic's Clau
 - **Dynamic Model Selection**: Auto-fetches available models from API, shows full model IDs
 - **Request Configuration**: Adjust parameters like max_tokens, temperature, top_p, top_k
 - **Multi-Message Support**: Build conversations with multiple user/assistant message pairs
+- **Conversation Mode**: Chat-style interface for multi-turn conversations with automatic context preservation
 - **Multiple API Endpoints**: Messages, Message Batches, Models, Skills, Usage Reports, Cost Reports
 - **Skills API (Beta)**: List, create, get, and delete custom skills with folder drag & drop upload
 - **Skills Version Management**: List and delete skill versions before deleting skills
@@ -173,6 +174,7 @@ Tested on:
 ✅ Parameter controls (temperature, top_p, top_k, max_tokens)
 ✅ System prompt
 ✅ Multi-message conversations
+✅ **Conversation Mode** with chat-style UI and context preservation
 ✅ Vision API (image uploads)
 ✅ Multiple API endpoints (Messages, Batches, Models, Skills, Usage, Cost)
 ✅ Skills API tab (List, Create, Get, Delete) with folder drag & drop upload
@@ -183,6 +185,7 @@ Tested on:
 ✅ 2 external API integrations (weather, web search)
 ✅ Automatic tool execution
 ✅ Request history (50 items, export/import)
+✅ Continue conversations from history
 ✅ Response view toggle (Formatted/JSON)
 ✅ Token usage statistics
 ✅ Dark theme UI
@@ -197,6 +200,10 @@ Tested on:
 - Usage/Cost APIs require Admin API key (sk-ant-admin...)
 - History only for Messages endpoint
 - Skills version deletion may not be fully supported in Anthropic's beta API
+- **Conversation Mode:**
+  - Cannot edit past messages in chat interface (use MessageBuilder for edits)
+  - No conversation branching or forking
+  - Long conversations may hit context limits
 
 ## Future Enhancements
 

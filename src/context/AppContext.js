@@ -5,6 +5,7 @@ import { executeTool } from '../utils/toolExecutors/index.js';
 import { TOOL_MODES } from '../config/toolConfig.js';
 import modelsConfig from '../config/models.js';
 import endpoints from '../config/endpoints.js';
+import { extractMessageText } from '../utils/formatters.js';
 
 const html = htm.bind(React.createElement);
 const AppContext = createContext();
@@ -45,6 +46,10 @@ export function AppProvider({ children }) {
   // Beta headers and Skills
   const [betaHeaders, setBetaHeaders] = useState(storage.getBetaHeaders());
   const [skillsJson, setSkillsJson] = useState(storage.getSkillsJson());
+
+  // Conversation mode
+  const [conversationMode, setConversationMode] = useState(storage.getConversationMode());
+  const [conversationHistory, setConversationHistory] = useState([]);
 
   // Endpoint-specific state
   // Batches API
@@ -111,6 +116,10 @@ export function AppProvider({ children }) {
     storage.saveSkillsJson(skillsJson);
   }, [skillsJson]);
 
+  useEffect(() => {
+    storage.saveConversationMode(conversationMode);
+  }, [conversationMode]);
+
   // Load last configuration on mount
   useEffect(() => {
     const lastConfig = storage.getLastConfig();
@@ -152,7 +161,7 @@ export function AppProvider({ children }) {
     }
   }, [apiKey]);
 
-  const handleSendRequest = async () => {
+  const handleSendRequest = async (overrideConversationHistory = null) => {
     if (!apiKey) {
       setError('Please provide an API key');
       return;
@@ -177,8 +186,20 @@ export function AppProvider({ children }) {
     setToolExecutionStatus(null);
     setToolExecutionDetails(null);
 
+    // In conversation mode, build messages from conversationHistory
+    let messagesToSend = messages;
+    const historyToUse = overrideConversationHistory || conversationHistory;
+    if (conversationMode && historyToUse.length > 0) {
+      console.log('[Conversation Mode] Building from conversationHistory:', historyToUse.length, 'messages');
+      messagesToSend = historyToUse.map(msg => ({
+        role: msg.role,
+        content: msg.content
+      }));
+      console.log('[Conversation Mode] Messages to send:', messagesToSend);
+    }
+
     // Integrate images into the first user message if images exist
-    const messagesWithImages = images.length > 0 ? messages.map((msg, idx) => {
+    const messagesWithImages = images.length > 0 ? messagesToSend.map((msg, idx) => {
       if (idx === 0 && msg.role === 'user') {
         const textContent = typeof msg.content === 'string' ? msg.content : '';
         return {
@@ -190,13 +211,18 @@ export function AppProvider({ children }) {
         };
       }
       return msg;
-    }) : messages;
+    }) : messagesToSend;
 
     const requestBody = {
       model,
       messages: messagesWithImages,
       max_tokens: maxTokens,
     };
+
+    // Debug logging for conversation mode
+    if (conversationMode) {
+      console.log('[Conversation Mode] Request messages:', messagesWithImages);
+    }
 
     if (system) requestBody.system = system;
     if (temperature !== 1.0) requestBody.temperature = temperature;
@@ -354,15 +380,99 @@ export function AppProvider({ children }) {
         setResponse(finalData);
         setToolExecutionStatus(null);
 
+        // Conversation mode: append all tool-use related messages
+        let updatedConversationHistory = historyToUse;
+        if (conversationMode) {
+          // Add three messages: assistant with tool_use, user with tool_result, final assistant response
+          const toolUseMessage = {
+            role: 'assistant',
+            content: data.content,
+            timestamp: Date.now(),
+            id: `msg-${Date.now()}-tool-use`
+          };
+
+          const toolResultMessage = {
+            role: 'user',
+            content: toolResults,
+            timestamp: Date.now(),
+            id: `msg-${Date.now()}-tool-result`
+          };
+
+          // Extract text content and check if final response is not empty
+          const textContent = extractMessageText(finalData.content);
+          console.log('[Conversation Mode - Tool Use] Response content:', finalData.content);
+          console.log('[Conversation Mode - Tool Use] Extracted text:', textContent);
+          console.log('[Conversation Mode - Tool Use] Text check:', textContent && textContent.trim());
+
+          if (textContent && textContent.trim()) {
+            const finalAssistantMessage = {
+              role: 'assistant',
+              content: finalData.content,
+              timestamp: Date.now(),
+              id: `msg-${Date.now()}-final`
+            };
+            updatedConversationHistory = [...historyToUse, toolUseMessage, toolResultMessage, finalAssistantMessage];
+            setConversationHistory(updatedConversationHistory);
+
+            // Update messages array for next API call
+            setMessages(prev => [...prev,
+              { role: 'assistant', content: data.content },
+              { role: 'user', content: toolResults },
+              { role: 'assistant', content: finalData.content }
+            ]);
+          } else {
+            console.log('[Conversation Mode - Tool Use] Skipping empty response');
+            // Still add tool_use and tool_result even if final response is empty
+            updatedConversationHistory = [...historyToUse, toolUseMessage, toolResultMessage];
+            setConversationHistory(updatedConversationHistory);
+            setMessages(prev => [...prev,
+              { role: 'assistant', content: data.content },
+              { role: 'user', content: toolResults }
+            ]);
+          }
+        }
+
         // Save the final response to history
-        storage.saveToHistory(requestBody, finalData);
+        storage.saveToHistory(requestBody, finalData, {
+          isConversation: conversationMode,
+          conversationHistory: updatedConversationHistory
+        });
         setHistory(storage.getHistory());
       } else {
         // No tool use, just set the response
         setResponse(data);
 
+        // Conversation mode: append assistant response
+        let updatedConversationHistory = historyToUse;
+        if (conversationMode) {
+          // Extract text content and check if it's not empty
+          const textContent = extractMessageText(data.content);
+          console.log('[Conversation Mode] Response content:', data.content);
+          console.log('[Conversation Mode] Extracted text:', textContent);
+          console.log('[Conversation Mode] Text check:', textContent && textContent.trim());
+
+          if (textContent && textContent.trim()) {
+            const assistantMessage = {
+              role: 'assistant',
+              content: data.content,
+              timestamp: Date.now(),
+              id: `msg-${Date.now()}`
+            };
+            updatedConversationHistory = [...conversationHistory, assistantMessage];
+            setConversationHistory(updatedConversationHistory);
+
+            // Update messages array for next API call
+            setMessages(prev => [...prev, { role: 'assistant', content: data.content }]);
+          } else {
+            console.log('[Conversation Mode] Skipping empty response');
+          }
+        }
+
         // Save to history
-        storage.saveToHistory(requestBody, data);
+        storage.saveToHistory(requestBody, data, {
+          isConversation: conversationMode,
+          conversationHistory: updatedConversationHistory
+        });
         setHistory(storage.getHistory());
       }
     } catch (err) {
@@ -1035,6 +1145,39 @@ export function AppProvider({ children }) {
     storage.exportHistory();
   };
 
+  const continueConversation = (historyItem) => {
+    // Load the conversation state
+    loadFromHistory(historyItem);
+
+    // Enable conversation mode
+    setConversationMode(true);
+
+    // Restore conversation history
+    if (historyItem.conversationHistory) {
+      setConversationHistory(historyItem.conversationHistory);
+    } else {
+      // Build from request/response if no conversationHistory saved
+      const rebuiltHistory = [];
+      historyItem.request.messages?.forEach(msg => {
+        rebuiltHistory.push({
+          role: msg.role,
+          content: typeof msg.content === 'string' ? msg.content : msg.content,
+          timestamp: Date.now(),
+          id: `msg-${Date.now()}-${Math.random()}`
+        });
+      });
+      if (historyItem.response?.content) {
+        rebuiltHistory.push({
+          role: 'assistant',
+          content: historyItem.response.content,
+          timestamp: Date.now(),
+          id: `msg-${Date.now()}-resp`
+        });
+      }
+      setConversationHistory(rebuiltHistory);
+    }
+  };
+
   const value = useMemo(() => ({
     // API Key
     apiKey,
@@ -1083,6 +1226,12 @@ export function AppProvider({ children }) {
     setBetaHeaders,
     skillsJson,
     setSkillsJson,
+
+    // Conversation mode
+    conversationMode,
+    setConversationMode,
+    conversationHistory,
+    setConversationHistory,
 
     // Batches API
     batchRequests,
@@ -1151,6 +1300,7 @@ export function AppProvider({ children }) {
     clearHistory,
     deleteHistoryItem,
     exportHistory,
+    continueConversation,
   }), [
     apiKey, persistKey,
     selectedEndpoint,
@@ -1158,6 +1308,7 @@ export function AppProvider({ children }) {
     tools, images,
     toolMode, toolApiKeys,
     betaHeaders, skillsJson,
+    conversationMode, conversationHistory,
     batchRequests, batchStatus, batchResults,
     modelsList, modelsLoading,
     usageReport, usageLoading,

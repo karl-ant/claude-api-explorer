@@ -820,7 +820,203 @@ function AdvancedOptions() {
   `;
 }
 
+function ConversationModeToggle() {
+  const {
+    conversationMode,
+    setConversationMode,
+    conversationHistory,
+    setConversationHistory,
+    setMessages,
+    messages,
+    response
+  } = useApp();
+
+  // Only show toggle after first successful response
+  if (!response && !conversationMode) {
+    return null;
+  }
+
+  const handleToggle = (enabled) => {
+    setConversationMode(enabled);
+    if (enabled) {
+      // Switching to conversation mode: build conversation history from existing exchange
+      const history = [];
+
+      // Add existing messages to history
+      messages.forEach(msg => {
+        if (msg.content && (typeof msg.content === 'string' ? msg.content.trim() : true)) {
+          history.push({
+            role: msg.role,
+            content: typeof msg.content === 'string' ? msg.content : msg.content,
+            timestamp: Date.now(),
+            id: `msg-${Date.now()}-${Math.random()}`
+          });
+        }
+      });
+
+      // Add the response to history (only if it has content)
+      if (response?.content) {
+        const textContent = extractMessageText(response.content);
+        if (textContent && textContent.trim()) {
+          history.push({
+            role: 'assistant',
+            content: response.content,
+            timestamp: Date.now(),
+            id: `msg-${Date.now()}-resp`
+          });
+
+          // Also add response to messages array for next API call
+          setMessages(prev => [...prev, { role: 'assistant', content: response.content }]);
+        }
+      }
+
+      setConversationHistory(history);
+    } else {
+      // Switching back to single-turn: clear conversation history
+      setConversationHistory([]);
+      setMessages([{ role: 'user', content: '' }]);
+    }
+  };
+
+  return html`
+    <div class="flex items-center justify-between p-3 bg-slate-800/30 border border-slate-700 rounded-lg">
+      <div class="flex items-center gap-2">
+        <span class="text-sm font-medium text-slate-300 font-mono">Conversation Mode</span>
+        ${conversationMode && conversationHistory.length > 0 && html`
+          <span class="text-xs text-mint-400 font-mono">(${conversationHistory.length} messages)</span>
+        `}
+      </div>
+      <${Toggle}
+        checked=${conversationMode}
+        onChange=${handleToggle}
+      />
+    </div>
+  `;
+}
+
+function ChatInterface() {
+  const {
+    conversationHistory,
+    setConversationHistory,
+    messages,
+    setMessages,
+    handleSendRequest,
+    loading
+  } = useApp();
+  const [inputValue, setInputValue] = useState('');
+
+  const handleSend = () => {
+    if (!inputValue.trim() || loading) return;
+
+    // Build updated conversation history synchronously
+    const userMessage = {
+      role: 'user',
+      content: inputValue,
+      timestamp: Date.now(),
+      id: `msg-${Date.now()}`
+    };
+    const updatedHistory = [...conversationHistory, userMessage];
+
+    // Update state (for UI display)
+    setConversationHistory(updatedHistory);
+
+    // Update messages for API call (not used in conversation mode, but keep for consistency)
+    setMessages(prev => {
+      const withoutEmpty = prev.filter(m => {
+        if (typeof m.content === 'string') {
+          return m.content.trim() !== '';
+        } else if (Array.isArray(m.content)) {
+          return m.content.length > 0;
+        }
+        return true;
+      });
+      return [...withoutEmpty, { role: 'user', content: inputValue }];
+    });
+
+    setInputValue('');
+
+    // Pass updated history directly to avoid state timing issues
+    handleSendRequest(updatedHistory);
+  };
+
+  return html`
+    <div class="space-y-4">
+      <!-- Chat Thread -->
+      ${conversationHistory.length > 0 && html`
+        <div class="space-y-3 max-h-96 overflow-y-auto">
+          ${conversationHistory
+            .filter(msg => {
+              // Filter out tool_result messages (they're API plumbing, not user-visible)
+              if (msg.role === 'user' && Array.isArray(msg.content) && msg.content.length > 0 && msg.content[0].type === 'tool_result') {
+                return false;
+              }
+              return true;
+            })
+            .map((msg) => html`
+            <div key=${msg.id} class="flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}">
+              <div class="${msg.role === 'user'
+                ? 'bg-amber-500/20 border-amber-500/50'
+                : 'bg-slate-800/50 border-slate-700'
+              } border rounded-lg p-3 max-w-[85%]">
+                <div class="text-xs text-slate-400 font-mono mb-1">
+                  ${msg.role === 'user' ? 'You' : 'Claude'}
+                </div>
+                <div class="text-sm text-slate-100 whitespace-pre-wrap">
+                  ${typeof msg.content === 'string' ? msg.content : extractMessageText(msg.content)}
+                </div>
+              </div>
+            </div>
+          `)}
+        </div>
+      `}
+
+      <!-- Input Area -->
+      <div class="flex gap-2">
+        <textarea
+          value=${inputValue}
+          onInput=${(e) => setInputValue(e.target.value)}
+          onKeyDown=${(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              handleSend();
+            }
+          }}
+          placeholder="Type your message... (Enter to send, Shift+Enter for new line)"
+          rows="3"
+          disabled=${loading}
+          class="flex-1 px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none text-sm text-slate-100 placeholder-slate-600 hover:border-slate-600 transition-colors resize-none ${loading ? 'opacity-50 cursor-not-allowed' : ''}"
+        ></textarea>
+        <${Button}
+          onClick=${handleSend}
+          disabled=${loading || !inputValue.trim()}
+          variant="primary"
+          loading=${loading}
+        >
+          Send
+        </${Button}>
+      </div>
+
+      <!-- Clear Conversation -->
+      ${conversationHistory.length > 0 && html`
+        <div class="flex justify-end">
+          <${Button}
+            variant="ghost"
+            size="sm"
+            onClick=${() => {
+              setConversationHistory([]);
+              setMessages([{ role: 'user', content: '' }]);
+            }}
+          >
+            Clear Conversation
+          </${Button}>
+        </div>
+      `}
+    </div>
+  `;
+}
+
 function MessagesPanel() {
+  const { conversationMode } = useApp();
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   return html`
@@ -828,24 +1024,29 @@ function MessagesPanel() {
       <${ModelSelector} />
 
       <div class="border-t border-slate-800 pt-4">
-        <${MessageBuilder} />
+        ${conversationMode
+          ? html`<${ChatInterface} />`
+          : html`<${MessageBuilder} />`
+        }
       </div>
 
-      <div class="border-t border-slate-800 pt-4">
-        <button
-          onClick=${() => setShowAdvanced(!showAdvanced)}
-          class="w-full flex items-center justify-between text-sm font-medium text-slate-300 hover:text-amber-400 transition-colors"
-        >
-          <span class="font-mono">Advanced Options (Vision, Tools & Skills)</span>
-          <span class="text-amber-400">${showAdvanced ? '▼' : '▶'}</span>
-        </button>
+      ${!conversationMode && html`
+        <div class="border-t border-slate-800 pt-4">
+          <button
+            onClick=${() => setShowAdvanced(!showAdvanced)}
+            class="w-full flex items-center justify-between text-sm font-medium text-slate-300 hover:text-amber-400 transition-colors"
+          >
+            <span class="font-mono">Advanced Options (Vision, Tools & Skills)</span>
+            <span class="text-amber-400">${showAdvanced ? '▼' : '▶'}</span>
+          </button>
 
-        ${showAdvanced && html`
-          <div class="mt-4 animate-slide-up">
-            <${AdvancedOptions} />
-          </div>
-        `}
-      </div>
+          ${showAdvanced && html`
+            <div class="mt-4 animate-slide-up">
+              <${AdvancedOptions} />
+            </div>
+          `}
+        </div>
+      `}
     </div>
   `;
 }
@@ -1764,7 +1965,7 @@ function ConfigPanel() {
     selectedEndpoint, handleSendRequest, handleCreateBatch, loading, apiKey,
     history, loadFromHistory, clearHistory, exportHistory, clearConfiguration,
     handleCountTokens, tokenCount, tokenCountLoading, tokenCountStale, setTokenCount,
-    model, maxTokens, models
+    model, maxTokens, models, continueConversation
   } = useApp();
   const [showHistory, setShowHistory] = useState(false);
 
@@ -1847,14 +2048,18 @@ function ConfigPanel() {
                     ${history.map((item) => html`
                       <div
                         key=${item.id}
-                        onClick=${() => loadFromHistory(item)}
-                        class="p-3 bg-slate-800/50 border border-slate-700 rounded-lg cursor-pointer hover:bg-slate-800 hover:border-amber-500/50 transition-all hover-lift"
+                        class="p-3 bg-slate-800/50 border border-slate-700 rounded-lg hover:bg-slate-800 transition-all hover-lift"
                       >
                         <div class="flex items-start justify-between mb-1">
                           <span class="text-xs font-medium text-amber-400 font-mono">${item.model}</span>
-                          <span class="text-xs text-slate-500 font-mono">
-                            ${new Date(item.timestamp).toLocaleTimeString()}
-                          </span>
+                          <div class="flex items-center gap-2">
+                            ${item.isConversation && html`
+                              <span class="text-xs text-mint-400 font-mono">Chat</span>
+                            `}
+                            <span class="text-xs text-slate-500 font-mono">
+                              ${new Date(item.timestamp).toLocaleTimeString()}
+                            </span>
+                          </div>
                         </div>
                         <p class="text-xs text-slate-300 truncate font-mono">${item.prompt}</p>
                         ${item.tokenUsage && html`
@@ -1863,6 +2068,26 @@ function ConfigPanel() {
                             <span class="text-mint-400">${item.tokenUsage.output_tokens}</span> out
                           </p>
                         `}
+
+                        <!-- Action buttons -->
+                        <div class="flex gap-2 mt-2">
+                          <${Button}
+                            variant="ghost"
+                            size="sm"
+                            onClick=${() => loadFromHistory(item)}
+                          >
+                            Load
+                          </${Button}>
+                          ${item.isConversation && html`
+                            <${Button}
+                              variant="secondary"
+                              size="sm"
+                              onClick=${() => continueConversation(item)}
+                            >
+                              Continue
+                            </${Button}>
+                          `}
+                        </div>
                       </div>
                     `)}
                   </div>
@@ -1876,6 +2101,8 @@ function ConfigPanel() {
       ${showActionButton && html`
         <div class="p-4 border-t border-slate-800 bg-slate-900/50 space-y-3">
           ${selectedEndpoint === 'messages' && html`
+            <${ConversationModeToggle} />
+
             <div class="flex gap-2">
               <${Button}
                 onClick=${handleSendRequest}
@@ -2403,7 +2630,7 @@ function AppContent() {
             <div>
               <h1 class="text-2xl font-bold text-slate-100 tracking-tight">Claude API Explorer</h1>
               <p class="text-slate-400 text-xs font-mono mt-0.5">
-                <span class="text-amber-400">v2.5</span> • Developer Command Center
+                <span class="text-amber-400">v2.9</span> • Developer Command Center
               </p>
             </div>
           </div>
