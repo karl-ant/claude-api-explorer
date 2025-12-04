@@ -27,25 +27,19 @@ export const TOOL_REGISTRY = {
   get_weather: {
     name: 'get_weather',
     displayName: 'Weather',
-    description: 'Get current weather for a location',
+    description: 'Get current weather for a location (free via Open-Meteo)',
     hasDemo: true,
     hasReal: true,
-    requiresApiKey: true,
-    apiKeyName: 'openweathermap',
-    apiKeyLabel: 'OpenWeatherMap API Key',
-    apiKeyUrl: 'https://openweathermap.org/api',
+    requiresApiKey: false,
     category: 'external'
   },
   web_search: {
     name: 'web_search',
     displayName: 'Web Search',
-    description: 'Search the web for information',
+    description: 'Search for instant answers - definitions, facts, Wikipedia summaries (free via DuckDuckGo)',
     hasDemo: true,
     hasReal: true,
-    requiresApiKey: true,
-    apiKeyName: 'brave_search',
-    apiKeyLabel: 'Brave Search API Key',
-    apiKeyUrl: 'https://brave.com/search/api/',
+    requiresApiKey: false,
     category: 'external'
   },
   get_stock_price: {

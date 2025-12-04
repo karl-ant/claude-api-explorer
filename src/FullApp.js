@@ -5,7 +5,7 @@ import { Button } from './components/common/Button.js';
 import { Toggle } from './components/common/Toggle.js';
 import { Tabs } from './components/common/Tabs.js';
 import { fileToBase64, getImageMediaType, extractMessageText } from './utils/formatters.js';
-import { TOOL_MODES, getRequiredApiKeys } from './config/toolConfig.js';
+import { TOOL_MODES } from './config/toolConfig.js';
 
 const html = htm.bind(React.createElement);
 
@@ -290,7 +290,7 @@ function MessageBuilder() {
 }
 
 function AdvancedOptions() {
-  const { tools, setTools, images, setImages, skillsJson, setSkillsJson, toolMode, setToolMode, toolApiKeys, setToolApiKeys } = useApp();
+  const { tools, setTools, images, setImages, skillsJson, setSkillsJson, toolMode, setToolMode } = useApp();
   const [activeTab, setActiveTab] = useState('vision');
   const [toolJson, setToolJson] = useState('');
 
@@ -386,7 +386,7 @@ function AdvancedOptions() {
       },
       web_search: {
         name: 'web_search',
-        description: 'Search the web for current information',
+        description: 'Search for instant answers - definitions, facts, Wikipedia summaries (DuckDuckGo)',
         input_schema: {
           type: 'object',
           properties: {
@@ -657,42 +657,8 @@ function AdvancedOptions() {
               <p class="text-xs text-slate-500 font-mono">
                 ${toolMode === TOOL_MODES.DEMO
                   ? '→ Tools return mock data for testing'
-                  : '→ Tools make real API calls (requires keys for external APIs)'}
+                  : '→ Tools use free APIs (no signup required - Open-Meteo, DuckDuckGo)'}
               </p>
-
-              ${toolMode === TOOL_MODES.REAL && html`
-                <div class="border-t border-slate-700 pt-3 space-y-3">
-                  <label class="text-sm font-medium text-slate-300 font-mono">API Keys for Real Mode</label>
-                  <p class="text-xs text-slate-500">Required for external API tools to return real data.</p>
-                  ${Object.values(getRequiredApiKeys()).map(key => html`
-                    <div key=${key.name}>
-                      <div class="flex items-center justify-between mb-1">
-                        <label class="text-xs text-slate-400 font-mono">${key.label}</label>
-                        ${key.url && html`
-                          <a
-                            href="${key.url}"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            class="w-5 h-5 flex items-center justify-center rounded-full
-                                   bg-slate-700 text-slate-400 hover:bg-amber-500 hover:text-slate-900
-                                   transition-colors text-xs font-bold"
-                            title="Get API Key"
-                          >ⓘ</a>
-                        `}
-                      </div>
-                      <input
-                        type="password"
-                        placeholder="Enter API key..."
-                        class="w-full px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-lg
-                               focus:outline-none text-sm font-mono text-slate-100
-                               placeholder-slate-600 hover:border-slate-600 transition-colors"
-                        value=${toolApiKeys[key.name] || ''}
-                        onInput=${(e) => setToolApiKeys(prev => ({...prev, [key.name]: e.target.value}))}
-                      />
-                    </div>
-                  `)}
-                </div>
-              `}
             </div>
 
             <div class="space-y-3">

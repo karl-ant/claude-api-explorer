@@ -80,10 +80,10 @@ async function executeRealTool(toolName, input, apiKeys) {
       return await executeRegexTester(input);
 
     case 'get_weather':
-      return await executeWeather(input, apiKeys.openweathermap);
+      return await executeWeather(input); // Free API, no key needed
 
     case 'web_search':
-      return await executeWebSearch(input, apiKeys.brave_search);
+      return await executeWebSearch(input); // Free API, no key needed
 
     case 'get_current_time':
       // This tool is already fully functional in demo mode
