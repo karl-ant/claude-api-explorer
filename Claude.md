@@ -8,7 +8,7 @@ A visual web app for testing Anthropic API endpoints. Uses React + htm (no build
 
 **Supported Endpoints:**
 - Messages API - Send messages to Claude with multi-turn conversation support
-- Message Batches API - Async batch processing at 50% cost
+- Message Batches API - Async batch processing at 50% cost with in-app results viewing
 - Models API - List available models
 - Skills API - Create and manage custom skills (Beta)
 - Usage Reports API - Token usage tracking (requires Admin key)
@@ -226,6 +226,22 @@ Edit `src/config/models.js`:
 3. Add to executor router in `toolExecutors/index.js`
 4. Add tool definition in `FullApp.js`
 
+### Working with Batch Results
+1. **Create batch** - Use the Batches tab to create a batch with multiple requests
+2. **Check status** - Use "Check Batch Status" or click "Refresh" button on the status card
+3. **View results** - When batch is complete, click "View Results" button next to results_url
+4. **Explore responses** - Results display as expandable cards showing custom_id, status, and response
+5. **Expand/collapse** - Click individual cards or use "Expand All" / "Collapse All" toggle
+
+**Technical details:**
+- Results fetched with API key authentication (requires `x-api-key` header)
+- JSONL format parsed automatically (one JSON object per line)
+- Direct fetch attempted first, falls back to proxy if CORS blocked
+- Refresh buttons available on both status card (left panel) and batch info (response panel)
+- State: `batchResultsData`, `batchResultsLoading`, `batchResultsError` in AppContext (lines 59-61)
+- Handler: `handleFetchBatchResults` in AppContext.js (lines 1106-1165)
+- Proxy route: `/proxy-batch-results` in server.js (lines 110-132)
+
 ### Running Tests
 ```bash
 npm test              # Run all tests once
@@ -412,9 +428,10 @@ setImages(prev => [...prev, newImage]);
 
 ---
 
-**Version:** 2.9 | **Updated:** 2025-12-04 | **Owner:** Karl
+**Version:** 2.10 | **Updated:** 2025-12-04 | **Owner:** Karl
 
 **Recent Changes:**
+- v2.10: Batch results viewer - View JSONL results in-app with expandable cards, API key authentication, refresh buttons on status cards
 - v2.9: Multi-turn conversation support - Conversation mode toggle, chat-style UI, history continuation, seamless tool execution in conversations
 - v2.8: Unit testing infrastructure - 101 Jest tests (42% coverage), 3 custom review subagents, /sync-docs command
 - v2.7: Free APIs - Real mode now uses Open-Meteo & DuckDuckGo (no signup/keys required)
@@ -427,3 +444,4 @@ setImages(prev => [...prev, newImage]);
 - v1.0: Initial release with Messages API
 
 **Note:** Keep the version displayed in the UI (FullApp.js header) in sync with this version.
+- Remember to use subagents to help you. You can find the available ones in the /agents folder.

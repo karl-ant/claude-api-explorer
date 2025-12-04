@@ -1206,7 +1206,15 @@ function BatchesPanel() {
       ${batchStatus && html`
         <div class="border-t border-slate-800 pt-4">
           <div class="p-3 bg-slate-800/50 rounded-lg border border-slate-700 backdrop-blur-sm">
-            <div class="text-sm font-medium text-slate-100 mb-2 font-mono">Batch Status</div>
+            <div class="flex items-center justify-between mb-2">
+              <div class="text-sm font-medium text-slate-100 font-mono">Batch Status</div>
+              <button
+                onClick=${() => handleGetBatchStatus(batchStatus.id)}
+                class="px-2 py-1 text-xs bg-slate-700 hover:bg-slate-600 text-slate-100 rounded font-mono transition-colors"
+              >
+                Refresh
+              </button>
+            </div>
             <div class="text-xs text-slate-400 space-y-1 font-mono">
               <div>ID: <span class="text-amber-400">${batchStatus.id}</span></div>
               <div>Status: <span class="text-mint-400">${batchStatus.processing_status || 'unknown'}</span></div>
@@ -2149,8 +2157,10 @@ function ConfigPanel() {
 }
 
 function ResponsePanel() {
-  const { response, loading, error, selectedEndpoint, modelsList, batchStatus, usageReport, costReport, skillsList, skillDetail, handleGetSkill, toolExecutionStatus, toolExecutionDetails, models, maxTokens, tokenCount, model } = useApp();
+  const { response, loading, error, selectedEndpoint, modelsList, batchStatus, usageReport, costReport, skillsList, skillDetail, handleGetSkill, toolExecutionStatus, toolExecutionDetails, models, maxTokens, tokenCount, model, batchResultsData, batchResultsLoading, batchResultsError, handleFetchBatchResults, handleGetBatchStatus } = useApp();
   const [viewMode, setViewMode] = useState('formatted');
+  const [expandedResults, setExpandedResults] = useState({});
+  const [allExpanded, setAllExpanded] = useState(false);
 
   // Determine if we should show view mode toggle
   const showViewModeToggle = response || modelsList || batchStatus || usageReport || costReport || skillsList || skillDetail;
@@ -2167,6 +2177,25 @@ function ResponsePanel() {
   };
 
   const responseType = getResponseType();
+
+  // Helper functions for expand/collapse batch results
+  const toggleResultExpanded = (index) => {
+    setExpandedResults(prev => ({
+      ...prev,
+      [index]: !prev[index]
+    }));
+  };
+
+  const toggleAllExpanded = () => {
+    if (allExpanded) {
+      setExpandedResults({});
+    } else {
+      const all = {};
+      batchResultsData?.forEach((_, i) => { all[i] = true; });
+      setExpandedResults(all);
+    }
+    setAllExpanded(!allExpanded);
+  };
 
   return html`
     <div class="h-full flex flex-col bg-slate-900">
@@ -2312,7 +2341,16 @@ function ResponsePanel() {
         ${!loading && !error && viewMode === 'formatted' && responseType === 'batch' && (response || batchStatus) && html`
           <div class="space-y-4 animate-slide-up">
             <div class="bg-slate-800/50 border border-slate-700 rounded-lg p-4 backdrop-blur-sm">
-              <h3 class="text-sm font-semibold text-slate-100 mb-3 font-mono">Batch Information</h3>
+              <div class="flex items-center justify-between mb-3">
+                <h3 class="text-sm font-semibold text-slate-100 font-mono">Batch Information</h3>
+                <${Button}
+                  onClick=${() => handleGetBatchStatus((response || batchStatus).id)}
+                  variant="secondary"
+                  size="sm"
+                >
+                  Refresh Status
+                </${Button}>
+              </div>
               <div class="space-y-2 text-sm">
                 <div class="flex justify-between">
                   <span class="text-slate-400 font-medium font-mono">Batch ID:</span>
@@ -2356,6 +2394,68 @@ function ResponsePanel() {
                     >
                       ${(response || batchStatus).results_url}
                     </a>
+
+                    <div class="flex items-center gap-2 mt-3">
+                      <${Button}
+                        onClick=${() => handleFetchBatchResults((response || batchStatus).results_url)}
+                        disabled=${batchResultsLoading}
+                        variant="secondary"
+                        size="sm"
+                      >
+                        ${batchResultsLoading ? 'Fetching...' : (batchResultsData ? 'Refresh Results' : 'View Results')}
+                      </${Button}>
+                    </div>
+
+                    ${batchResultsError && html`
+                      <div class="mt-3 bg-red-900/20 border border-red-700/50 rounded-lg p-3 text-sm text-red-300 font-mono">
+                        ${batchResultsError}
+                      </div>
+                    `}
+
+                    ${batchResultsData && batchResultsData.length > 0 && html`
+                      <div class="mt-4 space-y-3">
+                        <div class="flex items-center justify-between">
+                          <span class="text-sm text-slate-300 font-mono">
+                            ${batchResultsData.length} result${batchResultsData.length !== 1 ? 's' : ''}
+                          </span>
+                          <button
+                            onClick=${toggleAllExpanded}
+                            class="text-xs text-amber-400 hover:text-amber-300 font-mono transition-colors"
+                          >
+                            ${allExpanded ? 'Collapse All' : 'Expand All'}
+                          </button>
+                        </div>
+
+                        <div class="space-y-2 max-h-[500px] overflow-y-auto">
+                          ${batchResultsData.map((result, index) => html`
+                            <div key=${index} class="bg-slate-800/50 border border-slate-700 rounded-lg overflow-hidden hover-lift">
+                              <button
+                                onClick=${() => toggleResultExpanded(index)}
+                                class="w-full flex items-center justify-between p-3 hover:bg-slate-700/30 transition-colors text-left"
+                              >
+                                <div class="flex items-center gap-3">
+                                  <span class="text-xs font-mono text-slate-500">#${index + 1}</span>
+                                  <span class="font-mono text-amber-400 text-sm">${result.custom_id}</span>
+                                  <span class="px-2 py-0.5 rounded text-xs font-mono ${
+                                    result.result?.type === 'succeeded'
+                                      ? 'bg-mint-900/30 text-mint-400 border border-mint-700/50'
+                                      : 'bg-red-900/30 text-red-400 border border-red-700/50'
+                                  }">
+                                    ${result.result?.type || 'unknown'}
+                                  </span>
+                                </div>
+                                <span class="text-slate-400 text-lg">${expandedResults[index] ? '−' : '+'}</span>
+                              </button>
+                              ${expandedResults[index] && html`
+                                <div class="p-4 border-t border-slate-700 bg-slate-900/50">
+                                  <pre class="bg-slate-950 p-3 rounded-lg text-mint-300 overflow-x-auto text-xs font-mono border border-slate-800 whitespace-pre-wrap break-words">${JSON.stringify(result.result?.message || result.result || result, null, 2)}</pre>
+                                </div>
+                              `}
+                            </div>
+                          `)}
+                        </div>
+                      </div>
+                    `}
                   </div>
                 `}
               </div>
@@ -2630,7 +2730,7 @@ function AppContent() {
             <div>
               <h1 class="text-2xl font-bold text-slate-100 tracking-tight">Claude API Explorer</h1>
               <p class="text-slate-400 text-xs font-mono mt-0.5">
-                <span class="text-amber-400">v2.9</span> • Developer Command Center
+                <span class="text-amber-400">v2.10</span> • Developer Command Center
               </p>
             </div>
           </div>

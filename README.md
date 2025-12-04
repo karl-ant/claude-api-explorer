@@ -13,6 +13,7 @@ A visual, interactive web application for testing and exploring Anthropic's Clau
 - **Multi-Message Support**: Build conversations with multiple user/assistant message pairs
 - **Conversation Mode**: Chat-style interface for multi-turn conversations with automatic context preservation
 - **Multiple API Endpoints**: Messages, Message Batches, Models, Skills, Usage Reports, Cost Reports
+- **Batch Results Viewer**: View JSONL batch results in-app with expandable cards, refresh status buttons
 - **Skills API (Beta)**: List, create, get, and delete custom skills with folder drag & drop upload
 - **Skills Version Management**: List and delete skill versions before deleting skills
 
@@ -177,6 +178,7 @@ Tested on:
 ✅ **Conversation Mode** with chat-style UI and context preservation
 ✅ Vision API (image uploads)
 ✅ Multiple API endpoints (Messages, Batches, Models, Skills, Usage, Cost)
+✅ Batch results viewer with expandable cards and refresh buttons
 ✅ Skills API tab (List, Create, Get, Delete) with folder drag & drop upload
 ✅ Skills version management (list/delete versions)
 ✅ Beta Headers toggle for experimental features

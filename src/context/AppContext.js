@@ -56,6 +56,9 @@ export function AppProvider({ children }) {
   const [batchRequests, setBatchRequests] = useState([{ custom_id: '', params: { model: 'claude-sonnet-4-20250514', messages: [{ role: 'user', content: '' }], max_tokens: 1024 } }]);
   const [batchStatus, setBatchStatus] = useState(null);
   const [batchResults, setBatchResults] = useState(null);
+  const [batchResultsData, setBatchResultsData] = useState(null);
+  const [batchResultsLoading, setBatchResultsLoading] = useState(false);
+  const [batchResultsError, setBatchResultsError] = useState(null);
 
   // Models API
   const [modelsList, setModelsList] = useState(null);
@@ -1016,6 +1019,8 @@ export function AppProvider({ children }) {
     setError(null);
     setResponse(null);
     setBatchStatus(null);
+    setBatchResultsData(null);
+    setBatchResultsError(null);
 
     const requestBody = {
       requests: batchRequests.filter(req =>
@@ -1095,6 +1100,82 @@ export function AppProvider({ children }) {
       setError(err.message || 'An error occurred while fetching batch status');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleFetchBatchResults = async (resultsUrl) => {
+    if (!resultsUrl) {
+      setBatchResultsError('No results URL provided');
+      return;
+    }
+
+    if (!apiKey) {
+      setBatchResultsError('API key is required to fetch batch results');
+      return;
+    }
+
+    setBatchResultsLoading(true);
+    setBatchResultsError(null);
+    setBatchResultsData(null);
+
+    try {
+      let text;
+      // Try direct fetch first with API key, fallback to proxy if CORS blocks
+      try {
+        const resp = await fetch(resultsUrl, {
+          headers: {
+            'x-api-key': apiKey,
+            'anthropic-version': '2023-06-01'
+          }
+        });
+        if (resp.ok) {
+          text = await resp.text();
+        } else {
+          const errorData = await resp.json();
+          throw new Error(errorData.error?.message || 'Direct fetch failed');
+        }
+      } catch (directError) {
+        // Fallback to proxy if CORS blocks or other error
+        const proxyResp = await fetch('http://localhost:3001/proxy-batch-results', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: resultsUrl, apiKey })
+        });
+        if (!proxyResp.ok) {
+          const errorData = await proxyResp.json();
+          throw new Error(errorData.error || 'Proxy fetch failed');
+        }
+        text = await proxyResp.text();
+      }
+
+      // Check if response is HTML (error page) instead of JSONL
+      if (text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html')) {
+        console.error('Received HTML instead of JSONL. First 200 chars:', text.substring(0, 200));
+        throw new Error('Received HTML response instead of JSONL. The results URL may have expired or be inaccessible. Try fetching the batch status again to get a fresh URL.');
+      }
+
+      // Parse JSONL (one JSON object per line)
+      const results = text.trim().split('\n')
+        .filter(line => line.trim())
+        .map((line, i) => {
+          try {
+            return JSON.parse(line);
+          } catch {
+            return { custom_id: `error_${i}`, error: `Parse error line ${i + 1}` };
+          }
+        });
+
+      // Check if we got any valid results
+      if (results.length === 0) {
+        throw new Error('No valid results found in response');
+      }
+
+      setBatchResultsData(results);
+    } catch (err) {
+      console.error('Fetch batch results error:', err);
+      setBatchResultsError(err.message || 'Failed to fetch batch results');
+    } finally {
+      setBatchResultsLoading(false);
     }
   };
 
@@ -1240,8 +1321,13 @@ export function AppProvider({ children }) {
     setBatchStatus,
     batchResults,
     setBatchResults,
+    batchResultsData,
+    setBatchResultsData,
+    batchResultsLoading,
+    batchResultsError,
     handleCreateBatch,
     handleGetBatchStatus,
+    handleFetchBatchResults,
 
     // Models API
     modelsList,
@@ -1309,7 +1395,7 @@ export function AppProvider({ children }) {
     toolMode, toolApiKeys,
     betaHeaders, skillsJson,
     conversationMode, conversationHistory,
-    batchRequests, batchStatus, batchResults,
+    batchRequests, batchStatus, batchResults, batchResultsData, batchResultsLoading, batchResultsError,
     modelsList, modelsLoading,
     usageReport, usageLoading,
     costReport, costLoading,
