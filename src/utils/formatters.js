@@ -94,6 +94,47 @@ export function executeTool(toolName, toolInput) {
         if (input.expression) {
           // New format - evaluate with Math functions available
           try {
+            const expr = String(input.expression).trim();
+
+            // Validate expression contains only allowed characters
+            const allowedChars = /^[0-9+\-*/().,\s\w]+$/;
+            if (!allowedChars.test(expr)) {
+              return JSON.stringify({
+                success: false,
+                error: 'Expression contains invalid characters',
+                expression: input.expression,
+                mode: 'demo'
+              });
+            }
+
+            // Check for dangerous patterns (same as real calculator)
+            const dangerousPatterns = [
+              /require/i,
+              /import/i,
+              /export/i,
+              /function/i,
+              /eval/i,
+              /constructor/i,
+              /prototype/i,
+              /__proto__/i,
+              /\[.*\]/,  // Array access
+              /window/i,
+              /document/i,
+              /global/i,
+              /process/i
+            ];
+
+            for (const pattern of dangerousPatterns) {
+              if (pattern.test(expr)) {
+                return JSON.stringify({
+                  success: false,
+                  error: 'Expression contains forbidden keywords',
+                  expression: input.expression,
+                  mode: 'demo'
+                });
+              }
+            }
+
             const mathContext = {
               pi: Math.PI, e: Math.E,
               sin: Math.sin, cos: Math.cos, tan: Math.tan,
@@ -104,7 +145,7 @@ export function executeTool(toolName, toolInput) {
               round: Math.round, min: Math.min, max: Math.max
             };
 
-            const func = new Function(...Object.keys(mathContext), `return (${input.expression})`);
+            const func = new Function(...Object.keys(mathContext), `return (${expr})`);
             const result = func(...Object.values(mathContext));
 
             return JSON.stringify({

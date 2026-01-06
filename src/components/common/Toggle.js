@@ -22,7 +22,7 @@ export function Toggle({ label, checked, onChange, disabled = false }) {
           } ${disabled ? 'opacity-50 cursor-not-allowed' : 'group-hover:border-slate-500'}"
         ></div>
         <div
-          class="dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-all duration-200 shadow-md ${
+          class="dot absolute left-1 top-1 bg-slate-100 w-4 h-4 rounded-full transition-all duration-200 shadow-md ${
             checked ? 'transform translate-x-5' : ''
           }"
         ></div>

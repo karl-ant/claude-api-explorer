@@ -4,11 +4,11 @@ A visual web app for testing Anthropic API endpoints. Uses React + htm (no build
 
 ## Quick Reference
 
-**Tech Stack:** React 18 (CDN), htm 3.1.1, Express 5.x proxy, Tailwind CSS (CDN)
+**Tech Stack:** React 18 (CDN), htm 3.1.1, Express 5.x proxy, Tailwind CSS (CDN), Jest 30 (testing)
 
 **Supported Endpoints:**
-- Messages API - Send messages to Claude
-- Message Batches API - Async batch processing at 50% cost
+- Messages API - Send messages to Claude with multi-turn conversation support
+- Message Batches API - Async batch processing at 50% cost with in-app results viewing
 - Models API - List available models
 - Skills API - Create and manage custom skills (Beta)
 - Usage Reports API - Token usage tracking (requires Admin key)
@@ -20,28 +20,73 @@ A visual web app for testing Anthropic API endpoints. Uses React + htm (no build
 - Skills Versions - List and manage skill versions before deletion
 - Container Skills - Configure container.skills for document processing in Messages API
 
+**Multi-Turn Conversations:**
+- Conversation Mode toggle for chat-style interactions
+- Automatically maintains conversation context across multiple exchanges
+- Chat interface with user/assistant message display
+- Continue conversations from history with full context restoration
+- Seamless tool execution within conversations
+
 ## Architecture
 
 ### Core Philosophy
 - **No build step** - Edit → refresh → test (htm instead of JSX)
-- **Single file components** - Main app in `FullApp.js` (~2150 lines, consider splitting)
+- **Single file components** - Main app in `FullApp.js` (~1700 lines)
 - **Express proxy** - Required for CORS (browser can't call Anthropic directly)
 
 ### Project Structure
 ```
+.claude/
+├── agents/                    # Custom subagents
+│   ├── design-reviewer.md     # UI/UX consistency enforcement
+│   ├── test-coverage-reviewer.md  # Test adequacy validation
+│   └── code-reviewer.md       # Code quality review
+└── commands/                  # Slash commands
+    ├── explore.md             # Codebase exploration
+    ├── design-review.md       # Design enforcement
+    └── sync-docs.md           # Documentation sync
 src/
 ├── main.js                    # Entry point
-├── FullApp.js                 # All UI components (~2150 lines)
-├── components/common/         # Reusable components (Button, Toggle, Tabs)
-├── context/AppContext.js      # Global state (API keys, config, history)
+├── FullApp.js                 # Main UI components (~1700 lines)
+│                              # Includes ConversationModeToggle, ChatInterface
+├── components/
+│   ├── common/                # Reusable components (Button, Toggle, Tabs)
+│   └── responses/             # Response panel components (extracted v2.11)
+│       ├── index.js           # Barrel exports
+│       ├── MessageResponseView.js
+│       ├── BatchResponseView.js
+│       ├── ModelsResponseView.js
+│       ├── UsageResponseView.js
+│       ├── CostResponseView.js
+│       ├── SkillsResponseView.js
+│       ├── EmptyResponseState.js
+│       └── ActualCostCard.js
+├── context/AppContext.js      # Global state (API keys, config, history, conversations)
+│                              # conversationMode, conversationHistory state
 ├── config/
 │   ├── models.js              # Model definitions
+│   ├── models.test.js         # Model config tests
 │   ├── endpoints.js           # Endpoint definitions
-│   └── toolConfig.js          # Tool registry
+│   ├── endpoints.test.js      # Endpoint config tests
+│   ├── toolConfig.js          # Tool registry
+│   └── toolConfig.test.js     # Tool config tests
 └── utils/
-    ├── localStorage.js        # Storage operations
-    ├── formatters.js          # Demo tool implementations
+    ├── localStorage.js        # Storage operations (includes conversation persistence)
+    ├── formatters.js          # Demo tool implementations (with security validation)
+    ├── formatters.test.js     # Formatter tests
     └── toolExecutors/         # Real tool implementations
+        ├── index.js           # Tool router
+        ├── index.test.js      # Router tests (25 tests)
+        ├── calculator.js      # Math expression evaluator
+        ├── calculator.test.js # Calculator tests (17 tests)
+        ├── jsonValidator.js   # JSON validation
+        ├── jsonValidator.test.js  # JSON validator tests (10 tests)
+        ├── codeFormatter.js   # Code formatting
+        ├── codeFormatter.test.js  # Code formatter tests (26 tests)
+        ├── tokenCounter.js    # Token estimation
+        ├── tokenCounter.test.js   # Token counter tests (25 tests)
+        ├── regexTester.js     # Regex pattern testing
+        └── regexTester.test.js    # Regex tester tests (14 tests)
 ```
 
 ## Code Standards
@@ -164,6 +209,20 @@ transition-colors  // All interactive elements
 
 ## Common Tasks
 
+### Using Conversation Mode
+1. **Send first message** using normal MessageBuilder interface
+2. **Wait for response** - conversation toggle appears after first successful API call
+3. **Enable Conversation Mode** toggle (located above Send Request button)
+4. **Chat interface activates** - shows conversation history with chat bubbles
+5. **Send follow-up messages** - full context automatically maintained
+6. **Continue from history** - Use "Continue" button on history items marked with "Chat" badge
+
+**Technical notes:**
+- Toggle only appears after first response (prevents empty messages validation error)
+- Tool execution seamlessly integrates (tool_result messages filtered from display)
+- Conversation history passed directly to avoid React state timing issues
+- Use `handleSendRequest(overrideConversationHistory)` parameter for immediate context
+
 ### Adding a New Model
 Edit `src/config/models.js`:
 ```javascript
@@ -183,6 +242,34 @@ Edit `src/config/models.js`:
 2. Create real implementation in `src/utils/toolExecutors/`
 3. Add to executor router in `toolExecutors/index.js`
 4. Add tool definition in `FullApp.js`
+
+### Working with Batch Results
+1. **Create batch** - Use the Batches tab to create a batch with multiple requests
+2. **Check status** - Use "Check Batch Status" or click "Refresh" button on the status card
+3. **View results** - When batch is complete, click "View Results" button next to results_url
+4. **Explore responses** - Results display as expandable cards showing custom_id, status, and response
+5. **Expand/collapse** - Click individual cards or use "Expand All" / "Collapse All" toggle
+
+**Technical details:**
+- Results fetched with API key authentication (requires `x-api-key` header)
+- JSONL format parsed automatically (one JSON object per line)
+- Direct fetch attempted first, falls back to proxy if CORS blocked
+- Refresh buttons available on both status card (left panel) and batch info (response panel)
+- State: `batchResultsData`, `batchResultsLoading`, `batchResultsError` in AppContext (lines 59-61)
+- Handler: `handleFetchBatchResults` in AppContext.js (lines 1106-1165)
+- Proxy route: `/proxy-batch-results` in server.js (lines 110-132)
+
+### Running Tests
+```bash
+npm test              # Run all tests once
+npm run test:watch   # Run in watch mode
+npm run test:coverage # Run with coverage report
+```
+
+**Test coverage targets:**
+- 177 tests across 10 files (utilities + config)
+- 72% overall coverage
+- Colocated test files: `file.js` → `file.test.js`
 
 ## Beta Headers & Skills
 
@@ -341,19 +428,29 @@ setImages(prev => [...prev, newImage]);
 - Usage/Cost APIs require Admin key (sk-ant-admin...)
 - Token counting API doesn't support skills/beta headers
 - Skills version endpoints require `?beta=true` query parameter
+- **Conversation Mode:**
+  - Cannot edit past messages in chat (switch to MessageBuilder for edits)
+  - tool_result messages hidden from chat display (API plumbing)
+  - No conversation branching or forking
+  - Long conversations may hit context limits
 
 ## Technical Debt
 
-1. FullApp.js ~2150 lines (needs splitting into separate panel components)
+1. FullApp.js ~1700 lines (ResponsePanel extracted, but ConfigPanel and other panels could be split)
 2. No TypeScript
-3. No automated tests
-4. Response panel logic complex with multiple formats
+3. Test coverage for main app components still needed (integration tests)
+4. Conversation mode state management complex (React timing issues require parameter passing)
+5. No conversation branching or editing past messages in chat mode
 
 ---
 
-**Version:** 2.7 | **Updated:** 2025-12-03 | **Owner:** Karl
+**Version:** 2.11 | **Updated:** 2026-01-06 | **Owner:** Karl
 
 **Recent Changes:**
+- v2.11: Security & code quality improvements - Demo calculator validation, ResponsePanel split into 8 components, 76 new tests (177 total, 72% coverage), font-mono/toggle design fixes
+- v2.10: Batch results viewer - View JSONL results in-app with expandable cards, API key authentication, refresh buttons on status cards
+- v2.9: Multi-turn conversation support - Conversation mode toggle, chat-style UI, history continuation, seamless tool execution in conversations
+- v2.8: Unit testing infrastructure - 101 Jest tests (42% coverage), 3 custom review subagents, /sync-docs command
 - v2.7: Free APIs - Real mode now uses Open-Meteo & DuckDuckGo (no signup/keys required)
 - v2.6: Hybrid Tool System UI complete - Tool mode toggle, API keys panel, 4 new developer tools
 - v2.5: Skills folder upload (drag & drop folders), Delete tab with version management, text wrapping fixes
@@ -364,3 +461,4 @@ setImages(prev => [...prev, newImage]);
 - v1.0: Initial release with Messages API
 
 **Note:** Keep the version displayed in the UI (FullApp.js header) in sync with this version.
+- Remember to use subagents to help you. You can find the available ones in the /agents folder.

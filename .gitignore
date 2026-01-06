@@ -45,3 +45,4 @@ lerna-debug.log*
 # Build outputs (if we ever add a build step)
 dist/
 build/
+coverage/

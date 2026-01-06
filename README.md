@@ -11,7 +11,9 @@ A visual, interactive web application for testing and exploring Anthropic's Clau
 - **Dynamic Model Selection**: Auto-fetches available models from API, shows full model IDs
 - **Request Configuration**: Adjust parameters like max_tokens, temperature, top_p, top_k
 - **Multi-Message Support**: Build conversations with multiple user/assistant message pairs
+- **Conversation Mode**: Chat-style interface for multi-turn conversations with automatic context preservation
 - **Multiple API Endpoints**: Messages, Message Batches, Models, Skills, Usage Reports, Cost Reports
+- **Batch Results Viewer**: View JSONL batch results in-app with expandable cards, refresh status buttons
 - **Skills API (Beta)**: List, create, get, and delete custom skills with folder drag & drop upload
 - **Skills Version Management**: List and delete skill versions before deleting skills
 
@@ -39,6 +41,7 @@ A visual, interactive web application for testing and exploring Anthropic's Clau
 - **Express** proxy server for CORS handling
 - **Vanilla JavaScript** ES6 modules
 - **localStorage** for persistence
+- **Jest 30** for unit testing
 
 ## Getting Started
 
@@ -79,36 +82,44 @@ A visual, interactive web application for testing and exploring Anthropic's Clau
 ```
 claude-api-explorer/
 ├── index.html                    # Entry point
-├── server.js                     # Express proxy server (CORS + API proxies)
+├── server.js                     # Express proxy server
+├── jest.config.js                # Jest test configuration
 ├── package.json                  # Dependencies
 ├── README.md                     # This file
 ├── CLAUDE.md                     # AI development guide
+├── .claude/                      # Claude Code configuration
+│   ├── agents/                   # Custom review subagents
+│   │   ├── design-reviewer.md
+│   │   ├── test-coverage-reviewer.md
+│   │   └── code-reviewer.md
+│   └── commands/                 # Slash commands
+│       ├── explore.md
+│       ├── design-review.md
+│       └── sync-docs.md
 └── src/
     ├── main.js                   # React root renderer
-    ├── FullApp.js                # Main application (~2150 lines)
+    ├── FullApp.js                # Main application (~1700 lines)
     ├── components/
-    │   └── common/              # Reusable UI components
-    │       ├── Button.js
-    │       ├── Toggle.js
-    │       └── Tabs.js
+    │   ├── common/               # Reusable UI components
+    │   └── responses/            # Response panel components (8 files)
     ├── context/
     │   └── AppContext.js         # Global state management
     ├── config/
-    │   ├── models.js             # Available models
-    │   ├── endpoints.js          # API endpoint definitions
-    │   └── toolConfig.js         # Tool registry and configuration
+    │   ├── models.js + .test.js
+    │   ├── endpoints.js + .test.js
+    │   └── toolConfig.js + .test.js
     └── utils/
-        ├── localStorage.js       # Storage helpers
-        ├── formatters.js         # Demo tool implementations
-        └── toolExecutors/       # Real tool implementations
-            ├── index.js          # Tool execution router
-            ├── calculator.js     # Enhanced math expressions
-            ├── jsonValidator.js  # JSON validation
-            ├── codeFormatter.js  # Code formatting
-            ├── tokenCounter.js   # Token estimation
-            ├── regexTester.js    # Regex testing
-            ├── weather.js        # OpenWeatherMap API
-            └── search.js         # Brave Search API
+        ├── localStorage.js
+        ├── formatters.js + .test.js
+        └── toolExecutors/        # Each with .test.js file
+            ├── index.js          # Tool router
+            ├── calculator.js
+            ├── jsonValidator.js
+            ├── regexTester.js
+            ├── codeFormatter.js
+            ├── tokenCounter.js
+            ├── weather.js
+            └── search.js
 ```
 
 ## Architecture
@@ -166,8 +177,10 @@ Tested on:
 ✅ Parameter controls (temperature, top_p, top_k, max_tokens)
 ✅ System prompt
 ✅ Multi-message conversations
+✅ **Conversation Mode** with chat-style UI and context preservation
 ✅ Vision API (image uploads)
 ✅ Multiple API endpoints (Messages, Batches, Models, Skills, Usage, Cost)
+✅ Batch results viewer with expandable cards and refresh buttons
 ✅ Skills API tab (List, Create, Get, Delete) with folder drag & drop upload
 ✅ Skills version management (list/delete versions)
 ✅ Beta Headers toggle for experimental features
@@ -176,10 +189,12 @@ Tested on:
 ✅ 2 external API integrations (weather, web search)
 ✅ Automatic tool execution
 ✅ Request history (50 items, export/import)
+✅ Continue conversations from history
 ✅ Response view toggle (Formatted/JSON)
 ✅ Token usage statistics
 ✅ Dark theme UI
 ✅ localStorage persistence
+✅ Unit testing with Jest (177 tests, 72% coverage)
 
 ## Limitations
 
@@ -189,6 +204,10 @@ Tested on:
 - Usage/Cost APIs require Admin API key (sk-ant-admin...)
 - History only for Messages endpoint
 - Skills version deletion may not be fully supported in Anthropic's beta API
+- **Conversation Mode:**
+  - Cannot edit past messages in chat interface (use MessageBuilder for edits)
+  - No conversation branching or forking
+  - Long conversations may hit context limits
 
 ## Future Enhancements
 
@@ -197,9 +216,9 @@ Potential improvements for the future:
 - Add image previews in Vision tab
 - Add keyboard shortcuts
 - Add response comparison view
-- Split FullApp.js into smaller components
+- Continue splitting FullApp.js (ResponsePanel done, ConfigPanel next)
 - Migrate to TypeScript
-- Add unit tests
+- Expand test coverage to main app components (integration tests)
 
 ## Hybrid Tool System
 
@@ -253,6 +272,22 @@ To modify the application:
 3. Common components are in `src/components/common/`
 4. State management is in `src/context/AppContext.js`
 5. Utilities are in `src/utils/`
+
+### Testing
+
+Run the test suite:
+
+```bash
+npm test              # Run all tests once
+npm run test:watch   # Run in watch mode (re-runs on changes)
+npm run test:coverage # Run with coverage report
+```
+
+**Test Coverage:**
+- 177 tests across 10 files (72% coverage)
+- Utilities: calculator, JSON validator, regex tester, code formatter, token counter, formatters, tool router
+- Config: models, endpoints, tool configuration
+- Colocated test files (e.g., `calculator.js` → `calculator.test.js`)
 
 ## Contributing
 

@@ -6,7 +6,8 @@ const STORAGE_KEYS = {
   TOOL_MODE: 'claude_api_explorer_tool_mode',
   TOOL_API_KEYS: 'claude_api_explorer_tool_api_keys',
   BETA_HEADERS: 'claude_api_explorer_beta_headers',
-  SKILLS_JSON: 'claude_api_explorer_skills_json'
+  SKILLS_JSON: 'claude_api_explorer_skills_json',
+  CONVERSATION_MODE: 'claude_api_explorer_conversation_mode'
 };
 
 const MAX_HISTORY_ITEMS = 50;
@@ -39,7 +40,7 @@ export const storage = {
   },
 
   // Request history
-  saveToHistory(request, response) {
+  saveToHistory(request, response, options = {}) {
     try {
       const history = this.getHistory();
 
@@ -62,7 +63,9 @@ export const storage = {
         response,
         model: request.model,
         prompt: promptPreview,
-        tokenUsage: response?.usage || null
+        tokenUsage: response?.usage || null,
+        isConversation: options.isConversation || false,
+        conversationHistory: options.conversationHistory || null
       };
 
       history.unshift(entry);
@@ -243,6 +246,25 @@ export const storage = {
       return localStorage.getItem(STORAGE_KEYS.SKILLS_JSON) || '';
     } catch (error) {
       return '';
+    }
+  },
+
+  // Conversation mode
+  saveConversationMode(mode) {
+    try {
+      localStorage.setItem(STORAGE_KEYS.CONVERSATION_MODE, JSON.stringify(mode));
+    } catch (error) {
+      console.error('Failed to save conversation mode:', error);
+    }
+  },
+
+  getConversationMode() {
+    try {
+      const mode = localStorage.getItem(STORAGE_KEYS.CONVERSATION_MODE);
+      return mode ? JSON.parse(mode) : false;
+    } catch (error) {
+      console.error('Failed to load conversation mode:', error);
+      return false;
     }
   }
 };
