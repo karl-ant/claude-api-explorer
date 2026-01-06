@@ -464,7 +464,7 @@ export function AppProvider({ children }) {
               timestamp: Date.now(),
               id: `msg-${Date.now()}`
             };
-            updatedConversationHistory = [...conversationHistory, assistantMessage];
+            updatedConversationHistory = [...historyToUse, assistantMessage];
             setConversationHistory(updatedConversationHistory);
 
             // Update messages array for next API call

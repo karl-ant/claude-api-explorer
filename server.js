@@ -108,10 +108,27 @@ app.post('/v1/messages/batches/:id/cancel', async (req, res) => {
 });
 
 // Batch Results Proxy - Fetch JSONL from signed URL (CORS fallback)
+// Security: Only allows URLs from Anthropic's domains to prevent SSRF attacks
 app.post('/proxy-batch-results', async (req, res) => {
   const { url, apiKey } = req.body;
   if (!url) return res.status(400).json({ error: 'URL required' });
   if (!apiKey) return res.status(400).json({ error: 'API key required' });
+
+  // Validate URL belongs to Anthropic's domain (SSRF protection)
+  try {
+    const parsedUrl = new URL(url);
+    const allowedHosts = ['api.anthropic.com', 'storage.anthropic.com'];
+
+    if (parsedUrl.protocol !== 'https:') {
+      return res.status(400).json({ error: 'Only HTTPS URLs are allowed' });
+    }
+
+    if (!allowedHosts.some(host => parsedUrl.hostname === host || parsedUrl.hostname.endsWith('.' + host))) {
+      return res.status(400).json({ error: 'URL must be from Anthropic\'s domain (api.anthropic.com or storage.anthropic.com)' });
+    }
+  } catch (e) {
+    return res.status(400).json({ error: 'Invalid URL format' });
+  }
 
   try {
     const response = await fetch(url, {
