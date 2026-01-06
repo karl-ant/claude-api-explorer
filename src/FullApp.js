@@ -6,6 +6,16 @@ import { Toggle } from './components/common/Toggle.js';
 import { Tabs } from './components/common/Tabs.js';
 import { fileToBase64, getImageMediaType, extractMessageText } from './utils/formatters.js';
 import { TOOL_MODES } from './config/toolConfig.js';
+import {
+  MessageResponseView,
+  BatchResponseView,
+  ModelsResponseView,
+  UsageResponseView,
+  CostResponseView,
+  SkillsResponseView,
+  EmptyResponseState,
+  ActualCostCard
+} from './components/responses/index.js';
 
 const html = htm.bind(React.createElement);
 
@@ -241,7 +251,7 @@ function MessageBuilder() {
           onInput=${(e) => setSystem(e.target.value)}
           placeholder="You are a helpful assistant..."
           rows="3"
-          class="w-full px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none text-sm resize-none text-slate-100 placeholder-slate-600 hover:border-slate-600 transition-colors"
+          class="w-full px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none text-sm resize-none text-slate-100 placeholder-slate-600 hover:border-slate-600 transition-colors font-mono"
         ></textarea>
       </div>
 
@@ -279,7 +289,7 @@ function MessageBuilder() {
                 onInput=${(e) => updateMessage(index, 'content', e.target.value)}
                 placeholder="Enter ${message.role} message..."
                 rows="4"
-                class="w-full px-3 py-2.5 bg-slate-900 border border-slate-700 rounded-lg focus:outline-none text-sm resize-none text-slate-100 placeholder-slate-600 hover:border-slate-600 transition-colors"
+                class="w-full px-3 py-2.5 bg-slate-900 border border-slate-700 rounded-lg focus:outline-none text-sm resize-none text-slate-100 placeholder-slate-600 hover:border-slate-600 transition-colors font-mono"
               ></textarea>
             </div>
           `)}
@@ -984,7 +994,7 @@ function ChatInterface() {
           placeholder="Type your message... (Enter to send, Shift+Enter for new line)"
           rows="3"
           disabled=${loading}
-          class="flex-1 px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none text-sm text-slate-100 placeholder-slate-600 hover:border-slate-600 transition-colors resize-none ${loading ? 'opacity-50 cursor-not-allowed' : ''}"
+          class="flex-1 px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none text-sm text-slate-100 placeholder-slate-600 hover:border-slate-600 transition-colors resize-none font-mono ${loading ? 'opacity-50 cursor-not-allowed' : ''}"
         ></textarea>
         <${Button}
           onClick=${handleSend}
@@ -1911,63 +1921,6 @@ function TokenCountCard({ tokenCount, costs, stale, onClear }) {
   `;
 }
 
-function ActualCostCard({ usage, model, models, maxTokens, tokenCount, selectedModel }) {
-  const getPricing = (modelId) => {
-    const modelConfig = models.find(m => m.id === modelId);
-    return modelConfig?.pricing || { input: 3, output: 15 };
-  };
-
-  // Actual costs use response model pricing
-  const actualPricing = getPricing(model);
-  const inputCost = (usage.input_tokens / 1_000_000) * actualPricing.input;
-  const outputCost = (usage.output_tokens / 1_000_000) * actualPricing.output;
-  const totalCost = inputCost + outputCost;
-  const totalTokens = usage.input_tokens + usage.output_tokens;
-
-  // Estimated costs use selected model pricing (what user expected before sending)
-  const estPricing = getPricing(selectedModel || model);
-  const estInputCost = tokenCount ? (tokenCount / 1_000_000) * estPricing.input : inputCost;
-  const estOutputCost = (maxTokens / 1_000_000) * estPricing.output;
-  const estTotalCost = estInputCost + estOutputCost;
-
-  return html`
-    <div class="bg-slate-800/50 border border-mint-700/50 rounded-lg p-3 backdrop-blur-sm">
-      <div class="flex items-center justify-between mb-2">
-        <span class="text-sm font-medium text-slate-300 font-mono">Total Tokens</span>
-        <span class="text-xl font-bold text-mint-400 font-mono">
-          ${totalTokens.toLocaleString()}
-        </span>
-      </div>
-
-      <div class="text-xs font-mono border-t border-slate-700 pt-2 mt-2">
-        <div class="grid grid-cols-3 gap-2 mb-1">
-          <span class="text-slate-500"></span>
-          <span class="text-slate-500 text-right">Estimate</span>
-          <span class="text-slate-500 text-right">Actual</span>
-        </div>
-        <div class="grid grid-cols-3 gap-2 text-slate-400">
-          <span>Input:</span>
-          <span class="text-right text-slate-500">$${estInputCost.toFixed(5)}</span>
-          <span class="text-right text-mint-400">$${inputCost.toFixed(5)}</span>
-        </div>
-        <div class="grid grid-cols-3 gap-2 text-slate-400">
-          <span>Output:</span>
-          <span class="text-right text-slate-500">$${estOutputCost.toFixed(5)}</span>
-          <span class="text-right text-mint-400">$${outputCost.toFixed(5)}</span>
-        </div>
-        <div class="grid grid-cols-3 gap-2 text-slate-300 font-medium pt-1 border-t border-slate-700/50 mt-1">
-          <span>Total:</span>
-          <span class="text-right text-slate-400">$${estTotalCost.toFixed(5)}</span>
-          <span class="text-right text-amber-400">$${totalCost.toFixed(5)}</span>
-        </div>
-        <div class="text-slate-600 text-center pt-2">
-          Prices as of Nov 2025
-        </div>
-      </div>
-    </div>
-  `;
-}
-
 function ConfigPanel() {
   const {
     selectedEndpoint, handleSendRequest, handleCreateBatch, loading, apiKey,
@@ -2157,10 +2110,14 @@ function ConfigPanel() {
 }
 
 function ResponsePanel() {
-  const { response, loading, error, selectedEndpoint, modelsList, batchStatus, usageReport, costReport, skillsList, skillDetail, handleGetSkill, toolExecutionStatus, toolExecutionDetails, models, maxTokens, tokenCount, model, batchResultsData, batchResultsLoading, batchResultsError, handleFetchBatchResults, handleGetBatchStatus } = useApp();
+  const {
+    response, loading, error, selectedEndpoint, modelsList, batchStatus,
+    usageReport, costReport, skillsList, skillDetail, handleGetSkill,
+    toolExecutionStatus, toolExecutionDetails, models, maxTokens, tokenCount,
+    model, batchResultsData, batchResultsLoading, batchResultsError,
+    handleFetchBatchResults, handleGetBatchStatus
+  } = useApp();
   const [viewMode, setViewMode] = useState('formatted');
-  const [expandedResults, setExpandedResults] = useState({});
-  const [allExpanded, setAllExpanded] = useState(false);
 
   // Determine if we should show view mode toggle
   const showViewModeToggle = response || modelsList || batchStatus || usageReport || costReport || skillsList || skillDetail;
@@ -2177,25 +2134,7 @@ function ResponsePanel() {
   };
 
   const responseType = getResponseType();
-
-  // Helper functions for expand/collapse batch results
-  const toggleResultExpanded = (index) => {
-    setExpandedResults(prev => ({
-      ...prev,
-      [index]: !prev[index]
-    }));
-  };
-
-  const toggleAllExpanded = () => {
-    if (allExpanded) {
-      setExpandedResults({});
-    } else {
-      const all = {};
-      batchResultsData?.forEach((_, i) => { all[i] = true; });
-      setExpandedResults(all);
-    }
-    setAllExpanded(!allExpanded);
-  };
+  const hasNoData = !response && !modelsList && !batchStatus && !usageReport && !costReport && !skillsList && !skillDetail;
 
   return html`
     <div class="h-full flex flex-col bg-slate-900">
@@ -2252,454 +2191,57 @@ function ResponsePanel() {
           </div>
         `}
 
-        ${!loading && !error && viewMode === 'json' && (response || modelsList || batchStatus || usageReport || costReport || skillsList || skillDetail) && html`
+        ${!loading && !error && viewMode === 'json' && showViewModeToggle && html`
           <pre class="bg-slate-950 text-mint-300 p-6 rounded-lg overflow-x-auto text-sm font-mono leading-relaxed border border-slate-800 shadow-xl terminal-glow animate-fade-in whitespace-pre-wrap break-words">
             ${JSON.stringify(response || modelsList || batchStatus || usageReport || costReport || skillsList || skillDetail, null, 2)}
           </pre>
         `}
 
         ${!loading && !error && viewMode === 'formatted' && responseType === 'message' && response && html`
-          <div class="space-y-4 animate-slide-up">
-            <div class="bg-slate-800/50 border border-slate-700 rounded-lg p-6 backdrop-blur-sm hover-lift">
-              <div class="text-base leading-relaxed text-slate-100 whitespace-pre-wrap font-mono">
-                ${extractMessageText(response.content)}
-              </div>
-            </div>
-
-            ${toolExecutionDetails && toolExecutionDetails.length > 0 && html`
-              <div class="bg-purple-900/20 border border-purple-700/50 rounded-lg p-4 backdrop-blur-sm">
-                <h3 class="text-sm font-semibold text-purple-400 mb-3 flex items-center gap-2 font-mono">
-                  <span>🔧</span>
-                  <span>Tools Executed (${toolExecutionDetails.length})</span>
-                </h3>
-                <div class="space-y-3">
-                  ${toolExecutionDetails.map((tool, idx) => html`
-                    <div key=${idx} class="bg-slate-800/50 rounded-lg p-3 border border-purple-700/30">
-                      <div class="font-medium text-purple-300 mb-2 font-mono">
-                        ${tool.tool_name}
-                      </div>
-                      <div class="space-y-2 text-xs">
-                        <div>
-                          <div class="text-purple-400 font-medium mb-1 font-mono">Input:</div>
-                          <pre class="bg-slate-950 p-2 rounded text-purple-200 overflow-x-auto font-mono border border-slate-700 whitespace-pre-wrap break-words">${JSON.stringify(tool.tool_input, null, 2)}</pre>
-                        </div>
-                        <div>
-                          <div class="text-mint-400 font-medium mb-1 font-mono">Result:</div>
-                          <pre class="bg-slate-950 p-2 rounded text-mint-200 overflow-x-auto font-mono border border-slate-700 whitespace-pre-wrap break-words">${tool.tool_result}</pre>
-                        </div>
-                      </div>
-                    </div>
-                  `)}
-                </div>
-              </div>
-            `}
-
-            ${response.container && html`
-              <div class="bg-teal-900/20 border border-teal-700/50 rounded-lg p-4 backdrop-blur-sm">
-                <h3 class="text-sm font-semibold text-teal-400 mb-3 flex items-center gap-2 font-mono">
-                  <span>📄</span>
-                  <span>Skills Executed</span>
-                </h3>
-                <div class="space-y-3">
-                  ${response.container.skills && response.container.skills.map((skill, idx) => html`
-                    <div key=${idx} class="bg-slate-800/50 rounded-lg p-3 border border-teal-700/30">
-                      <div class="font-medium text-teal-300 mb-2 font-mono">
-                        ${skill.skill_id || skill.type}
-                      </div>
-                      <pre class="bg-slate-950 p-2 rounded text-teal-200 overflow-x-auto font-mono border border-slate-700 text-xs whitespace-pre-wrap break-words">${JSON.stringify(skill, null, 2)}</pre>
-                    </div>
-                  `)}
-                </div>
-              </div>
-            `}
-
-            ${response.usage && html`
-              <div class="space-y-3">
-                <div class="flex items-center justify-between text-sm bg-slate-800/30 border border-slate-700 rounded-lg px-4 py-2 backdrop-blur-sm">
-                  <span class="text-slate-400 font-medium font-mono">Model:</span>
-                  <span class="font-semibold text-amber-400 font-mono">${response.model}</span>
-                </div>
-                <${ActualCostCard}
-                  usage=${response.usage}
-                  model=${response.model}
-                  models=${models}
-                  maxTokens=${maxTokens}
-                  tokenCount=${tokenCount}
-                  selectedModel=${model}
-                />
-                ${response.stop_reason && html`
-                  <div class="flex items-center justify-between text-sm bg-slate-800/30 border border-slate-700 rounded-lg px-4 py-2 backdrop-blur-sm">
-                    <span class="text-slate-400 font-medium font-mono">Stop Reason:</span>
-                    <span class="font-semibold text-slate-300 font-mono">${response.stop_reason}</span>
-                  </div>
-                `}
-              </div>
-            `}
-          </div>
+          <${MessageResponseView}
+            response=${response}
+            toolExecutionDetails=${toolExecutionDetails}
+            models=${models}
+            maxTokens=${maxTokens}
+            tokenCount=${tokenCount}
+            model=${model}
+          />
         `}
 
         ${!loading && !error && viewMode === 'formatted' && responseType === 'batch' && (response || batchStatus) && html`
-          <div class="space-y-4 animate-slide-up">
-            <div class="bg-slate-800/50 border border-slate-700 rounded-lg p-4 backdrop-blur-sm">
-              <div class="flex items-center justify-between mb-3">
-                <h3 class="text-sm font-semibold text-slate-100 font-mono">Batch Information</h3>
-                <${Button}
-                  onClick=${() => handleGetBatchStatus((response || batchStatus).id)}
-                  variant="secondary"
-                  size="sm"
-                >
-                  Refresh Status
-                </${Button}>
-              </div>
-              <div class="space-y-2 text-sm">
-                <div class="flex justify-between">
-                  <span class="text-slate-400 font-medium font-mono">Batch ID:</span>
-                  <span class="font-mono text-amber-400">${(response || batchStatus).id}</span>
-                </div>
-                <div class="flex justify-between">
-                  <span class="text-slate-400 font-medium font-mono">Status:</span>
-                  <span class="font-semibold text-mint-400 font-mono">${(response || batchStatus).processing_status}</span>
-                </div>
-                ${(response || batchStatus).request_counts && html`
-                  <div class="mt-3 pt-3 border-t border-slate-700">
-                    <div class="text-slate-300 font-medium mb-2 font-mono">Request Counts:</div>
-                    <div class="grid grid-cols-2 gap-2 text-xs">
-                      <div class="flex justify-between">
-                        <span class="text-slate-500 font-mono">Processing:</span>
-                        <span class="font-semibold text-slate-300 font-mono">${(response || batchStatus).request_counts.processing || 0}</span>
-                      </div>
-                      <div class="flex justify-between">
-                        <span class="text-slate-500 font-mono">Succeeded:</span>
-                        <span class="font-semibold text-mint-400 font-mono">${(response || batchStatus).request_counts.succeeded || 0}</span>
-                      </div>
-                      <div class="flex justify-between">
-                        <span class="text-slate-500 font-mono">Errored:</span>
-                        <span class="font-semibold text-red-400 font-mono">${(response || batchStatus).request_counts.errored || 0}</span>
-                      </div>
-                      <div class="flex justify-between">
-                        <span class="text-slate-500 font-mono">Canceled:</span>
-                        <span class="font-semibold text-slate-400 font-mono">${(response || batchStatus).request_counts.canceled || 0}</span>
-                      </div>
-                    </div>
-                  </div>
-                `}
-                ${(response || batchStatus).results_url && html`
-                  <div class="mt-3 pt-3 border-t border-slate-700">
-                    <div class="text-slate-300 font-medium mb-1 font-mono">Results URL:</div>
-                    <a
-                      href=${(response || batchStatus).results_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      class="text-xs text-amber-400 hover:text-amber-300 break-all font-mono transition-colors"
-                    >
-                      ${(response || batchStatus).results_url}
-                    </a>
-
-                    <div class="flex items-center gap-2 mt-3">
-                      <${Button}
-                        onClick=${() => handleFetchBatchResults((response || batchStatus).results_url)}
-                        disabled=${batchResultsLoading}
-                        variant="secondary"
-                        size="sm"
-                      >
-                        ${batchResultsLoading ? 'Fetching...' : (batchResultsData ? 'Refresh Results' : 'View Results')}
-                      </${Button}>
-                    </div>
-
-                    ${batchResultsError && html`
-                      <div class="mt-3 bg-red-900/20 border border-red-700/50 rounded-lg p-3 text-sm text-red-300 font-mono">
-                        ${batchResultsError}
-                      </div>
-                    `}
-
-                    ${batchResultsData && batchResultsData.length > 0 && html`
-                      <div class="mt-4 space-y-3">
-                        <div class="flex items-center justify-between">
-                          <span class="text-sm text-slate-300 font-mono">
-                            ${batchResultsData.length} result${batchResultsData.length !== 1 ? 's' : ''}
-                          </span>
-                          <button
-                            onClick=${toggleAllExpanded}
-                            class="text-xs text-amber-400 hover:text-amber-300 font-mono transition-colors"
-                          >
-                            ${allExpanded ? 'Collapse All' : 'Expand All'}
-                          </button>
-                        </div>
-
-                        <div class="space-y-2 max-h-[500px] overflow-y-auto">
-                          ${batchResultsData.map((result, index) => html`
-                            <div key=${index} class="bg-slate-800/50 border border-slate-700 rounded-lg overflow-hidden hover-lift">
-                              <button
-                                onClick=${() => toggleResultExpanded(index)}
-                                class="w-full flex items-center justify-between p-3 hover:bg-slate-700/30 transition-colors text-left"
-                              >
-                                <div class="flex items-center gap-3">
-                                  <span class="text-xs font-mono text-slate-500">#${index + 1}</span>
-                                  <span class="font-mono text-amber-400 text-sm">${result.custom_id}</span>
-                                  <span class="px-2 py-0.5 rounded text-xs font-mono ${
-                                    result.result?.type === 'succeeded'
-                                      ? 'bg-mint-900/30 text-mint-400 border border-mint-700/50'
-                                      : 'bg-red-900/30 text-red-400 border border-red-700/50'
-                                  }">
-                                    ${result.result?.type || 'unknown'}
-                                  </span>
-                                </div>
-                                <span class="text-slate-400 text-lg">${expandedResults[index] ? '−' : '+'}</span>
-                              </button>
-                              ${expandedResults[index] && html`
-                                <div class="p-4 border-t border-slate-700 bg-slate-900/50">
-                                  <pre class="bg-slate-950 p-3 rounded-lg text-mint-300 overflow-x-auto text-xs font-mono border border-slate-800 whitespace-pre-wrap break-words">${JSON.stringify(result.result?.message || result.result || result, null, 2)}</pre>
-                                </div>
-                              `}
-                            </div>
-                          `)}
-                        </div>
-                      </div>
-                    `}
-                  </div>
-                `}
-              </div>
-            </div>
-          </div>
+          <${BatchResponseView}
+            response=${response}
+            batchStatus=${batchStatus}
+            batchResultsData=${batchResultsData}
+            batchResultsLoading=${batchResultsLoading}
+            batchResultsError=${batchResultsError}
+            handleFetchBatchResults=${handleFetchBatchResults}
+            handleGetBatchStatus=${handleGetBatchStatus}
+          />
         `}
 
         ${!loading && !error && viewMode === 'formatted' && responseType === 'models' && modelsList && html`
-          <div class="space-y-3 animate-slide-up">
-            <div class="bg-slate-800/50 border border-slate-700 rounded-lg p-3 backdrop-blur-sm">
-              <h3 class="text-sm font-semibold text-slate-100 font-mono">
-                Found ${modelsList.data?.length || 0} models
-              </h3>
-            </div>
-            ${modelsList.data?.map((model) => html`
-              <div key=${model.id} class="bg-slate-800/50 border border-slate-700 rounded-lg p-4 backdrop-blur-sm hover-lift">
-                <div class="font-medium text-base text-slate-100 mb-1 font-mono">
-                  ${model.display_name || model.id}
-                </div>
-                <div class="text-sm text-amber-400 font-mono mb-2">${model.id}</div>
-                <div class="text-xs text-slate-500 font-mono">
-                  Created: ${new Date(model.created_at).toLocaleDateString()}
-                </div>
-              </div>
-            `)}
-            ${modelsList.has_more && html`
-              <div class="text-sm text-slate-500 text-center py-2 font-mono">
-                More models available (use pagination parameters)
-              </div>
-            `}
-          </div>
+          <${ModelsResponseView} modelsList=${modelsList} />
         `}
 
         ${!loading && !error && viewMode === 'formatted' && responseType === 'usage' && (usageReport || response) && html`
-          <div class="space-y-3 animate-slide-up">
-            ${((usageReport || response)?.data || []).map((bucket, idx) => html`
-              <div key=${idx} class="bg-slate-800/50 border border-slate-700 rounded-lg p-4 backdrop-blur-sm hover-lift">
-                <div class="font-medium text-base text-slate-100 mb-3 font-mono">
-                  ${new Date(bucket.start_time).toLocaleString()} - ${new Date(bucket.end_time).toLocaleString()}
-                </div>
-                <div class="grid grid-cols-2 gap-3 text-sm">
-                  <div class="space-y-1">
-                    <div class="text-slate-400 text-xs font-medium font-mono">Input Tokens</div>
-                    <div class="text-lg font-semibold text-mint-400 font-mono">
-                      ${(bucket.input_tokens || 0).toLocaleString()}
-                    </div>
-                  </div>
-                  <div class="space-y-1">
-                    <div class="text-slate-400 text-xs font-medium font-mono">Output Tokens</div>
-                    <div class="text-lg font-semibold text-mint-400 font-mono">
-                      ${(bucket.output_tokens || 0).toLocaleString()}
-                    </div>
-                  </div>
-                  ${bucket.cache_creation_input_tokens !== undefined && html`
-                    <div class="space-y-1">
-                      <div class="text-slate-400 text-xs font-medium font-mono">Cache Creation</div>
-                      <div class="text-base font-semibold text-amber-400 font-mono">
-                        ${(bucket.cache_creation_input_tokens || 0).toLocaleString()}
-                      </div>
-                    </div>
-                  `}
-                  ${bucket.cache_read_input_tokens !== undefined && html`
-                    <div class="space-y-1">
-                      <div class="text-slate-400 text-xs font-medium font-mono">Cache Read</div>
-                      <div class="text-base font-semibold text-mint-300 font-mono">
-                        ${(bucket.cache_read_input_tokens || 0).toLocaleString()}
-                      </div>
-                    </div>
-                  `}
-                </div>
-                ${bucket.model && html`
-                  <div class="mt-3 pt-3 border-t border-slate-700 text-xs text-slate-400 font-mono">
-                    Model: <span class="text-amber-400">${bucket.model}</span>
-                  </div>
-                `}
-                ${bucket.workspace_id && html`
-                  <div class="mt-1 text-xs text-slate-400 font-mono">
-                    Workspace: <span class="text-amber-400">${bucket.workspace_id}</span>
-                  </div>
-                `}
-              </div>
-            `)}
-            ${(usageReport || response)?.has_more && html`
-              <div class="text-sm text-slate-500 text-center py-2 font-mono">
-                More data available (use pagination)
-              </div>
-            `}
-          </div>
+          <${UsageResponseView} usageReport=${usageReport} response=${response} />
         `}
 
         ${!loading && !error && viewMode === 'formatted' && responseType === 'cost' && (costReport || response) && html`
-          <div class="space-y-3 animate-slide-up">
-            <div class="bg-mint-900/20 border border-mint-700/50 rounded-lg p-4 mb-4 backdrop-blur-sm">
-              <div class="flex justify-between items-center">
-                <span class="text-sm font-medium text-mint-300 font-mono">Total Cost</span>
-                <span class="text-2xl font-bold text-mint-400 font-mono">
-                  $${((costReport || response)?.data?.reduce((sum, item) => sum + parseFloat(item.amount || 0), 0) / 100).toFixed(2)}
-                </span>
-              </div>
-            </div>
-
-            ${((costReport || response)?.data || []).map((item, idx) => html`
-              <div key=${idx} class="bg-slate-800/50 border border-slate-700 rounded-lg p-4 backdrop-blur-sm hover-lift">
-                <div class="flex justify-between items-start mb-2">
-                  <div>
-                    ${item.description && html`
-                      <div class="font-medium text-base text-slate-100 font-mono">${item.description}</div>
-                    `}
-                    ${item.workspace_id && html`
-                      <div class="text-xs text-slate-400 font-mono mt-1">
-                        Workspace: <span class="text-amber-400">${item.workspace_id}</span>
-                      </div>
-                    `}
-                  </div>
-                  <div class="text-right">
-                    <div class="text-xl font-bold text-mint-400 font-mono">
-                      $${(parseFloat(item.amount || 0) / 100).toFixed(2)}
-                    </div>
-                    <div class="text-xs text-slate-500 font-mono">USD</div>
-                  </div>
-                </div>
-                ${item.start_time && item.end_time && html`
-                  <div class="text-xs text-slate-500 mt-2 pt-2 border-t border-slate-700 font-mono">
-                    ${new Date(item.start_time).toLocaleDateString()} - ${new Date(item.end_time).toLocaleDateString()}
-                  </div>
-                `}
-              </div>
-            `)}
-            ${(costReport || response)?.has_more && html`
-              <div class="text-sm text-slate-500 text-center py-2 font-mono">
-                More data available (use pagination)
-              </div>
-            `}
-          </div>
+          <${CostResponseView} costReport=${costReport} response=${response} />
         `}
 
         ${!loading && !error && viewMode === 'formatted' && responseType === 'skills' && (skillsList || skillDetail) && html`
-          <div class="space-y-3 animate-slide-up">
-            ${skillsList && html`
-              <div class="bg-slate-800/50 border border-slate-700 rounded-lg p-3 backdrop-blur-sm">
-                <h3 class="text-sm font-semibold text-slate-100 font-mono">
-                  Found ${skillsList.data?.length || 0} skills
-                </h3>
-              </div>
-              ${skillsList.data?.map((skill) => html`
-                <div key=${skill.id} class="bg-slate-800/50 border border-slate-700 rounded-lg p-4 backdrop-blur-sm hover-lift">
-                  <div class="flex items-start justify-between mb-1">
-                    <div class="font-medium text-base text-slate-100 font-mono">
-                      ${skill.display_title || skill.id}
-                    </div>
-                    <button
-                      onClick=${() => handleGetSkill(skill.id)}
-                      class="px-2 py-1 text-xs font-mono text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 rounded transition-colors"
-                    >
-                      View →
-                    </button>
-                  </div>
-                  <div class="text-sm text-amber-400 font-mono mb-2">${skill.id}</div>
-                  <div class="grid grid-cols-2 gap-2 text-xs font-mono">
-                    <div>
-                      <span class="text-slate-500">Source:</span>
-                      <span class="text-mint-400 ml-1">${skill.source || 'custom'}</span>
-                    </div>
-                    <div>
-                      <span class="text-slate-500">Created:</span>
-                      <span class="text-slate-300 ml-1">${new Date(skill.created_at).toLocaleDateString()}</span>
-                    </div>
-                  </div>
-                </div>
-              `)}
-              ${skillsList.has_more && html`
-                <div class="text-sm text-slate-500 text-center py-2 font-mono">
-                  More skills available (use pagination)
-                </div>
-              `}
-            `}
-
-            ${skillDetail && skillDetail.type !== 'skill_deleted' && !skillsList && html`
-              <div class="bg-slate-800/50 border border-slate-700 rounded-lg p-4 backdrop-blur-sm">
-                <h3 class="text-sm font-semibold text-slate-100 mb-3 font-mono">Skill Details</h3>
-                <div class="space-y-2 text-sm">
-                  <div class="flex justify-between">
-                    <span class="text-slate-400 font-mono">ID:</span>
-                    <span class="font-mono text-amber-400 truncate ml-2">${skillDetail.id}</span>
-                  </div>
-                  ${skillDetail.display_title && html`
-                    <div class="flex justify-between">
-                      <span class="text-slate-400 font-mono">Title:</span>
-                      <span class="font-mono text-slate-100">${skillDetail.display_title}</span>
-                    </div>
-                  `}
-                  <div class="flex justify-between">
-                    <span class="text-slate-400 font-mono">Source:</span>
-                    <span class="font-mono text-mint-400">${skillDetail.source || 'custom'}</span>
-                  </div>
-                  <div class="flex justify-between">
-                    <span class="text-slate-400 font-mono">Created:</span>
-                    <span class="font-mono text-slate-300">${new Date(skillDetail.created_at).toLocaleString()}</span>
-                  </div>
-                  ${skillDetail.updated_at && html`
-                    <div class="flex justify-between">
-                      <span class="text-slate-400 font-mono">Updated:</span>
-                      <span class="font-mono text-slate-300">${new Date(skillDetail.updated_at).toLocaleString()}</span>
-                    </div>
-                  `}
-                </div>
-              </div>
-            `}
-
-            ${skillDetail && skillDetail.type === 'skill_deleted' && html`
-              <div class="bg-mint-900/20 border border-mint-700/50 rounded-lg p-4 backdrop-blur-sm">
-                <h3 class="text-sm font-semibold text-mint-400 mb-2 font-mono flex items-center gap-2">
-                  <span>✓</span> Skill Deleted
-                </h3>
-                <p class="text-sm text-mint-300 font-mono">
-                  Skill ${skillDetail.id} has been permanently deleted.
-                </p>
-              </div>
-            `}
-          </div>
+          <${SkillsResponseView}
+            skillsList=${skillsList}
+            skillDetail=${skillDetail}
+            handleGetSkill=${handleGetSkill}
+          />
         `}
 
-        ${!loading && !error && !response && !modelsList && !batchStatus && !usageReport && !costReport && !skillsList && !skillDetail && html`
-          <div class="flex items-center justify-center h-full text-slate-500">
-            <div class="text-center">
-              <div class="w-16 h-16 mx-auto mb-4 bg-slate-800/50 rounded-lg flex items-center justify-center border border-slate-700">
-                <svg
-                  class="h-8 w-8 text-slate-600"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="1.5"
-                    d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-                  />
-                </svg>
-              </div>
-              <p class="text-sm font-mono text-slate-400">No response yet</p>
-              <p class="text-xs mt-1 font-mono text-slate-600">Configure your request and send</p>
-            </div>
-          </div>
+        ${!loading && !error && hasNoData && html`
+          <${EmptyResponseState} />
         `}
       </div>
     </div>

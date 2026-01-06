@@ -162,6 +162,9 @@ export function AppProvider({ children }) {
     if (apiKey && !modelsList && !modelsLoading) {
       handleListModels({ limit: 100 });
     }
+    // Effect intentionally only depends on apiKey - we want to fetch models
+    // once when API key is provided, not re-run when modelsList/modelsLoading change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiKey]);
 
   const handleSendRequest = async (overrideConversationHistory = null) => {
