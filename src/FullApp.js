@@ -2272,7 +2272,7 @@ function AppContent() {
             <div>
               <h1 class="text-2xl font-bold text-slate-100 tracking-tight">Claude API Explorer</h1>
               <p class="text-slate-400 text-xs font-mono mt-0.5">
-                <span class="text-amber-400">v2.10</span> • Developer Command Center
+                <span class="text-amber-400">v2.11</span> • Developer Command Center
               </p>
             </div>
           </div>

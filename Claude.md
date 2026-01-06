@@ -31,7 +31,7 @@ A visual web app for testing Anthropic API endpoints. Uses React + htm (no build
 
 ### Core Philosophy
 - **No build step** - Edit → refresh → test (htm instead of JSX)
-- **Single file components** - Main app in `FullApp.js` (~2150 lines, consider splitting)
+- **Single file components** - Main app in `FullApp.js` (~1700 lines)
 - **Express proxy** - Required for CORS (browser can't call Anthropic directly)
 
 ### Project Structure
@@ -47,9 +47,20 @@ A visual web app for testing Anthropic API endpoints. Uses React + htm (no build
     └── sync-docs.md           # Documentation sync
 src/
 ├── main.js                    # Entry point
-├── FullApp.js                 # All UI components (~2150 lines)
+├── FullApp.js                 # Main UI components (~1700 lines)
 │                              # Includes ConversationModeToggle, ChatInterface
-├── components/common/         # Reusable components (Button, Toggle, Tabs)
+├── components/
+│   ├── common/                # Reusable components (Button, Toggle, Tabs)
+│   └── responses/             # Response panel components (extracted v2.11)
+│       ├── index.js           # Barrel exports
+│       ├── MessageResponseView.js
+│       ├── BatchResponseView.js
+│       ├── ModelsResponseView.js
+│       ├── UsageResponseView.js
+│       ├── CostResponseView.js
+│       ├── SkillsResponseView.js
+│       ├── EmptyResponseState.js
+│       └── ActualCostCard.js
 ├── context/AppContext.js      # Global state (API keys, config, history, conversations)
 │                              # conversationMode, conversationHistory state
 ├── config/
@@ -61,13 +72,19 @@ src/
 │   └── toolConfig.test.js     # Tool config tests
 └── utils/
     ├── localStorage.js        # Storage operations (includes conversation persistence)
-    ├── formatters.js          # Demo tool implementations
+    ├── formatters.js          # Demo tool implementations (with security validation)
     ├── formatters.test.js     # Formatter tests
     └── toolExecutors/         # Real tool implementations
+        ├── index.js           # Tool router
+        ├── index.test.js      # Router tests (25 tests)
         ├── calculator.js      # Math expression evaluator
         ├── calculator.test.js # Calculator tests (17 tests)
         ├── jsonValidator.js   # JSON validation
         ├── jsonValidator.test.js  # JSON validator tests (10 tests)
+        ├── codeFormatter.js   # Code formatting
+        ├── codeFormatter.test.js  # Code formatter tests (26 tests)
+        ├── tokenCounter.js    # Token estimation
+        ├── tokenCounter.test.js   # Token counter tests (25 tests)
         ├── regexTester.js     # Regex pattern testing
         └── regexTester.test.js    # Regex tester tests (14 tests)
 ```
@@ -250,8 +267,8 @@ npm run test:coverage # Run with coverage report
 ```
 
 **Test coverage targets:**
-- 101 tests across 7 files (utilities + config)
-- 42% overall coverage (excellent on tested files)
+- 177 tests across 10 files (utilities + config)
+- 72% overall coverage
 - Colocated test files: `file.js` → `file.test.js`
 
 ## Beta Headers & Skills
@@ -419,18 +436,18 @@ setImages(prev => [...prev, newImage]);
 
 ## Technical Debt
 
-1. FullApp.js ~2150 lines (needs splitting into separate panel components)
+1. FullApp.js ~1700 lines (ResponsePanel extracted, but ConfigPanel and other panels could be split)
 2. No TypeScript
-3. Response panel logic complex with multiple formats
-4. Test coverage incomplete (main app and integration tests needed)
-5. Conversation mode state management complex (React timing issues require parameter passing)
-6. No conversation branching or editing past messages in chat mode
+3. Test coverage for main app components still needed (integration tests)
+4. Conversation mode state management complex (React timing issues require parameter passing)
+5. No conversation branching or editing past messages in chat mode
 
 ---
 
-**Version:** 2.10 | **Updated:** 2025-12-04 | **Owner:** Karl
+**Version:** 2.11 | **Updated:** 2026-01-06 | **Owner:** Karl
 
 **Recent Changes:**
+- v2.11: Security & code quality improvements - Demo calculator validation, ResponsePanel split into 8 components, 76 new tests (177 total, 72% coverage), font-mono/toggle design fixes
 - v2.10: Batch results viewer - View JSONL results in-app with expandable cards, API key authentication, refresh buttons on status cards
 - v2.9: Multi-turn conversation support - Conversation mode toggle, chat-style UI, history continuation, seamless tool execution in conversations
 - v2.8: Unit testing infrastructure - 101 Jest tests (42% coverage), 3 custom review subagents, /sync-docs command

@@ -98,9 +98,10 @@ claude-api-explorer/
 │       └── sync-docs.md
 └── src/
     ├── main.js                   # React root renderer
-    ├── FullApp.js                # Main application (~2150 lines)
+    ├── FullApp.js                # Main application (~1700 lines)
     ├── components/
-    │   └── common/               # Reusable UI components
+    │   ├── common/               # Reusable UI components
+    │   └── responses/            # Response panel components (8 files)
     ├── context/
     │   └── AppContext.js         # Global state management
     ├── config/
@@ -111,6 +112,7 @@ claude-api-explorer/
         ├── localStorage.js
         ├── formatters.js + .test.js
         └── toolExecutors/        # Each with .test.js file
+            ├── index.js          # Tool router
             ├── calculator.js
             ├── jsonValidator.js
             ├── regexTester.js
@@ -192,7 +194,7 @@ Tested on:
 ✅ Token usage statistics
 ✅ Dark theme UI
 ✅ localStorage persistence
-✅ Unit testing with Jest (101 tests, 42% coverage)
+✅ Unit testing with Jest (177 tests, 72% coverage)
 
 ## Limitations
 
@@ -214,9 +216,9 @@ Potential improvements for the future:
 - Add image previews in Vision tab
 - Add keyboard shortcuts
 - Add response comparison view
-- Split FullApp.js into smaller components
+- Continue splitting FullApp.js (ResponsePanel done, ConfigPanel next)
 - Migrate to TypeScript
-- Expand test coverage to main app components
+- Expand test coverage to main app components (integration tests)
 
 ## Hybrid Tool System
 
@@ -282,8 +284,8 @@ npm run test:coverage # Run with coverage report
 ```
 
 **Test Coverage:**
-- 101 tests across 7 files
-- Utilities: calculator, JSON validator, regex tester, formatters
+- 177 tests across 10 files (72% coverage)
+- Utilities: calculator, JSON validator, regex tester, code formatter, token counter, formatters, tool router
 - Config: models, endpoints, tool configuration
 - Colocated test files (e.g., `calculator.js` → `calculator.test.js`)
 
