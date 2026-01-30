@@ -268,7 +268,7 @@ export function AppProvider({ children }) {
       }
 
       // Make initial request
-      const res = await fetch('http://localhost:3001/v1/messages', {
+      const res = await fetch('http://localhost:3002/v1/messages', {
         method: 'POST',
         headers,
         body: JSON.stringify(requestBody),
@@ -371,7 +371,7 @@ export function AppProvider({ children }) {
         }
 
         // Make follow-up request
-        const followUpRes = await fetch('http://localhost:3001/v1/messages', {
+        const followUpRes = await fetch('http://localhost:3002/v1/messages', {
           method: 'POST',
           headers: followUpHeaders,
           body: JSON.stringify(followUpBody),
@@ -532,7 +532,7 @@ export function AppProvider({ children }) {
     // Note: Token counting API doesn't support container.skills or beta headers
 
     try {
-      const res = await fetch('http://localhost:3001/v1/messages/count_tokens', {
+      const res = await fetch('http://localhost:3002/v1/messages/count_tokens', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -576,7 +576,7 @@ export function AppProvider({ children }) {
     const queryString = params.toString() ? `?${params.toString()}` : '';
 
     try {
-      const res = await fetch(`http://localhost:3001/v1/models${queryString}`, {
+      const res = await fetch(`http://localhost:3002/v1/models${queryString}`, {
         method: 'GET',
         headers: {
           'x-api-key': apiKey,
@@ -641,7 +641,7 @@ export function AppProvider({ children }) {
     const queryString = params.toString() ? `?${params.toString()}` : '';
 
     try {
-      const res = await fetch(`http://localhost:3001/v1/organizations/usage_report/messages${queryString}`, {
+      const res = await fetch(`http://localhost:3002/v1/organizations/usage_report/messages${queryString}`, {
         method: 'GET',
         headers: {
           'x-api-key': apiKey,
@@ -697,7 +697,7 @@ export function AppProvider({ children }) {
     const queryString = params.toString() ? `?${params.toString()}` : '';
 
     try {
-      const res = await fetch(`http://localhost:3001/v1/organizations/cost_report${queryString}`, {
+      const res = await fetch(`http://localhost:3002/v1/organizations/cost_report${queryString}`, {
         method: 'GET',
         headers: {
           'x-api-key': apiKey,
@@ -742,7 +742,7 @@ export function AppProvider({ children }) {
     const queryString = params.toString() ? `?${params.toString()}` : '';
 
     try {
-      const res = await fetch(`http://localhost:3001/v1/skills${queryString}`, {
+      const res = await fetch(`http://localhost:3002/v1/skills${queryString}`, {
         method: 'GET',
         headers: {
           'x-api-key': apiKey,
@@ -808,7 +808,7 @@ export function AppProvider({ children }) {
         formData.append('files[]', file);
       });
 
-      const res = await fetch('http://localhost:3001/v1/skills', {
+      const res = await fetch('http://localhost:3002/v1/skills', {
         method: 'POST',
         headers: {
           'x-api-key': apiKey,
@@ -850,7 +850,7 @@ export function AppProvider({ children }) {
     setSkillsList(null); // Clear list so detail view shows
 
     try {
-      const res = await fetch(`http://localhost:3001/v1/skills/${encodeURIComponent(skillId)}`, {
+      const res = await fetch(`http://localhost:3002/v1/skills/${encodeURIComponent(skillId)}`, {
         method: 'GET',
         headers: {
           'x-api-key': apiKey,
@@ -890,7 +890,7 @@ export function AppProvider({ children }) {
     setError(null);
 
     try {
-      const res = await fetch(`http://localhost:3001/v1/skills/${encodeURIComponent(skillId)}`, {
+      const res = await fetch(`http://localhost:3002/v1/skills/${encodeURIComponent(skillId)}`, {
         method: 'DELETE',
         headers: {
           'x-api-key': apiKey,
@@ -933,7 +933,7 @@ export function AppProvider({ children }) {
     setSkillVersions(null);
 
     try {
-      const res = await fetch(`http://localhost:3001/v1/skills/${encodeURIComponent(skillId)}/versions`, {
+      const res = await fetch(`http://localhost:3002/v1/skills/${encodeURIComponent(skillId)}/versions`, {
         method: 'GET',
         headers: {
           'x-api-key': apiKey,
@@ -973,7 +973,7 @@ export function AppProvider({ children }) {
     setError(null);
 
     try {
-      const res = await fetch(`http://localhost:3001/v1/skills/${encodeURIComponent(skillId)}/versions/${encodeURIComponent(versionId)}`, {
+      const res = await fetch(`http://localhost:3002/v1/skills/${encodeURIComponent(skillId)}/versions/${encodeURIComponent(versionId)}`, {
         method: 'DELETE',
         headers: {
           'x-api-key': apiKey,
@@ -1034,7 +1034,7 @@ export function AppProvider({ children }) {
     };
 
     try {
-      const res = await fetch('http://localhost:3001/v1/messages/batches', {
+      const res = await fetch('http://localhost:3002/v1/messages/batches', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1075,7 +1075,7 @@ export function AppProvider({ children }) {
     setError(null);
 
     try {
-      const res = await fetch(`http://localhost:3001/v1/messages/batches/${batchId}`, {
+      const res = await fetch(`http://localhost:3002/v1/messages/batches/${batchId}`, {
         method: 'GET',
         headers: {
           'x-api-key': apiKey,
@@ -1139,7 +1139,7 @@ export function AppProvider({ children }) {
         }
       } catch (directError) {
         // Fallback to proxy if CORS blocks or other error
-        const proxyResp = await fetch('http://localhost:3001/proxy-batch-results', {
+        const proxyResp = await fetch('http://localhost:3002/proxy-batch-results', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ url: resultsUrl, apiKey })

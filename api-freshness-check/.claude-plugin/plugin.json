@@ -1,0 +1,5 @@
+{
+  "name": "api-freshness-check",
+  "description": "Audits the Claude API Explorer app against the latest Anthropic API documentation and interactively updates outdated configurations (models, endpoints, beta headers, API version).",
+  "version": "1.0.0"
+}

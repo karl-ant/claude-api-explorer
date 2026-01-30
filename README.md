@@ -65,7 +65,7 @@ A visual, interactive web application for testing and exploring Anthropic's Clau
 
 4. Open your browser and navigate to:
    ```
-   http://localhost:3001
+   http://localhost:3002
    ```
 
 ### First Use
@@ -131,7 +131,7 @@ This project uses `htm` (Hyperscript Tagged Markup) which provides JSX-like synt
 Since browsers can't directly call the Anthropic API due to CORS restrictions, we use a simple Express proxy server that:
 - Forwards requests to `api.anthropic.com`
 - Adds proper CORS headers
-- Runs on `localhost:3001`
+- Runs on `localhost:3002`
 
 ### State Management
 Uses React Context API for global state, with useMemo optimization to prevent unnecessary re-renders.
@@ -143,7 +143,7 @@ Models and parameters are defined in JS modules, making it easy to add new model
 
 1. **User configures request** in the left panel
 2. **Click "Send Request"** button
-3. **Request goes to Express proxy** at `localhost:3001`
+3. **Request goes to Express proxy** at `localhost:3002`
 4. **Proxy forwards to Anthropic API** at `api.anthropic.com`
 5. **Response displays** in the right panel
 6. **Request saved to history** in localStorage
@@ -244,7 +244,7 @@ The application includes a hybrid tool execution system with two modes:
 ## Troubleshooting
 
 **"Failed to fetch" error:**
-- Make sure the server is running (`npm start` on port 3001)
+- Make sure the server is running (`npm start` on port 3002)
 - Check that your API key is valid
 - Check browser console for detailed errors
 
