@@ -415,7 +415,7 @@ setImages(prev => [...prev, newImage]);
 | Issue | Solution |
 |-------|----------|
 | "Module not found" | Check .js extension in imports |
-| "Failed to fetch" | Verify proxy running (localhost:3001), check API key |
+| "Failed to fetch" | Verify proxy running (localhost:3002), check API key |
 | React errors | Use `class` not `className`, ensure htm bound |
 | State not updating | Use functional updates, check useMemo deps |
 
