@@ -266,5 +266,23 @@ export const storage = {
       console.error('Failed to load conversation mode:', error);
       return false;
     }
+  },
+
+  // Generic get/set for simple key-value persistence
+  set(key, value) {
+    try {
+      localStorage.setItem(`claude_api_explorer_${key}`, JSON.stringify(value));
+    } catch (error) {
+      console.error(`Failed to save ${key}:`, error);
+    }
+  },
+
+  get(key) {
+    try {
+      const val = localStorage.getItem(`claude_api_explorer_${key}`);
+      return val ? JSON.parse(val) : null;
+    } catch (error) {
+      return null;
+    }
   }
 };

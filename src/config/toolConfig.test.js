@@ -19,17 +19,16 @@ describe('isToolAvailable', () => {
     expect(result).toBe(true);
   });
 
-  it('should return false for tool requiring API key in real mode without key', () => {
-    const result = isToolAvailable('get_stock_price', TOOL_MODES.REAL, {});
+  it('should return false for tool in wrong mode', () => {
+    // json_validator has hasDemo: false, so it's not available in demo mode
+    const result = isToolAvailable('json_validator', TOOL_MODES.DEMO, {});
     expect(result).toBe(false);
   });
 
-  it('should return false for tool with hasReal=false even with API key', () => {
-    // get_stock_price has hasReal: false, so it's never available in real mode
-    const result = isToolAvailable('get_stock_price', TOOL_MODES.REAL, {
-      alpha_vantage: 'test-key'
-    });
-    expect(result).toBe(false);
+  it('should return true for tool in its supported mode', () => {
+    // json_validator has hasReal: true
+    const result = isToolAvailable('json_validator', TOOL_MODES.REAL, {});
+    expect(result).toBe(true);
   });
 
   it('should return false for unknown tool', () => {
@@ -51,9 +50,9 @@ describe('getToolMode', () => {
   });
 
   it('should fallback to available mode when preferred is unavailable', () => {
-    // get_stock_price requires API key for real mode
-    const result = getToolMode('get_stock_price', TOOL_MODES.REAL, {});
-    expect(result).toBe(TOOL_MODES.DEMO);
+    // json_validator has no demo mode, should fallback to real
+    const result = getToolMode('json_validator', TOOL_MODES.DEMO, {});
+    expect(result).toBe(TOOL_MODES.REAL);
   });
 
   it('should fallback to real mode if demo not available', () => {
@@ -67,12 +66,10 @@ describe('getToolMode', () => {
     expect(result).toBe(TOOL_MODES.DEMO);
   });
 
-  it('should fallback to demo mode even with API key if hasReal=false', () => {
-    // get_stock_price has hasReal: false, so falls back to demo
-    const result = getToolMode('get_stock_price', TOOL_MODES.REAL, {
-      alpha_vantage: 'test-key'
-    });
-    expect(result).toBe(TOOL_MODES.DEMO);
+  it('should return real mode for tools with only real implementation', () => {
+    // code_formatter has hasDemo: false, hasReal: true
+    const result = getToolMode('code_formatter', TOOL_MODES.REAL, {});
+    expect(result).toBe(TOOL_MODES.REAL);
   });
 });
 
@@ -110,16 +107,11 @@ describe('getRequiredApiKeys', () => {
     expect(typeof apiKeys).toBe('object');
   });
 
-  it('should include alpha_vantage for stock price tool', () => {
+  it('should return empty object when no tools require API keys', () => {
     const apiKeys = getRequiredApiKeys();
 
-    // get_stock_price has hasReal: false, so it shouldn't be included
-    // But if we look at the registry, tools with requiresApiKey=true and hasReal=true should be included
-    // Let's check if any tools match this criteria
-    const hasAlphaVantage = 'alpha_vantage' in apiKeys;
-
-    // This test should check what actually gets returned based on the logic
-    expect(typeof apiKeys).toBe('object');
+    // All remaining tools use free APIs (no keys required)
+    expect(Object.keys(apiKeys).length).toBe(0);
   });
 
   it('should only include tools with hasReal=true', () => {

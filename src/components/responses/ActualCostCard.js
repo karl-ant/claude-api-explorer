@@ -53,7 +53,7 @@ export function ActualCostCard({ usage, model, models, maxTokens, tokenCount, se
           <span class="text-right text-amber-400">$${totalCost.toFixed(5)}</span>
         </div>
         <div class="text-slate-600 text-center pt-2">
-          Prices as of Nov 2025
+          Prices as of Feb 2026
         </div>
       </div>
     </div>
