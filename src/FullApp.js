@@ -2032,7 +2032,8 @@ function ConfigPanel() {
     model, maxTokens, models, continueConversation, deleteHistoryItem,
     streaming, setStreaming, streamingText,
     messages, system, temperature, topP, topK, tools, betaHeaders,
-    thinkingEnabled, thinkingType, budgetTokens, effortLevel
+    thinkingEnabled, thinkingType, budgetTokens, effortLevel,
+    structuredOutput, outputSchema
   } = useApp();
   const [showHistory, setShowHistory] = useState(false);
   const [copyStatus, setCopyStatus] = useState('');
@@ -2047,11 +2048,22 @@ function ConfigPanel() {
     if (thinkingEnabled) {
       if (thinkingType === 'adaptive') {
         body.thinking = { type: 'adaptive' };
-        body.output_config = { effort: effortLevel };
+        body.output_config = { ...(body.output_config || {}), effort: effortLevel };
       } else {
         body.thinking = { type: 'enabled', budget_tokens: budgetTokens };
       }
       body.temperature = 1;
+    }
+    if (structuredOutput && outputSchema.trim()) {
+      try {
+        const parsedSchema = JSON.parse(outputSchema);
+        body.output_config = {
+          ...(body.output_config || {}),
+          format: { type: 'json_schema', json_schema: parsedSchema }
+        };
+      } catch (e) {
+        // Invalid schema, skip
+      }
     }
     if (streaming) body.stream = true;
 
@@ -2064,7 +2076,9 @@ function ConfigPanel() {
       headers.push(`-H "anthropic-beta: ${betaHeaders.join(',')}"`);
     }
 
-    const curl = `curl https://api.anthropic.com/v1/messages \\\n  ${headers.join(' \\\n  ')} \\\n  -d '${JSON.stringify(body, null, 2)}'`;
+    // Escape single quotes in JSON body for safe shell embedding
+    const bodyJson = JSON.stringify(body, null, 2).replace(/'/g, "'\\''");
+    const curl = `curl https://api.anthropic.com/v1/messages \\\n  ${headers.join(' \\\n  ')} \\\n  -d '${bodyJson}'`;
     navigator.clipboard.writeText(curl);
     setCopyStatus('Copied!');
     setTimeout(() => setCopyStatus(''), 2000);

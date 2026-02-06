@@ -662,6 +662,7 @@ export function AppProvider({ children }) {
       setError(err.message || 'An error occurred while processing your request');
       setToolExecutionStatus(null);
     } finally {
+      setStreamingText('');
       setLoading(false);
     }
   };
