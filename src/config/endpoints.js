@@ -14,7 +14,7 @@ const endpoints = {
     supportsStreaming: true,
     parameters: {
       required: ['model', 'messages', 'max_tokens'],
-      optional: ['system', 'temperature', 'top_p', 'top_k', 'tools', 'stream', 'metadata', 'stop_sequences']
+      optional: ['system', 'temperature', 'top_p', 'top_k', 'tools', 'tool_choice', 'stream', 'metadata', 'stop_sequences', 'thinking', 'output_config', 'inference_geo', 'context_management', 'service_tier']
     },
     requestType: 'synchronous',
     responseType: 'message'

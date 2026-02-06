@@ -3,7 +3,7 @@ import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import multer from 'multer';
-import FormData from 'form-data';
+// FormData import removed - using native boundary-based multipart
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -76,6 +76,78 @@ async function proxyToAnthropic(req, res, method, path) {
 // Messages API - Create message
 app.post('/v1/messages', async (req, res) => {
   await proxyToAnthropic(req, res, 'POST', '/v1/messages');
+});
+
+// Messages API - Streaming proxy
+app.post('/v1/messages/stream', async (req, res) => {
+  const apiKey = req.headers['x-api-key'];
+  const anthropicVersion = req.headers['anthropic-version'] || '2023-06-01';
+  const anthropicBeta = req.headers['anthropic-beta'];
+
+  if (!apiKey) {
+    return res.status(401).json({ error: 'API key is required' });
+  }
+
+  const headers = {
+    'Content-Type': 'application/json',
+    'x-api-key': apiKey,
+    'anthropic-version': anthropicVersion,
+  };
+
+  if (anthropicBeta) {
+    headers['anthropic-beta'] = anthropicBeta;
+  }
+
+  try {
+    const body = { ...req.body, stream: true };
+    const upstream = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+    });
+
+    if (!upstream.ok) {
+      const errorData = await upstream.text();
+      let parsed;
+      try { parsed = JSON.parse(errorData); } catch { parsed = { error: errorData }; }
+      return res.status(upstream.status).json(parsed);
+    }
+
+    // Set SSE headers and pipe the stream
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+
+    const reader = upstream.body.getReader();
+    const pump = async () => {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          res.end();
+          break;
+        }
+        const ok = res.write(Buffer.from(value));
+        if (!ok) {
+          await new Promise(resolve => res.once('drain', resolve));
+        }
+      }
+    };
+
+    // Abort upstream if client disconnects
+    req.on('close', () => {
+      reader.cancel().catch(() => {});
+    });
+
+    await pump();
+  } catch (error) {
+    console.error('Streaming proxy error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Streaming proxy error: ' + error.message });
+    } else {
+      res.end();
+    }
+  }
 });
 
 // Token Counting API - Count tokens

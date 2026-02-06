@@ -80,13 +80,12 @@ describe('executeTool', () => {
     });
 
     it('should fall back to demo when real mode not available', async () => {
-      // get_stock_price has hasReal: false
-      const result = await executeTool('get_stock_price', { symbol: 'AAPL' }, TOOL_MODES.REAL);
+      // Unknown tool should return error in any mode
+      const result = await executeTool('nonexistent_tool', { data: 'test' }, TOOL_MODES.REAL);
       const parsed = JSON.parse(result);
 
-      // Should fall back to demo
-      expect(parsed.symbol).toBe('AAPL');
-      expect(parsed.price).toBeDefined();
+      // Should return unknown tool error
+      expect(parsed.error).toContain('Unknown tool');
     });
 
     it('should handle get_current_time (real mode returns null, falls to demo)', async () => {
@@ -127,31 +126,28 @@ describe('executeTool', () => {
   });
 
   describe('demo mode tools', () => {
-    it('should execute send_email in demo mode', async () => {
-      const result = await executeTool('send_email', {
-        to: 'test@example.com',
-        subject: 'Test'
-      }, TOOL_MODES.DEMO);
+    it('should execute get_weather in demo mode', async () => {
+      const result = await executeTool('get_weather', { location: 'San Francisco' }, TOOL_MODES.DEMO);
       const parsed = JSON.parse(result);
 
-      expect(parsed.status).toBe('sent');
-      expect(parsed.to).toBe('test@example.com');
+      expect(parsed.location).toBe('San Francisco');
+      expect(parsed.temperature).toBeDefined();
     });
 
-    it('should execute file_search in demo mode', async () => {
-      const result = await executeTool('file_search', { query: 'test' }, TOOL_MODES.DEMO);
+    it('should execute web_search in demo mode', async () => {
+      const result = await executeTool('web_search', { query: 'test' }, TOOL_MODES.DEMO);
       const parsed = JSON.parse(result);
 
       expect(parsed.query).toBe('test');
       expect(parsed.results).toBeDefined();
     });
 
-    it('should execute database_query in demo mode', async () => {
-      const result = await executeTool('database_query', { query: 'SELECT *' }, TOOL_MODES.DEMO);
+    it('should execute get_current_time in demo mode', async () => {
+      const result = await executeTool('get_current_time', { timezone: 'America/New_York' }, TOOL_MODES.DEMO);
       const parsed = JSON.parse(result);
 
-      expect(parsed.query).toBe('SELECT *');
-      expect(parsed.rows).toBeDefined();
+      expect(parsed.timezone).toBe('America/New_York');
+      expect(parsed.current_time).toBeDefined();
     });
   });
 

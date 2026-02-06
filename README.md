@@ -17,15 +17,23 @@ A visual, interactive web application for testing and exploring Anthropic's Clau
 - **Skills API (Beta)**: List, create, get, and delete custom skills with folder drag & drop upload
 - **Skills Version Management**: List and delete skill versions before deleting skills
 
+### Streaming & Thinking
+- **Streaming Responses**: Real-time SSE streaming with incremental text display and blinking cursor
+- **Extended Thinking**: Manual budget control (1K-128K tokens) for complex reasoning
+- **Adaptive Thinking**: Effort levels (low/medium/high/max) for automatic thinking depth — Opus 4.6
+- **Structured Outputs**: JSON schema validation for constrained response formats
+- **Thinking Display**: Collapsible thinking blocks shown before response content
+
 ### Advanced Features
-- **Vision Support**: Upload images via file picker or add by URL
-- **Hybrid Tool System**:
+- **Vision Support**: Upload images via file picker or add by URL, with thumbnail previews
+- **Server-Side Tools**: Toggle Anthropic-managed tools (Web Search, Web Fetch, Code Execution, Computer Use, Text Editor)
+- **Client-Side Tool System**:
   - Demo mode with mock data for offline testing
   - Real mode with actual API integrations (Weather, Web Search)
   - 5 developer tools: Enhanced Calculator, JSON Validator, Code Formatter, Token Counter, Regex Tester
   - Automatic tool execution when Claude requests tools
-- **Request History**: Automatically saves last 50 requests with full request/response data
-- **Export/Import**: Export history as JSON for backup or sharing
+- **Request History**: Automatically saves last 50 requests with full request/response data, individual delete
+- **Export**: Export history as JSON, Copy as cURL command
 - **API Key Management**: Option to persist key or clear on browser close
 
 ### Response Display
@@ -36,7 +44,7 @@ A visual, interactive web application for testing and exploring Anthropic's Clau
 
 ## Tech Stack
 
-- **React 18** with htm (Hyperscript Tagged Markup) - no build step required!
+- **React 19** with htm (Hyperscript Tagged Markup) - no build step required!
 - **Tailwind CSS** via CDN
 - **Express** proxy server for CORS handling
 - **Vanilla JavaScript** ES6 modules
@@ -89,6 +97,7 @@ claude-api-explorer/
 ├── CLAUDE.md                     # AI development guide
 ├── .claude/                      # Claude Code configuration
 │   ├── agents/                   # Custom review subagents
+│   │   ├── api-docs-validator.md # Validates config against official Anthropic docs
 │   │   ├── design-reviewer.md
 │   │   ├── test-coverage-reviewer.md
 │   │   └── code-reviewer.md
@@ -98,9 +107,9 @@ claude-api-explorer/
 │       └── sync-docs.md
 └── src/
     ├── main.js                   # React root renderer
-    ├── FullApp.js                # Main application (~1700 lines)
+    ├── FullApp.js                # Main application (~2500 lines)
     ├── components/
-    │   ├── common/               # Reusable UI components
+    │   ├── common/               # Reusable UI components (Button, Toggle, Tabs, ErrorBoundary)
     │   └── responses/            # Response panel components (8 files)
     ├── context/
     │   └── AppContext.js         # Global state management
@@ -173,37 +182,42 @@ Tested on:
 ## Features Implemented
 
 ✅ API Key management with persist option
-✅ Dynamic model selector (fetches from /v1/models API)
+✅ Dynamic model selector (fetches from /v1/models API, 9 models with dynamic max tokens)
 ✅ Parameter controls (temperature, top_p, top_k, max_tokens)
 ✅ System prompt
 ✅ Multi-message conversations
 ✅ **Conversation Mode** with chat-style UI and context preservation
-✅ Vision API (image uploads)
+✅ **Streaming responses** via SSE with incremental text display
+✅ **Extended Thinking** with manual budget (1K-128K tokens)
+✅ **Adaptive Thinking** with effort levels (Opus 4.6)
+✅ **Structured Outputs** with JSON schema
+✅ Vision API (image uploads with thumbnail previews)
 ✅ Multiple API endpoints (Messages, Batches, Models, Skills, Usage, Cost)
 ✅ Batch results viewer with expandable cards and refresh buttons
 ✅ Skills API tab (List, Create, Get, Delete) with folder drag & drop upload
 ✅ Skills version management (list/delete versions)
-✅ Beta Headers toggle for experimental features
-✅ Hybrid tool system with demo/real modes
+✅ Beta Headers toggle (7 current beta features)
+✅ **Server-side tools** (Web Search, Web Fetch, Code Exec, Computer Use, Text Editor)
+✅ Client-side tool system with demo/real modes
 ✅ 5 developer tools (calculator, JSON validator, code formatter, token counter, regex tester)
 ✅ 2 external API integrations (weather, web search)
 ✅ Automatic tool execution
-✅ Request history (50 items, export/import)
+✅ Request history (50 items, export, individual delete)
+✅ **Copy as cURL** export
 ✅ Continue conversations from history
 ✅ Response view toggle (Formatted/JSON)
-✅ Token usage statistics
-✅ Dark theme UI
+✅ Token usage statistics with thinking token display
+✅ Dark theme UI with ErrorBoundary
 ✅ localStorage persistence
-✅ Unit testing with Jest (177 tests, 72% coverage)
+✅ Unit testing with Jest (178 tests, 72% coverage)
 
 ## Limitations
 
-- Streaming responses not implemented
-- No image previews (only metadata shown)
 - Limited to 50 history items
 - Usage/Cost APIs require Admin API key (sk-ant-admin...)
 - History only for Messages endpoint
 - Skills version deletion may not be fully supported in Anthropic's beta API
+- Streaming does not yet support client-side tool execution mid-stream
 - **Conversation Mode:**
   - Cannot edit past messages in chat interface (use MessageBuilder for edits)
   - No conversation branching or forking
@@ -212,34 +226,39 @@ Tested on:
 ## Future Enhancements
 
 Potential improvements for the future:
-- Implement streaming response display
-- Add image previews in Vision tab
+- Streaming + tool execution combined (auto follow-up after tool_use in stream)
 - Add keyboard shortcuts
 - Add response comparison view
-- Continue splitting FullApp.js (ResponsePanel done, ConfigPanel next)
+- Extract more components from FullApp.js (ConfigPanel, SkillsPanel, BatchesPanel, etc.)
 - Migrate to TypeScript
 - Expand test coverage to main app components (integration tests)
+- Compaction support for long conversations (context_management API)
 
-## Hybrid Tool System
+## Tool System
 
+### Server-Side Tools (Anthropic-managed)
+Toggle buttons add server-side tools to API requests. These run on Anthropic's infrastructure:
+- **Web Search** - Real-time web search ($10/1K searches)
+- **Web Fetch** - Fetch full page content (token cost only)
+- **Code Execution** - Sandboxed bash + file manipulation
+- **Computer Use** - Screen interaction (beta)
+- **Text Editor** - File editing tool
+
+### Client-Side Tool System
 The application includes a hybrid tool execution system with two modes:
 
-### Demo Mode (Default)
+**Demo Mode (Default):**
 - Uses mock data for all tool responses
 - Works offline without any API keys
-- Great for testing and development
 
-### Real Mode
-**Developer Tools (No API Keys Required):**
+**Real Mode (No API Keys Required):**
 - Enhanced Calculator: Full math expression support with functions
 - JSON Validator: Validate and format JSON with analysis
 - Code Formatter: Format JavaScript, Python, JSON
 - Token Counter: Estimate Claude token counts
 - Regex Tester: Test regex patterns with match details
-
-**External APIs (Require API Keys):**
-- Weather: Real weather data from OpenWeatherMap
-- Web Search: Real search results from Brave Search
+- Weather: Real weather data from **Open-Meteo** (free, no signup)
+- Web Search: Instant answers from **DuckDuckGo** (free, no signup)
 
 ## Troubleshooting
 
@@ -284,7 +303,7 @@ npm run test:coverage # Run with coverage report
 ```
 
 **Test Coverage:**
-- 177 tests across 10 files (72% coverage)
+- 178 tests across 10 files (72% coverage)
 - Utilities: calculator, JSON validator, regex tester, code formatter, token counter, formatters, tool router
 - Config: models, endpoints, tool configuration
 - Colocated test files (e.g., `calculator.js` → `calculator.test.js`)

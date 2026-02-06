@@ -4,7 +4,7 @@ A visual web app for testing Anthropic API endpoints. Uses React + htm (no build
 
 ## Quick Reference
 
-**Tech Stack:** React 18 (CDN), htm 3.1.1, Express 5.x proxy, Tailwind CSS (CDN), Jest 30 (testing)
+**Tech Stack:** React 19 (CDN), htm 3.1.1, Express 5.x proxy, Tailwind CSS (CDN), Jest 30 (testing)
 
 **Supported Endpoints:**
 - Messages API - Send messages to Claude with multi-turn conversation support
@@ -15,10 +15,17 @@ A visual web app for testing Anthropic API endpoints. Uses React + htm (no build
 - Cost Reports API - Cost breakdowns (requires Admin key)
 
 **Beta Features:**
-- Beta Headers - Toggle buttons for anthropic-beta header (Skills, Code Exec, Files API, etc.)
+- Beta Headers - Toggle buttons for anthropic-beta header (Skills, Code Exec, Files API, Computer Use, Compaction, 1M Context, Interleaved Thinking)
 - Skills Tab - Manage custom skills (List, Create, Get, Delete) with folder drag & drop upload
 - Skills Versions - List and manage skill versions before deletion
 - Container Skills - Configure container.skills for document processing in Messages API
+
+**Streaming & Thinking (v3.0):**
+- Streaming responses via SSE with incremental text display and blinking cursor
+- Extended Thinking with manual budget (1K-128K tokens)
+- Adaptive Thinking with effort levels (low/medium/high/max) — Opus 4.6 only
+- Structured Outputs with JSON schema validation
+- Thinking blocks displayed as collapsible sections in response view
 
 **Multi-Turn Conversations:**
 - Conversation Mode toggle for chat-style interactions
@@ -27,17 +34,26 @@ A visual web app for testing Anthropic API endpoints. Uses React + htm (no build
 - Continue conversations from history with full context restoration
 - Seamless tool execution within conversations
 
+**Server-Side Tools (Anthropic-managed):**
+- Web Search, Web Fetch, Code Execution, Computer Use, Text Editor
+- Toggle buttons that add server-side tool definitions to requests
+
+**Export:**
+- Copy as cURL — generates curl command with all headers and body
+
 ## Architecture
 
 ### Core Philosophy
 - **No build step** - Edit → refresh → test (htm instead of JSX)
-- **Single file components** - Main app in `FullApp.js` (~1700 lines)
+- **Single file components** - Main app in `FullApp.js` (~2500 lines)
 - **Express proxy** - Required for CORS (browser can't call Anthropic directly)
+- **Streaming proxy** - SSE pipe-through for streaming responses
 
 ### Project Structure
 ```
 .claude/
 ├── agents/                    # Custom subagents
+│   ├── api-docs-validator.md  # Validates app config against official Anthropic docs
 │   ├── design-reviewer.md     # UI/UX consistency enforcement
 │   ├── test-coverage-reviewer.md  # Test adequacy validation
 │   └── code-reviewer.md       # Code quality review
@@ -47,10 +63,11 @@ A visual web app for testing Anthropic API endpoints. Uses React + htm (no build
     └── sync-docs.md           # Documentation sync
 src/
 ├── main.js                    # Entry point
-├── FullApp.js                 # Main UI components (~1700 lines)
-│                              # Includes ConversationModeToggle, ChatInterface
+├── FullApp.js                 # Main UI components (~2500 lines)
+│                              # Includes ThinkingSection, StructuredOutputSection,
+│                              # ConversationModeToggle, ChatInterface
 ├── components/
-│   ├── common/                # Reusable components (Button, Toggle, Tabs)
+│   ├── common/                # Reusable components (Button, Toggle, Tabs, ErrorBoundary)
 │   └── responses/             # Response panel components (extracted v2.11)
 │       ├── index.js           # Barrel exports
 │       ├── MessageResponseView.js
@@ -226,8 +243,9 @@ transition-colors  // All interactive elements
 ### Adding a New Model
 Edit `src/config/models.js`:
 ```javascript
-{ "id": "claude-new-model-20250101", "name": "Claude New", "description": "..." }
+{ "id": "claude-new-model-20250101", "name": "Claude New", "description": "...", "pricing": { "input": 3, "output": 15 }, "maxOutput": 64000 }
 ```
+**Note:** `maxOutput` drives dynamic max tokens validation in ModelSelector. Run api-docs-validator agent to verify against official docs.
 
 ### Adding a New API Endpoint
 1. Define in `src/config/endpoints.js`
@@ -267,7 +285,7 @@ npm run test:coverage # Run with coverage report
 ```
 
 **Test coverage targets:**
-- 177 tests across 10 files (utilities + config)
+- 178 tests across 10 files (utilities + config)
 - 72% overall coverage
 - Colocated test files: `file.js` → `file.test.js`
 
@@ -278,9 +296,14 @@ Located under API Key in the Configuration sidebar. Toggle buttons for:
 - `skills-2025-10-02` - Skills API
 - `code-execution-2025-08-25` - Code execution (required for container skills)
 - `files-api-2025-04-14` - Files API (required for container skills)
-- `prompt-caching-2024-07-31` - Prompt caching
-- `computer-use-2024-10-22` - Computer use
-- `max-tokens-3-5-sonnet-2024-07-15` - Extended max tokens
+- `computer-use-2025-11-24` - Computer use (Opus 4.5+)
+- `computer-use-2025-01-24` - Computer use (legacy models)
+- `compact-2026-01-12` - Compaction (for long conversations)
+- `context-1m-2025-08-07` - 1M context window (Opus 4.6, Sonnet 4.5)
+- `context-management-2025-06-27` - Context editing (tool result/thinking block clearing)
+- `interleaved-thinking-2025-05-14` - Interleaved thinking
+
+**Graduated to GA (no longer need beta header):** prompt caching, max tokens for Sonnet 3.5
 
 State: `betaHeaders` (array) in AppContext, persisted to localStorage.
 
@@ -319,15 +342,25 @@ State: `skillsJson` (string) in AppContext, persisted to localStorage.
 
 **Note:** Container skills require all 3 beta headers (Skills, Code Exec, Files API) and the code_execution tool.
 
-## Hybrid Tool System
+## Tool System
 
-**Status:** Complete - Free APIs (no signup required, updated 2025-12-03)
+### Server-Side Tools (Anthropic-managed)
+Toggle buttons in Advanced Options → Tools tab. These run on Anthropic's servers:
+- `web_search_20250305` - Real-time web search ($10/1K searches)
+- `web_fetch_20250305` - Fetch full page content (token cost only)
+- `code_execution_20250825` - Sandboxed bash + file manipulation
+- `computer_20250124` - Screen interaction (beta)
+- `text_editor_20250429` - File editing tool
+
+When enabled, adds `{ type: serverTool.type, name: serverTool.name }` to the tools array. No client execution needed.
+
+### Client-Side Hybrid Tool System
+
+**Status:** Complete - Free APIs (no signup required)
 
 Tools execute in two modes that users can toggle in the UI:
 - **Demo Mode** (default): Returns mock data for offline testing
 - **Real Mode**: Makes actual API calls using **free APIs** (no signup or API keys required)
-
-### Available Tools
 
 **Developer Tools (no API required):**
 - Calculator - Enhanced expression evaluator
@@ -340,7 +373,7 @@ Tools execute in two modes that users can toggle in the UI:
 - Weather - **Open-Meteo API** (free weather data with geocoding)
 - Web Search - **DuckDuckGo Instant Answers** (Wikipedia, definitions, facts)
 
-**Note:** Search returns instant answers, not full web results. Good for factual queries.
+**Removed in v3.2:** get_stock_price, send_email, file_search, database_query (demo-only, never functional)
 
 ### UI Location
 
@@ -381,8 +414,8 @@ const result = await executeTool(toolName, input, toolMode);
 
 ### Implementation Notes
 
-**Tool definitions:** Lines ~387-565 in FullApp.js
-- All 12 tools defined with proper input schemas
+**Tool definitions:** FullApp.js `addPredefinedTool` function
+- 8 client-side tools + 5 server-side tools defined with proper schemas
 - Claude automatically discovers and can use any defined tool
 
 **API Details:**
@@ -421,13 +454,10 @@ setImages(prev => [...prev, newImage]);
 
 ## Known Limitations
 
-- No streaming support
-- No image previews in Vision tab
 - History only for Messages endpoint
-- No error boundaries
 - Usage/Cost APIs require Admin key (sk-ant-admin...)
-- Token counting API doesn't support skills/beta headers
 - Skills version endpoints require `?beta=true` query parameter
+- Streaming does not yet support client-side tool execution mid-stream
 - **Conversation Mode:**
   - Cannot edit past messages in chat (switch to MessageBuilder for edits)
   - tool_result messages hidden from chat display (API plumbing)
@@ -436,17 +466,23 @@ setImages(prev => [...prev, newImage]);
 
 ## Technical Debt
 
-1. FullApp.js ~1700 lines (ResponsePanel extracted, but ConfigPanel and other panels could be split)
+1. FullApp.js ~2500 lines (ResponsePanel extracted, but ConfigPanel, SkillsPanel, BatchesPanel, UsagePanel, CostPanel could be extracted to separate files)
 2. No TypeScript
 3. Test coverage for main app components still needed (integration tests)
 4. Conversation mode state management complex (React timing issues require parameter passing)
 5. No conversation branching or editing past messages in chat mode
+6. Streaming + tool execution not yet combined (streaming stops at tool_use, no automatic follow-up)
+7. AppContext.js growing large (~1600 lines) — consider splitting handlers into separate modules
 
 ---
 
-**Version:** 2.11 | **Updated:** 2026-01-06 | **Owner:** Karl
+**Version:** 3.2 | **Updated:** 2026-02-06 | **Owner:** Karl
 
 **Recent Changes:**
+- v3.2: Architecture cleanup - Removed dead tools (stock, email, file_search, database_query), removed debug console.logs, ErrorBoundary component, React 19 CDN upgrade, Copy as cURL export, api-docs-validator agent, 178 tests
+- v3.1: UX polish - Image preview thumbnails in Vision tab, server-side tools section (Web Search, Web Fetch, Code Exec, Computer Use, Text Editor), history delete button per item
+- v3.0: Streaming + Thinking - SSE streaming with incremental display, extended thinking (manual budget 1K-128K), adaptive thinking (effort levels), structured outputs with JSON schema, thinking blocks in response view, Output tab in Advanced Options
+- v2.12: API parity - 9 models matching official docs (Opus 4.6, Sonnet 4.5, Haiku 4.5 + 6 legacy), dynamic max tokens per model, updated beta headers (removed graduated, added compaction/1M/interleaved thinking), pricing Feb 2026, default model Sonnet 4.5, removed unused deps
 - v2.11: Security & code quality improvements - Demo calculator validation, ResponsePanel split into 8 components, 76 new tests (177 total, 72% coverage), font-mono/toggle design fixes
 - v2.10: Batch results viewer - View JSONL results in-app with expandable cards, API key authentication, refresh buttons on status cards
 - v2.9: Multi-turn conversation support - Conversation mode toggle, chat-style UI, history continuation, seamless tool execution in conversations

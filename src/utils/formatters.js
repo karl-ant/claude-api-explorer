@@ -179,18 +179,6 @@ export function executeTool(toolName, toolInput) {
       }
     },
 
-    get_stock_price: (input) => {
-      const symbol = input.symbol || 'UNKNOWN';
-      return JSON.stringify({
-        symbol: symbol,
-        price: 150.25 + Math.random() * 10,
-        change: (Math.random() - 0.5) * 5,
-        change_percent: ((Math.random() - 0.5) * 3).toFixed(2),
-        volume: Math.floor(Math.random() * 10000000),
-        market_cap: '2.5T'
-      });
-    },
-
     get_current_time: (input) => {
       const timezone = input.timezone || 'UTC';
       return JSON.stringify({
@@ -214,40 +202,6 @@ export function executeTool(toolName, toolInput) {
       });
     },
 
-    send_email: (input) => {
-      return JSON.stringify({
-        status: 'sent',
-        to: input.to || 'unknown@example.com',
-        subject: input.subject || 'No subject',
-        message_id: 'mock-' + Date.now(),
-        timestamp: new Date().toISOString()
-      });
-    },
-
-    file_search: (input) => {
-      const query = input.query || input.filename || '';
-      return JSON.stringify({
-        query: query,
-        results: [
-          { path: '/documents/file1.txt', size: '1.2 KB', modified: '2025-11-05' },
-          { path: '/downloads/file2.pdf', size: '245 KB', modified: '2025-11-04' }
-        ],
-        count: 2
-      });
-    },
-
-    database_query: (input) => {
-      const query = input.query || '';
-      return JSON.stringify({
-        query: query,
-        rows: [
-          { id: 1, name: 'John Doe', email: 'john@example.com' },
-          { id: 2, name: 'Jane Smith', email: 'jane@example.com' }
-        ],
-        row_count: 2,
-        execution_time_ms: 45
-      });
-    }
   };
 
   // Execute the mock tool

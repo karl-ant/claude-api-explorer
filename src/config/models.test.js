@@ -46,10 +46,26 @@ describe('models configuration', () => {
   it('should include current generation models', () => {
     const modelIds = modelsConfig.models.map(m => m.id);
 
-    // Check for some current models
-    expect(modelIds).toContain('claude-opus-4-20250514');
+    // Current generation
+    expect(modelIds).toContain('claude-opus-4-6');
+    expect(modelIds).toContain('claude-sonnet-4-5-20250929');
+    expect(modelIds).toContain('claude-haiku-4-5-20251001');
+
+    // Legacy models still available
+    expect(modelIds).toContain('claude-opus-4-5-20251101');
+    expect(modelIds).toContain('claude-opus-4-1-20250805');
     expect(modelIds).toContain('claude-sonnet-4-20250514');
-    expect(modelIds).toContain('claude-haiku-4-5');
+    expect(modelIds).toContain('claude-3-7-sonnet-20250219');
+    expect(modelIds).toContain('claude-opus-4-20250514');
+    expect(modelIds).toContain('claude-3-haiku-20240307');
+  });
+
+  it('should have maxOutput field for each model', () => {
+    modelsConfig.models.forEach(model => {
+      expect(model.maxOutput).toBeDefined();
+      expect(typeof model.maxOutput).toBe('number');
+      expect(model.maxOutput).toBeGreaterThan(0);
+    });
   });
 
   it('should have output pricing higher than input pricing', () => {

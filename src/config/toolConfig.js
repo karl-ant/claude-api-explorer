@@ -42,25 +42,6 @@ export const TOOL_REGISTRY = {
     requiresApiKey: false,
     category: 'external'
   },
-  get_stock_price: {
-    name: 'get_stock_price',
-    displayName: 'Stock Price',
-    description: 'Get current stock price',
-    hasDemo: true,
-    hasReal: false, // Not implementing in Phase 1
-    requiresApiKey: true,
-    apiKeyName: 'alpha_vantage',
-    category: 'external'
-  },
-  send_email: {
-    name: 'send_email',
-    displayName: 'Send Email',
-    description: 'Send an email',
-    hasDemo: true,
-    hasReal: false, // Not implementing (requires sensitive setup)
-    requiresApiKey: true,
-    category: 'external'
-  },
   get_current_time: {
     name: 'get_current_time',
     displayName: 'Current Time',
@@ -69,24 +50,6 @@ export const TOOL_REGISTRY = {
     hasReal: true,
     requiresApiKey: false,
     category: 'utility'
-  },
-  file_search: {
-    name: 'file_search',
-    displayName: 'File Search',
-    description: 'Search for files',
-    hasDemo: true,
-    hasReal: false, // Not implementing (security concerns)
-    requiresApiKey: false,
-    category: 'file'
-  },
-  database_query: {
-    name: 'database_query',
-    displayName: 'Database Query',
-    description: 'Execute database queries',
-    hasDemo: true,
-    hasReal: false, // Not implementing (security concerns)
-    requiresApiKey: false,
-    category: 'database'
   },
 
   // New developer tools

@@ -3,6 +3,7 @@ name: code-reviewer
 description: Review code for quality, maintainability, and adherence to project standards. Use PROACTIVELY after significant code changes.
 tools: Read, Grep, Glob, Bash
 model: opus
+color: green
 ---
 
 You are a code review agent for the Claude API Explorer project. Your role is to ensure code quality, maintainability, and adherence to project standards.
@@ -14,7 +15,7 @@ Enforce code quality standards, identify potential bugs, ensure maintainability,
 ## Project Architecture & Standards
 
 ### Tech Stack
-- **Frontend**: React 18 (CDN), htm 3.1.1 (no JSX), Tailwind CSS
+- **Frontend**: React 19 (CDN), htm 3.1.1 (no JSX), Tailwind CSS
 - **Backend**: Express 5.x, Node.js ES modules
 - **Philosophy**: No build step, direct browser execution
 

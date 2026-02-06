@@ -13,10 +13,40 @@ export function MessageResponseView({
   tokenCount,
   model
 }) {
+  const [showThinking, setShowThinking] = React.useState(false);
+
   if (!response) return null;
+
+  // Extract thinking blocks from content
+  const thinkingBlocks = Array.isArray(response.content)
+    ? response.content.filter(b => b.type === 'thinking')
+    : [];
+  const hasThinking = thinkingBlocks.length > 0;
 
   return html`
     <div class="space-y-4 animate-slide-up">
+      ${hasThinking && html`
+        <div class="border-l-2 border-purple-500 bg-slate-800/30 rounded-r-lg p-4 backdrop-blur-sm">
+          <button
+            onClick=${() => setShowThinking(!showThinking)}
+            class="flex items-center gap-2 text-sm font-medium text-purple-400 hover:text-purple-300 transition-colors font-mono w-full"
+          >
+            <span>${showThinking ? '▼' : '▶'}</span>
+            <span>Thinking</span>
+            ${response.usage?.thinking_tokens && html`
+              <span class="text-xs text-purple-500">(${response.usage.thinking_tokens.toLocaleString()} tokens)</span>
+            `}
+          </button>
+          ${showThinking && html`
+            <div class="mt-3 text-sm text-purple-200/80 whitespace-pre-wrap font-mono max-h-96 overflow-y-auto">
+              ${thinkingBlocks.map((block, i) => html`
+                <div key=${i}>${block.thinking}</div>
+              `)}
+            </div>
+          `}
+        </div>
+      `}
+
       <div class="bg-slate-800/50 border border-slate-700 rounded-lg p-6 backdrop-blur-sm hover-lift">
         <div class="text-base leading-relaxed text-slate-100 whitespace-pre-wrap font-mono">
           ${extractMessageText(response.content)}

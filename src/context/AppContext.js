@@ -27,12 +27,12 @@ export function AppProvider({ children }) {
   const [selectedEndpoint, setSelectedEndpoint] = useState('messages');
 
   // Request configuration (Messages API)
-  const [model, setModel] = useState('claude-sonnet-4-20250514');
+  const [model, setModel] = useState('claude-sonnet-4-5-20250929');
   const [messages, setMessages] = useState([{ role: 'user', content: '' }]);
   const [system, setSystem] = useState('');
-  const [maxTokens, setMaxTokens] = useState(1024);
+  const [maxTokens, setMaxTokens] = useState(4096);
   const [temperature, setTemperature] = useState(1.0);
-  const [topP, setTopP] = useState(1.0);
+  const [topP, setTopP] = useState(0.99);
   const [topK, setTopK] = useState(0);
 
   // Advanced features
@@ -47,13 +47,26 @@ export function AppProvider({ children }) {
   const [betaHeaders, setBetaHeaders] = useState(storage.getBetaHeaders());
   const [skillsJson, setSkillsJson] = useState(storage.getSkillsJson());
 
+  // Streaming
+  const [streaming, setStreaming] = useState(storage.get('streaming') || false);
+
+  // Thinking / Adaptive Thinking
+  const [thinkingEnabled, setThinkingEnabled] = useState(storage.get('thinkingEnabled') || false);
+  const [thinkingType, setThinkingType] = useState(storage.get('thinkingType') || 'adaptive');
+  const [budgetTokens, setBudgetTokens] = useState(storage.get('budgetTokens') || 10000);
+  const [effortLevel, setEffortLevel] = useState(storage.get('effortLevel') || 'high');
+
+  // Structured Outputs
+  const [structuredOutput, setStructuredOutput] = useState(false);
+  const [outputSchema, setOutputSchema] = useState('');
+
   // Conversation mode
   const [conversationMode, setConversationMode] = useState(storage.getConversationMode());
   const [conversationHistory, setConversationHistory] = useState([]);
 
   // Endpoint-specific state
   // Batches API
-  const [batchRequests, setBatchRequests] = useState([{ custom_id: '', params: { model: 'claude-sonnet-4-20250514', messages: [{ role: 'user', content: '' }], max_tokens: 1024 } }]);
+  const [batchRequests, setBatchRequests] = useState([{ custom_id: '', params: { model: 'claude-sonnet-4-5-20250929', messages: [{ role: 'user', content: '' }], max_tokens: 4096 } }]);
   const [batchStatus, setBatchStatus] = useState(null);
   const [batchResults, setBatchResults] = useState(null);
   const [batchResultsData, setBatchResultsData] = useState(null);
@@ -118,6 +131,26 @@ export function AppProvider({ children }) {
   useEffect(() => {
     storage.saveSkillsJson(skillsJson);
   }, [skillsJson]);
+
+  useEffect(() => {
+    storage.set('streaming', streaming);
+  }, [streaming]);
+
+  useEffect(() => {
+    storage.set('thinkingEnabled', thinkingEnabled);
+  }, [thinkingEnabled]);
+
+  useEffect(() => {
+    storage.set('thinkingType', thinkingType);
+  }, [thinkingType]);
+
+  useEffect(() => {
+    storage.set('budgetTokens', budgetTokens);
+  }, [budgetTokens]);
+
+  useEffect(() => {
+    storage.set('effortLevel', effortLevel);
+  }, [effortLevel]);
 
   useEffect(() => {
     storage.saveConversationMode(conversationMode);
@@ -196,12 +229,10 @@ export function AppProvider({ children }) {
     let messagesToSend = messages;
     const historyToUse = overrideConversationHistory || conversationHistory;
     if (conversationMode && historyToUse.length > 0) {
-      console.log('[Conversation Mode] Building from conversationHistory:', historyToUse.length, 'messages');
       messagesToSend = historyToUse.map(msg => ({
         role: msg.role,
         content: msg.content
       }));
-      console.log('[Conversation Mode] Messages to send:', messagesToSend);
     }
 
     // Integrate images into the first user message if images exist
@@ -227,14 +258,38 @@ export function AppProvider({ children }) {
 
     // Debug logging for conversation mode
     if (conversationMode) {
-      console.log('[Conversation Mode] Request messages:', messagesWithImages);
     }
 
     if (system) requestBody.system = system;
     if (temperature !== 1.0) requestBody.temperature = temperature;
-    if (topP !== 1.0) requestBody.top_p = topP;
+    if (topP !== 0.99) requestBody.top_p = topP;
     if (topK !== 0) requestBody.top_k = topK;
     if (tools.length > 0) requestBody.tools = [...tools];
+
+    // Add thinking configuration
+    if (thinkingEnabled) {
+      if (thinkingType === 'adaptive') {
+        requestBody.thinking = { type: 'adaptive' };
+        requestBody.output_config = { effort: effortLevel };
+      } else {
+        requestBody.thinking = { type: 'enabled', budget_tokens: budgetTokens };
+      }
+      // Extended thinking requires temperature = 1
+      requestBody.temperature = 1;
+    }
+
+    // Add structured output configuration
+    if (structuredOutput && outputSchema.trim()) {
+      try {
+        const parsedSchema = JSON.parse(outputSchema);
+        requestBody.output_config = {
+          ...(requestBody.output_config || {}),
+          format: { type: 'json_schema', json_schema: parsedSchema }
+        };
+      } catch (e) {
+        // Invalid schema JSON, skip
+      }
+    }
 
     // Add container.skills if skillsJson is valid
     if (skillsJson.trim()) {
@@ -267,7 +322,127 @@ export function AppProvider({ children }) {
         headers['anthropic-beta'] = betaHeaders.join(',');
       }
 
-      // Make initial request
+      // Streaming branch
+      if (streaming) {
+        const res = await fetch('http://localhost:3002/v1/messages/stream', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(requestBody),
+        });
+
+        if (!res.ok) {
+          const errorData = await res.json();
+          throw new Error(errorData.error?.message || `Streaming request failed with status ${res.status}`);
+        }
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let accumulatedText = '';
+        let accumulatedThinking = '';
+        let finalMessage = null;
+        let currentBlockType = null;
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+
+          // Parse SSE events from buffer
+          const lines = buffer.split('\n');
+          buffer = lines.pop(); // Keep incomplete line in buffer
+
+          for (const line of lines) {
+            if (line.startsWith('event: ')) {
+              // Event type line — handled via data parsing
+            } else if (line.startsWith('data: ')) {
+              const jsonStr = line.slice(6);
+              if (jsonStr === '[DONE]') continue;
+              try {
+                const event = JSON.parse(jsonStr);
+                switch (event.type) {
+                  case 'message_start':
+                    finalMessage = event.message;
+                    break;
+                  case 'content_block_start':
+                    currentBlockType = event.content_block?.type;
+                    break;
+                  case 'content_block_delta':
+                    if (event.delta?.type === 'text_delta') {
+                      accumulatedText += event.delta.text;
+                      setStreamingText(accumulatedText);
+                    } else if (event.delta?.type === 'thinking_delta') {
+                      accumulatedThinking += event.delta.thinking;
+                    } else if (event.delta?.type === 'input_json_delta') {
+                      // Tool input streaming — accumulate for later
+                    }
+                    break;
+                  case 'content_block_stop':
+                    currentBlockType = null;
+                    break;
+                  case 'message_delta':
+                    if (finalMessage) {
+                      finalMessage.stop_reason = event.delta?.stop_reason;
+                      if (event.usage) {
+                        finalMessage.usage = { ...finalMessage.usage, ...event.usage };
+                      }
+                    }
+                    break;
+                  case 'message_stop':
+                    // Stream complete
+                    break;
+                }
+              } catch (e) {
+                // Skip unparseable lines
+              }
+            }
+          }
+        }
+
+        // Build final response object
+        if (finalMessage) {
+          // Reconstruct content from accumulated text
+          const content = [];
+          if (accumulatedThinking) {
+            content.push({ type: 'thinking', thinking: accumulatedThinking });
+          }
+          if (accumulatedText) {
+            content.push({ type: 'text', text: accumulatedText });
+          }
+          finalMessage.content = content.length > 0 ? content : finalMessage.content;
+          setResponse(finalMessage);
+
+          // Handle conversation mode for streamed responses
+          let updatedConversationHistory = historyToUse;
+          if (conversationMode) {
+            const textContent = accumulatedText;
+            if (textContent && textContent.trim()) {
+              const assistantMessage = {
+                role: 'assistant',
+                content: finalMessage.content,
+                timestamp: Date.now(),
+                id: `msg-${Date.now()}`
+              };
+              updatedConversationHistory = [...historyToUse, assistantMessage];
+              setConversationHistory(updatedConversationHistory);
+              setMessages(prev => [...prev, { role: 'assistant', content: finalMessage.content }]);
+            }
+          }
+
+          storage.saveToHistory(requestBody, finalMessage, {
+            isConversation: conversationMode,
+            conversationHistory: updatedConversationHistory
+          });
+          setHistory(storage.getHistory());
+        }
+
+        setStreamingText('');
+        setLoading(false);
+        return;
+      }
+
+      // Non-streaming request
       const res = await fetch('http://localhost:3002/v1/messages', {
         method: 'POST',
         headers,
@@ -346,11 +521,20 @@ export function AppProvider({ children }) {
 
         if (system) followUpBody.system = system;
         if (temperature !== 1.0) followUpBody.temperature = temperature;
-        if (topP !== 1.0) followUpBody.top_p = topP;
+        if (topP !== 0.99) followUpBody.top_p = topP;
         if (topK !== 0) followUpBody.top_k = topK;
         // Use requestBody.tools which may include auto-injected code_execution tool
         if (requestBody.tools && requestBody.tools.length > 0) {
           followUpBody.tools = requestBody.tools;
+        }
+
+        // Include thinking config in follow-up if present
+        if (requestBody.thinking) {
+          followUpBody.thinking = requestBody.thinking;
+          followUpBody.temperature = 1;
+        }
+        if (requestBody.output_config) {
+          followUpBody.output_config = requestBody.output_config;
         }
 
         // Include container.skills in follow-up if present
@@ -406,9 +590,6 @@ export function AppProvider({ children }) {
 
           // Extract text content and check if final response is not empty
           const textContent = extractMessageText(finalData.content);
-          console.log('[Conversation Mode - Tool Use] Response content:', finalData.content);
-          console.log('[Conversation Mode - Tool Use] Extracted text:', textContent);
-          console.log('[Conversation Mode - Tool Use] Text check:', textContent && textContent.trim());
 
           if (textContent && textContent.trim()) {
             const finalAssistantMessage = {
@@ -427,7 +608,6 @@ export function AppProvider({ children }) {
               { role: 'assistant', content: finalData.content }
             ]);
           } else {
-            console.log('[Conversation Mode - Tool Use] Skipping empty response');
             // Still add tool_use and tool_result even if final response is empty
             updatedConversationHistory = [...historyToUse, toolUseMessage, toolResultMessage];
             setConversationHistory(updatedConversationHistory);
@@ -453,9 +633,6 @@ export function AppProvider({ children }) {
         if (conversationMode) {
           // Extract text content and check if it's not empty
           const textContent = extractMessageText(data.content);
-          console.log('[Conversation Mode] Response content:', data.content);
-          console.log('[Conversation Mode] Extracted text:', textContent);
-          console.log('[Conversation Mode] Text check:', textContent && textContent.trim());
 
           if (textContent && textContent.trim()) {
             const assistantMessage = {
@@ -470,7 +647,6 @@ export function AppProvider({ children }) {
             // Update messages array for next API call
             setMessages(prev => [...prev, { role: 'assistant', content: data.content }]);
           } else {
-            console.log('[Conversation Mode] Skipping empty response');
           }
         }
 
@@ -486,6 +662,7 @@ export function AppProvider({ children }) {
       setError(err.message || 'An error occurred while processing your request');
       setToolExecutionStatus(null);
     } finally {
+      setStreamingText('');
       setLoading(false);
     }
   };
@@ -532,13 +709,18 @@ export function AppProvider({ children }) {
     // Note: Token counting API doesn't support container.skills or beta headers
 
     try {
+      const countHeaders = {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      };
+      if (betaHeaders.length > 0) {
+        countHeaders['anthropic-beta'] = betaHeaders.join(',');
+      }
+
       const res = await fetch('http://localhost:3002/v1/messages/count_tokens', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-        },
+        headers: countHeaders,
         body: JSON.stringify(requestBody),
       });
 
@@ -1311,6 +1493,26 @@ export function AppProvider({ children }) {
     skillsJson,
     setSkillsJson,
 
+    // Streaming
+    streaming,
+    setStreaming,
+
+    // Thinking
+    thinkingEnabled,
+    setThinkingEnabled,
+    thinkingType,
+    setThinkingType,
+    budgetTokens,
+    setBudgetTokens,
+    effortLevel,
+    setEffortLevel,
+
+    // Structured Outputs
+    structuredOutput,
+    setStructuredOutput,
+    outputSchema,
+    setOutputSchema,
+
     // Conversation mode
     conversationMode,
     setConversationMode,
@@ -1397,6 +1599,9 @@ export function AppProvider({ children }) {
     tools, images,
     toolMode, toolApiKeys,
     betaHeaders, skillsJson,
+    streaming,
+    thinkingEnabled, thinkingType, budgetTokens, effortLevel,
+    structuredOutput, outputSchema,
     conversationMode, conversationHistory,
     batchRequests, batchStatus, batchResults, batchResultsData, batchResultsLoading, batchResultsError,
     modelsList, modelsLoading,

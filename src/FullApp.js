@@ -4,6 +4,7 @@ import { AppProvider, useApp } from './context/AppContext.js';
 import { Button } from './components/common/Button.js';
 import { Toggle } from './components/common/Toggle.js';
 import { Tabs } from './components/common/Tabs.js';
+import { ErrorBoundary } from './components/common/ErrorBoundary.js';
 import { fileToBase64, getImageMediaType, extractMessageText } from './utils/formatters.js';
 import { TOOL_MODES } from './config/toolConfig.js';
 import {
@@ -77,9 +78,12 @@ function BetaHeadersSection() {
     { id: 'skills-2025-10-02', label: 'Skills' },
     { id: 'code-execution-2025-08-25', label: 'Code Exec' },
     { id: 'files-api-2025-04-14', label: 'Files API' },
-    { id: 'prompt-caching-2024-07-31', label: 'Prompt Cache' },
-    { id: 'computer-use-2024-10-22', label: 'Computer Use' },
-    { id: 'max-tokens-3-5-sonnet-2024-07-15', label: 'Max Tokens' },
+    { id: 'computer-use-2025-11-24', label: 'Computer Use (4.5+)' },
+    { id: 'computer-use-2025-01-24', label: 'Computer Use (Legacy)' },
+    { id: 'compact-2026-01-12', label: 'Compaction' },
+    { id: 'context-1m-2025-08-07', label: '1M Context' },
+    { id: 'context-management-2025-06-27', label: 'Context Mgmt' },
+    { id: 'interleaved-thinking-2025-05-14', label: 'Interleaved Think' },
   ];
 
   const toggleBetaHeader = (headerId) => {
@@ -122,6 +126,12 @@ function BetaHeadersSection() {
 
 function ModelSelector() {
   const { model, setModel, models: staticModels, modelsList, modelsLoading, maxTokens, setMaxTokens, temperature, setTemperature, topP, setTopP, topK, setTopK } = useApp();
+
+  // Get maxOutput from static model config for dynamic max tokens validation
+  const getMaxOutput = (modelId) => {
+    const staticMatch = staticModels.find(s => s.id === modelId);
+    return staticMatch?.maxOutput || 8192;
+  };
 
   // Use API models if available, merge with static config for pricing/description
   // Always use model ID as name to distinguish between variants (e.g., multiple "Claude Haiku 4.5")
@@ -176,9 +186,10 @@ function ModelSelector() {
             value=${maxTokens}
             onInput=${(e) => setMaxTokens(parseInt(e.target.value, 10))}
             min="1"
-            max="8192"
+            max=${getMaxOutput(model)}
             class="w-full px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none text-sm font-mono text-slate-100 hover:border-slate-600 transition-colors"
           />
+          <span class="text-xs text-slate-500 font-mono mt-1">Max: ${getMaxOutput(model).toLocaleString()}</span>
         </div>
 
         <div>
@@ -321,6 +332,7 @@ function AdvancedOptions() {
     { id: 'vision', label: 'Vision' },
     { id: 'tools', label: 'Tools' },
     { id: 'skills', label: 'Skills' },
+    { id: 'output', label: 'Output' },
   ];
 
   // Vision handlers
@@ -414,42 +426,6 @@ function AdvancedOptions() {
           required: ['query']
         }
       },
-      get_stock_price: {
-        name: 'get_stock_price',
-        description: 'Get the current stock price for a given ticker symbol',
-        input_schema: {
-          type: 'object',
-          properties: {
-            ticker: {
-              type: 'string',
-              description: 'The stock ticker symbol (e.g., AAPL, GOOGL, MSFT)'
-            }
-          },
-          required: ['ticker']
-        }
-      },
-      send_email: {
-        name: 'send_email',
-        description: 'Send an email to a recipient',
-        input_schema: {
-          type: 'object',
-          properties: {
-            to: {
-              type: 'string',
-              description: 'The email address of the recipient'
-            },
-            subject: {
-              type: 'string',
-              description: 'The subject line of the email'
-            },
-            body: {
-              type: 'string',
-              description: 'The body content of the email'
-            }
-          },
-          required: ['to', 'subject', 'body']
-        }
-      },
       get_current_time: {
         name: 'get_current_time',
         description: 'Get the current time in a specific timezone',
@@ -462,46 +438,6 @@ function AdvancedOptions() {
             }
           },
           required: ['timezone']
-        }
-      },
-      file_search: {
-        name: 'file_search',
-        description: 'Search for files in a directory based on criteria',
-        input_schema: {
-          type: 'object',
-          properties: {
-            directory: {
-              type: 'string',
-              description: 'The directory path to search in'
-            },
-            pattern: {
-              type: 'string',
-              description: 'File name pattern to match (e.g., "*.txt", "report_*")'
-            },
-            recursive: {
-              type: 'boolean',
-              description: 'Whether to search subdirectories recursively'
-            }
-          },
-          required: ['directory', 'pattern']
-        }
-      },
-      database_query: {
-        name: 'database_query',
-        description: 'Execute a read-only SQL query against a database',
-        input_schema: {
-          type: 'object',
-          properties: {
-            query: {
-              type: 'string',
-              description: 'The SQL SELECT query to execute'
-            },
-            database: {
-              type: 'string',
-              description: 'The database name to query'
-            }
-          },
-          required: ['query', 'database']
         }
       },
       json_validator: {
@@ -616,13 +552,25 @@ function AdvancedOptions() {
               <div class="space-y-2">
                 <p class="text-sm font-medium text-slate-300 font-mono">${images.length} image(s) added</p>
                 ${images.map((img, index) => html`
-                  <div key=${index} class="flex items-center justify-between p-2 bg-slate-800/50 border border-slate-700 rounded-lg">
-                    <span class="text-sm text-slate-300 truncate font-mono">
+                  <div key=${index} class="flex items-center gap-3 p-2 bg-slate-800/50 border border-slate-700 rounded-lg">
+                    ${img.source.type === 'base64' && html`
+                      <img
+                        src="data:${img.source.media_type};base64,${img.source.data}"
+                        class="w-16 h-16 object-cover rounded border border-slate-700 flex-shrink-0"
+                      />
+                    `}
+                    ${img.source.type === 'url' && html`
+                      <img
+                        src=${img.source.url}
+                        class="w-16 h-16 object-cover rounded border border-slate-700 flex-shrink-0"
+                      />
+                    `}
+                    <span class="text-sm text-slate-300 truncate font-mono flex-1">
                       Image ${index + 1} (${img.source.type})
                     </span>
                     <button
                       onClick=${() => removeImage(index)}
-                      class="text-red-400 hover:text-red-300 text-sm font-mono transition-colors"
+                      class="text-red-400 hover:text-red-300 text-sm font-mono transition-colors flex-shrink-0"
                     >
                       Remove
                     </button>
@@ -671,17 +619,53 @@ function AdvancedOptions() {
               </p>
             </div>
 
+            <!-- Server-Side Tools (Anthropic) -->
             <div class="space-y-3">
-              <p class="text-sm font-medium text-slate-300 font-mono">Predefined Tools</p>
+              <p class="text-sm font-medium text-slate-300 font-mono">Server-Side Tools (Anthropic)</p>
+              <p class="text-xs text-slate-500 font-mono">Managed by Anthropic — executed server-side, no client setup needed.</p>
+              <div class="grid grid-cols-2 gap-2">
+                ${[
+                  { type: 'web_search_20250305', name: 'web_search', label: 'Web Search', desc: '$10/1K searches' },
+                  { type: 'web_fetch_20250305', name: 'web_fetch', label: 'Web Fetch', desc: 'Token cost only' },
+                  { type: 'code_execution_20250825', name: 'code_execution', label: 'Code Exec', desc: 'Sandboxed bash' },
+                  { type: 'computer_20250124', name: 'computer', label: 'Computer Use', desc: 'Screen interaction' },
+                  { type: 'text_editor_20250429', name: 'text_editor', label: 'Text Editor', desc: 'File editing' },
+                ].map(st => {
+                  const isEnabled = tools.some(t => t.type === st.type);
+                  return html`
+                    <button
+                      key=${st.type}
+                      onClick=${() => {
+                        if (isEnabled) {
+                          setTools(prev => prev.filter(t => t.type !== st.type));
+                        } else {
+                          setTools(prev => [...prev, { type: st.type, name: st.name }]);
+                        }
+                      }}
+                      class="px-3 py-2 text-xs font-mono rounded-lg transition-colors text-left ${
+                        isEnabled
+                          ? 'bg-amber-500 text-slate-900 hover:bg-amber-400'
+                          : 'bg-slate-800 text-slate-300 border border-slate-700 hover:border-slate-600'
+                      }"
+                    >
+                      <div class="font-medium">${st.label}</div>
+                      <div class="text-xs ${isEnabled ? 'text-slate-700' : 'text-slate-500'}">${st.desc}</div>
+                    </button>
+                  `;
+                })}
+              </div>
+            </div>
+
+            <div class="border-t border-slate-700 pt-3"></div>
+
+            <div class="space-y-3">
+              <p class="text-sm font-medium text-slate-300 font-mono">Client-Side Tools</p>
 
               <div class="space-y-2">
                 <div class="text-xs font-medium text-slate-500 uppercase font-mono">Data & Information</div>
                 <div class="grid grid-cols-2 gap-2">
                   <${Button} variant="secondary" size="sm" onClick=${() => addPredefinedTool('get_weather')}>
                     🌤️ Weather
-                  </${Button}>
-                  <${Button} variant="secondary" size="sm" onClick=${() => addPredefinedTool('get_stock_price')}>
-                    📈 Stock Price
                   </${Button}>
                   <${Button} variant="secondary" size="sm" onClick=${() => addPredefinedTool('get_current_time')}>
                     🕐 Current Time
@@ -697,21 +681,6 @@ function AdvancedOptions() {
                 <div class="grid grid-cols-2 gap-2">
                   <${Button} variant="secondary" size="sm" onClick=${() => addPredefinedTool('calculator')}>
                     🧮 Calculator
-                  </${Button}>
-                  <${Button} variant="secondary" size="sm" onClick=${() => addPredefinedTool('database_query')}>
-                    🗄️ Database Query
-                  </${Button}>
-                </div>
-              </div>
-
-              <div class="space-y-2">
-                <div class="text-xs font-medium text-slate-500 uppercase font-mono">Actions</div>
-                <div class="grid grid-cols-2 gap-2">
-                  <${Button} variant="secondary" size="sm" onClick=${() => addPredefinedTool('send_email')}>
-                    📧 Send Email
-                  </${Button}>
-                  <${Button} variant="secondary" size="sm" onClick=${() => addPredefinedTool('file_search')}>
-                    📁 File Search
                   </${Button}>
                 </div>
               </div>
@@ -823,6 +792,13 @@ function AdvancedOptions() {
                 </${Button}>
               </div>
             `}
+          </div>
+        `}
+
+        ${activeTab === 'output' && html`
+          <div class="space-y-3">
+            <p class="text-sm text-slate-400 font-mono">Configure output format constraints.</p>
+            <${StructuredOutputSection} />
           </div>
         `}
       </div>
@@ -1025,6 +1001,131 @@ function ChatInterface() {
   `;
 }
 
+function ThinkingSection() {
+  const { thinkingEnabled, setThinkingEnabled, thinkingType, setThinkingType, budgetTokens, setBudgetTokens, effortLevel, setEffortLevel, model } = useApp();
+
+  const isOpus46 = model === 'claude-opus-4-6';
+
+  return html`
+    <div class="space-y-3 p-3 bg-slate-800/30 border border-slate-700 rounded-lg">
+      <div class="flex items-center justify-between">
+        <span class="text-sm font-medium text-slate-300 font-mono">Extended Thinking</span>
+        <${Toggle}
+          checked=${thinkingEnabled}
+          onChange=${setThinkingEnabled}
+        />
+      </div>
+
+      ${thinkingEnabled && html`
+        <div class="space-y-3 animate-slide-up">
+          <div class="flex gap-2">
+            <button
+              onClick=${() => setThinkingType('adaptive')}
+              class="px-3 py-1.5 text-xs font-mono rounded-lg transition-colors ${
+                thinkingType === 'adaptive'
+                  ? 'bg-amber-500 text-slate-900 hover:bg-amber-400'
+                  : 'bg-slate-800 text-slate-300 border border-slate-700 hover:border-slate-600'
+              }"
+            >
+              Adaptive (auto)
+            </button>
+            <button
+              onClick=${() => setThinkingType('enabled')}
+              class="px-3 py-1.5 text-xs font-mono rounded-lg transition-colors ${
+                thinkingType === 'enabled'
+                  ? 'bg-amber-500 text-slate-900 hover:bg-amber-400'
+                  : 'bg-slate-800 text-slate-300 border border-slate-700 hover:border-slate-600'
+              }"
+            >
+              Manual budget
+            </button>
+          </div>
+
+          ${thinkingType === 'adaptive' && html`
+            <div class="space-y-2">
+              <label class="text-xs text-slate-400 font-mono">Effort Level</label>
+              <div class="flex gap-2">
+                ${['low', 'medium', 'high', 'max'].map(level => html`
+                  <button
+                    key=${level}
+                    onClick=${() => setEffortLevel(level)}
+                    class="px-3 py-1.5 text-xs font-mono rounded-lg transition-colors ${
+                      effortLevel === level
+                        ? 'bg-purple-500 text-white hover:bg-purple-400'
+                        : 'bg-slate-800 text-slate-300 border border-slate-700 hover:border-slate-600'
+                    }"
+                  >
+                    ${level}
+                  </button>
+                `)}
+              </div>
+              ${!isOpus46 && html`
+                <p class="text-xs text-amber-400 font-mono">Adaptive thinking requires Opus 4.6</p>
+              `}
+              ${!isOpus46 && effortLevel === 'max' && html`
+                <p class="text-xs text-red-400 font-mono">effort: "max" only available on Opus 4.6</p>
+              `}
+            </div>
+          `}
+
+          ${thinkingType === 'enabled' && html`
+            <div class="space-y-2">
+              ${isOpus46 && html`
+                <p class="text-xs text-amber-400 font-mono">type: "enabled" is deprecated on Opus 4.6 — use Adaptive instead</p>
+              `}
+              <label class="text-xs text-slate-400 font-mono">Budget Tokens: ${budgetTokens.toLocaleString()}</label>
+              <input
+                type="range"
+                min="1024"
+                max="128000"
+                step="1024"
+                value=${budgetTokens}
+                onInput=${(e) => setBudgetTokens(Math.max(1024, parseInt(e.target.value, 10)))}
+                class="w-full accent-purple-500"
+              />
+              <div class="flex justify-between text-xs text-slate-500 font-mono">
+                <span>1,024</span>
+                <span>128K</span>
+              </div>
+            </div>
+          `}
+
+          <p class="text-xs text-slate-500 font-mono">Temperature will be set to 1 (required for thinking)</p>
+        </div>
+      `}
+    </div>
+  `;
+}
+
+function StructuredOutputSection() {
+  const { structuredOutput, setStructuredOutput, outputSchema, setOutputSchema } = useApp();
+
+  return html`
+    <div class="space-y-3 p-3 bg-slate-800/30 border border-slate-700 rounded-lg">
+      <div class="flex items-center justify-between">
+        <span class="text-sm font-medium text-slate-300 font-mono">Structured Output</span>
+        <${Toggle}
+          checked=${structuredOutput}
+          onChange=${setStructuredOutput}
+        />
+      </div>
+
+      ${structuredOutput && html`
+        <div class="space-y-2 animate-slide-up">
+          <label class="text-xs text-slate-400 font-mono">JSON Schema</label>
+          <textarea
+            value=${outputSchema}
+            onInput=${(e) => setOutputSchema(e.target.value)}
+            placeholder='{"name": "response", "schema": {"type": "object", "properties": {...}}}'
+            rows="4"
+            class="w-full px-3 py-2.5 bg-slate-900 border border-slate-700 rounded-lg focus:outline-none text-sm font-mono text-slate-100 placeholder-slate-600 hover:border-slate-600 transition-colors resize-y"
+          ></textarea>
+        </div>
+      `}
+    </div>
+  `;
+}
+
 function MessagesPanel() {
   const { conversationMode } = useApp();
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -1032,6 +1133,8 @@ function MessagesPanel() {
   return html`
     <div class="space-y-6">
       <${ModelSelector} />
+
+      <${ThinkingSection} />
 
       <div class="border-t border-slate-800 pt-4">
         ${conversationMode
@@ -1046,7 +1149,7 @@ function MessagesPanel() {
             onClick=${() => setShowAdvanced(!showAdvanced)}
             class="w-full flex items-center justify-between text-sm font-medium text-slate-300 hover:text-amber-400 transition-colors"
           >
-            <span class="font-mono">Advanced Options (Vision, Tools & Skills)</span>
+            <span class="font-mono">Advanced Options (Vision, Tools, Skills & Output)</span>
             <span class="text-amber-400">${showAdvanced ? '▼' : '▶'}</span>
           </button>
 
@@ -1110,9 +1213,9 @@ function BatchesPanel() {
     setBatchRequests([...batchRequests, {
       custom_id: '',
       params: {
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-5-20250929',
         messages: [{ role: 'user', content: '' }],
-        max_tokens: 1024
+        max_tokens: 4096
       }
     }]);
   };
@@ -1906,7 +2009,7 @@ function TokenCountCard({ tokenCount, costs, stale, onClear }) {
             <span class="text-amber-400">$${costs.inputCost.toFixed(4)} - $${costs.total.toFixed(4)}</span>
           </div>
           <div class="text-slate-600 text-center pt-1">
-            Prices as of Nov 2025
+            Prices as of Feb 2026
           </div>
         </div>
       `}
@@ -1926,9 +2029,60 @@ function ConfigPanel() {
     selectedEndpoint, handleSendRequest, handleCreateBatch, loading, apiKey,
     history, loadFromHistory, clearHistory, exportHistory, clearConfiguration,
     handleCountTokens, tokenCount, tokenCountLoading, tokenCountStale, setTokenCount,
-    model, maxTokens, models, continueConversation
+    model, maxTokens, models, continueConversation, deleteHistoryItem,
+    streaming, setStreaming, streamingText,
+    messages, system, temperature, topP, topK, tools, betaHeaders,
+    thinkingEnabled, thinkingType, budgetTokens, effortLevel,
+    structuredOutput, outputSchema
   } = useApp();
   const [showHistory, setShowHistory] = useState(false);
+  const [copyStatus, setCopyStatus] = useState('');
+
+  const copyAsCurl = () => {
+    const body = { model, messages, max_tokens: maxTokens };
+    if (system) body.system = system;
+    if (temperature !== 1.0) body.temperature = temperature;
+    if (topP !== 0.99) body.top_p = topP;
+    if (topK !== 0) body.top_k = topK;
+    if (tools.length > 0) body.tools = tools;
+    if (thinkingEnabled) {
+      if (thinkingType === 'adaptive') {
+        body.thinking = { type: 'adaptive' };
+        body.output_config = { ...(body.output_config || {}), effort: effortLevel };
+      } else {
+        body.thinking = { type: 'enabled', budget_tokens: budgetTokens };
+      }
+      body.temperature = 1;
+    }
+    if (structuredOutput && outputSchema.trim()) {
+      try {
+        const parsedSchema = JSON.parse(outputSchema);
+        body.output_config = {
+          ...(body.output_config || {}),
+          format: { type: 'json_schema', json_schema: parsedSchema }
+        };
+      } catch (e) {
+        // Invalid schema, skip
+      }
+    }
+    if (streaming) body.stream = true;
+
+    const headers = [
+      `-H "content-type: application/json"`,
+      `-H "x-api-key: $ANTHROPIC_API_KEY"`,
+      `-H "anthropic-version: 2023-06-01"`,
+    ];
+    if (betaHeaders.length > 0) {
+      headers.push(`-H "anthropic-beta: ${betaHeaders.join(',')}"`);
+    }
+
+    // Escape single quotes in JSON body for safe shell embedding
+    const bodyJson = JSON.stringify(body, null, 2).replace(/'/g, "'\\''");
+    const curl = `curl https://api.anthropic.com/v1/messages \\\n  ${headers.join(' \\\n  ')} \\\n  -d '${bodyJson}'`;
+    navigator.clipboard.writeText(curl);
+    setCopyStatus('Copied!');
+    setTimeout(() => setCopyStatus(''), 2000);
+  };
 
   // Cost calculation helpers
   const getModelPricing = () => {
@@ -2048,6 +2202,13 @@ function ConfigPanel() {
                               Continue
                             </${Button}>
                           `}
+                          <${Button}
+                            variant="danger"
+                            size="sm"
+                            onClick=${() => deleteHistoryItem(item.id)}
+                          >
+                            Delete
+                          </${Button}>
                         </div>
                       </div>
                     `)}
@@ -2064,6 +2225,14 @@ function ConfigPanel() {
           ${selectedEndpoint === 'messages' && html`
             <${ConversationModeToggle} />
 
+            <div class="flex items-center justify-between p-2 bg-slate-800/30 border border-slate-700 rounded-lg mb-2">
+              <span class="text-sm font-medium text-slate-300 font-mono">Stream Response</span>
+              <${Toggle}
+                checked=${streaming}
+                onChange=${setStreaming}
+              />
+            </div>
+
             <div class="flex gap-2">
               <${Button}
                 onClick=${handleSendRequest}
@@ -2071,7 +2240,7 @@ function ConfigPanel() {
                 fullWidth=${true}
                 size="lg"
               >
-                ${loading ? 'Processing...' : 'Send Request'}
+                ${loading ? (streaming ? 'Streaming...' : 'Processing...') : (streaming ? 'Send (Stream)' : 'Send Request')}
               </${Button}>
               <${Button}
                 onClick=${handleCountTokens}
@@ -2092,6 +2261,15 @@ function ConfigPanel() {
                 onClear=${() => setTokenCount(null)}
               />
             `}
+
+            <${Button}
+              variant="ghost"
+              size="sm"
+              onClick=${copyAsCurl}
+              fullWidth=${true}
+            >
+              ${copyStatus || 'Copy as cURL'}
+            </${Button}>
           `}
           ${selectedEndpoint === 'batches' && html`
             <${Button}
@@ -2115,7 +2293,7 @@ function ResponsePanel() {
     usageReport, costReport, skillsList, skillDetail, handleGetSkill,
     toolExecutionStatus, toolExecutionDetails, models, maxTokens, tokenCount,
     model, batchResultsData, batchResultsLoading, batchResultsError,
-    handleFetchBatchResults, handleGetBatchStatus
+    handleFetchBatchResults, handleGetBatchStatus, streamingText
   } = useApp();
   const [viewMode, setViewMode] = useState('formatted');
 
@@ -2188,6 +2366,14 @@ function ResponsePanel() {
               <span>⚠</span> Error
             </h3>
             <p class="text-sm text-red-300 font-mono">${error}</p>
+          </div>
+        `}
+
+        ${loading && streamingText && html`
+          <div class="bg-slate-800/50 border border-slate-700 rounded-lg p-6 backdrop-blur-sm animate-fade-in">
+            <div class="text-base leading-relaxed text-slate-100 whitespace-pre-wrap font-mono">
+              ${streamingText}<span class="inline-block w-2 h-5 bg-amber-400 ml-0.5 animate-pulse"></span>
+            </div>
           </div>
         `}
 
@@ -2272,7 +2458,7 @@ function AppContent() {
             <div>
               <h1 class="text-2xl font-bold text-slate-100 tracking-tight">Claude API Explorer</h1>
               <p class="text-slate-400 text-xs font-mono mt-0.5">
-                <span class="text-amber-400">v2.11</span> • Developer Command Center
+                <span class="text-amber-400">v3.2</span> • Developer Command Center
               </p>
             </div>
           </div>
@@ -2303,11 +2489,15 @@ function AppContent() {
 
       <div class="flex-1 flex overflow-hidden">
         <div class="w-2/5 min-w-[400px] max-w-[600px] border-r border-slate-800">
-          <${ConfigPanel} />
+          <${ErrorBoundary}>
+            <${ConfigPanel} />
+          </${ErrorBoundary}>
         </div>
 
         <div class="flex-1 min-w-0 overflow-hidden">
-          <${ResponsePanel} />
+          <${ErrorBoundary}>
+            <${ResponsePanel} />
+          </${ErrorBoundary}>
         </div>
       </div>
 
