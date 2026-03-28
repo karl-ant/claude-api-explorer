@@ -57,10 +57,7 @@ export function AppProvider({ children }) {
   const [effortLevel, setEffortLevel] = useState(storage.get('effortLevel') || 'high');
   const [thinkingDisplay, setThinkingDisplay] = useState(storage.get('thinkingDisplay') || 'full');
 
-  // Speed mode (Opus 4.6 fast mode, waitlist)
   const [speedMode, setSpeedMode] = useState(storage.get('speedMode') || false);
-
-  // Prompt caching (top-level cache_control)
   const [cacheControl, setCacheControl] = useState(storage.get('cacheControl') || false);
 
   // Structured Outputs
@@ -115,7 +112,6 @@ export function AppProvider({ children }) {
   // History
   const [history, setHistory] = useState(storage.getHistory());
 
-  // Request Inspector (workbench observability)
   const [lastRequest, setLastRequest] = useState(null);
 
   // Internal mode (session-only, NOT persisted)
@@ -292,12 +288,10 @@ export function AppProvider({ children }) {
     if (topK !== 0) requestBody.top_k = topK;
     if (tools.length > 0) requestBody.tools = [...tools];
 
-    // Speed mode (Opus 4.6 fast mode, waitlist)
     if (speedMode) {
       requestBody.speed = 'fast';
     }
 
-    // Top-level prompt caching
     if (cacheControl) {
       requestBody.cache_control = { type: 'ephemeral' };
     }
@@ -361,7 +355,6 @@ export function AppProvider({ children }) {
         headers['anthropic-beta'] = betaHeaders.join(',');
       }
 
-      // Capture request snapshot for Request Inspector
       const requestUrl = streaming
         ? 'https://api.anthropic.com/v1/messages (stream)'
         : 'https://api.anthropic.com/v1/messages';
@@ -1569,7 +1562,6 @@ export function AppProvider({ children }) {
     cacheControl,
     setCacheControl,
 
-    // Request Inspector
     lastRequest,
 
     // Internal mode (session-only)

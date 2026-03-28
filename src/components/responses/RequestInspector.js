@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import htm from 'htm';
 
 const html = htm.bind(React.createElement);
@@ -6,18 +6,26 @@ const html = htm.bind(React.createElement);
 export function RequestInspector({ request }) {
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
+  const timeoutRef = useRef(null);
+
+  useEffect(() => () => clearTimeout(timeoutRef.current), []);
+
+  const { bodyJson, bodyBytes } = useMemo(() => {
+    if (!request?.body) return { bodyJson: '', bodyBytes: 0 };
+    const json = JSON.stringify(request.body, null, 2);
+    return { bodyJson: json, bodyBytes: new Blob([json]).size };
+  }, [request?.body]);
 
   if (!request) return null;
 
-  const bodyJson = JSON.stringify(request.body, null, 2);
-  const bodyBytes = new Blob([bodyJson]).size;
   const headerCount = Object.keys(request.headers || {}).length;
   const duration = request.durationMs != null ? `${request.durationMs.toLocaleString()}ms` : '…';
 
   const copyBody = () => {
     navigator.clipboard.writeText(bodyJson);
     setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+    clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => setCopied(false), 1500);
   };
 
   return html`
