@@ -6,3 +6,4 @@ export { CostResponseView } from './CostResponseView.js';
 export { SkillsResponseView } from './SkillsResponseView.js';
 export { EmptyResponseState } from './EmptyResponseState.js';
 export { ActualCostCard } from './ActualCostCard.js';
+export { RequestInspector } from './RequestInspector.js';

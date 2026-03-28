@@ -55,6 +55,10 @@ export function AppProvider({ children }) {
   const [thinkingType, setThinkingType] = useState(storage.get('thinkingType') || 'adaptive');
   const [budgetTokens, setBudgetTokens] = useState(storage.get('budgetTokens') || 10000);
   const [effortLevel, setEffortLevel] = useState(storage.get('effortLevel') || 'high');
+  const [thinkingDisplay, setThinkingDisplay] = useState(storage.get('thinkingDisplay') || 'full');
+
+  const [speedMode, setSpeedMode] = useState(storage.get('speedMode') || false);
+  const [cacheControl, setCacheControl] = useState(storage.get('cacheControl') || false);
 
   // Structured Outputs
   const [structuredOutput, setStructuredOutput] = useState(false);
@@ -108,6 +112,12 @@ export function AppProvider({ children }) {
   // History
   const [history, setHistory] = useState(storage.getHistory());
 
+  const [lastRequest, setLastRequest] = useState(null);
+
+  // Internal mode (session-only, NOT persisted)
+  const [internalMode, setInternalMode] = useState(false);
+  const [customModelId, setCustomModelId] = useState('');
+
   // Update API key in storage when it changes
   useEffect(() => {
     if (apiKey) {
@@ -151,6 +161,18 @@ export function AppProvider({ children }) {
   useEffect(() => {
     storage.set('effortLevel', effortLevel);
   }, [effortLevel]);
+
+  useEffect(() => {
+    storage.set('thinkingDisplay', thinkingDisplay);
+  }, [thinkingDisplay]);
+
+  useEffect(() => {
+    storage.set('speedMode', speedMode);
+  }, [speedMode]);
+
+  useEffect(() => {
+    storage.set('cacheControl', cacheControl);
+  }, [cacheControl]);
 
   useEffect(() => {
     storage.saveConversationMode(conversationMode);
@@ -250,21 +272,29 @@ export function AppProvider({ children }) {
       return msg;
     }) : messagesToSend;
 
+    const effectiveModel = (internalMode && customModelId.trim())
+      ? customModelId.trim()
+      : model;
+
     const requestBody = {
-      model,
+      model: effectiveModel,
       messages: messagesWithImages,
       max_tokens: maxTokens,
     };
-
-    // Debug logging for conversation mode
-    if (conversationMode) {
-    }
 
     if (system) requestBody.system = system;
     if (temperature !== 1.0) requestBody.temperature = temperature;
     if (topP !== 0.99) requestBody.top_p = topP;
     if (topK !== 0) requestBody.top_k = topK;
     if (tools.length > 0) requestBody.tools = [...tools];
+
+    if (speedMode) {
+      requestBody.speed = 'fast';
+    }
+
+    if (cacheControl) {
+      requestBody.cache_control = { type: 'ephemeral' };
+    }
 
     // Add thinking configuration
     if (thinkingEnabled) {
@@ -273,6 +303,9 @@ export function AppProvider({ children }) {
         requestBody.output_config = { effort: effortLevel };
       } else {
         requestBody.thinking = { type: 'enabled', budget_tokens: budgetTokens };
+      }
+      if (thinkingDisplay === 'omitted') {
+        requestBody.thinking.display = 'omitted';
       }
       // Extended thinking requires temperature = 1
       requestBody.temperature = 1;
@@ -303,7 +336,7 @@ export function AppProvider({ children }) {
           }
           const hasCodeExecution = requestBody.tools.some(t => t.type?.startsWith('code_execution'));
           if (!hasCodeExecution) {
-            requestBody.tools.push({ type: 'code_execution_20250825', name: 'code_execution' });
+            requestBody.tools.push({ type: 'code_execution_20260120', name: 'code_execution' });
           }
         }
       } catch (e) {
@@ -321,6 +354,19 @@ export function AppProvider({ children }) {
       if (betaHeaders.length > 0) {
         headers['anthropic-beta'] = betaHeaders.join(',');
       }
+
+      const requestUrl = streaming
+        ? 'https://api.anthropic.com/v1/messages (stream)'
+        : 'https://api.anthropic.com/v1/messages';
+      const requestSnapshot = {
+        url: requestUrl,
+        method: 'POST',
+        headers: { ...headers, 'x-api-key': '***redacted***' },
+        body: requestBody,
+        timestamp: Date.now(),
+        durationMs: null,
+      };
+      setLastRequest(requestSnapshot);
 
       // Streaming branch
       if (streaming) {
@@ -664,6 +710,7 @@ export function AppProvider({ children }) {
     } finally {
       setStreamingText('');
       setLoading(false);
+      setLastRequest(prev => prev ? { ...prev, durationMs: Date.now() - prev.timestamp } : prev);
     }
   };
 
@@ -1506,6 +1553,22 @@ export function AppProvider({ children }) {
     setBudgetTokens,
     effortLevel,
     setEffortLevel,
+    thinkingDisplay,
+    setThinkingDisplay,
+
+    // Speed / Caching
+    speedMode,
+    setSpeedMode,
+    cacheControl,
+    setCacheControl,
+
+    lastRequest,
+
+    // Internal mode (session-only)
+    internalMode,
+    setInternalMode,
+    customModelId,
+    setCustomModelId,
 
     // Structured Outputs
     structuredOutput,
@@ -1600,7 +1663,10 @@ export function AppProvider({ children }) {
     toolMode, toolApiKeys,
     betaHeaders, skillsJson,
     streaming,
-    thinkingEnabled, thinkingType, budgetTokens, effortLevel,
+    thinkingEnabled, thinkingType, budgetTokens, effortLevel, thinkingDisplay,
+    speedMode, cacheControl,
+    lastRequest,
+    internalMode, customModelId,
     structuredOutput, outputSchema,
     conversationMode, conversationHistory,
     batchRequests, batchStatus, batchResults, batchResultsData, batchResultsLoading, batchResultsError,

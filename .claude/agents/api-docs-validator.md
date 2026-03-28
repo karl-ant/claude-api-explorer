@@ -58,6 +58,14 @@ Fetch these pages to get current data:
    - Server-side tool types and names
    - Tool definition format
 
+9. **Tool Reference Table**: `https://platform.claude.com/docs/en/build-with-claude/tool-use/overview`
+   - Exact versioned type strings for each server tool (e.g., `web_search_YYYYMMDD`)
+   - This is the authoritative source for type string validation
+
+10. **Models API**: `https://platform.claude.com/docs/en/api/models`
+    - Response schema including `max_tokens`, `max_input_tokens`, `capabilities` fields
+    - App uses these for live model metadata (prefer over static config)
+
 ## App Files to Validate
 
 Read these files from the project:
@@ -96,10 +104,13 @@ Read these files from the project:
 
 ### 4. Feature Parity Validation
 - [ ] Streaming support matches current SSE event format
-- [ ] Extended thinking parameter format matches docs
+- [ ] Extended thinking parameter format matches docs (including `display` option)
 - [ ] Adaptive thinking effort levels match docs
 - [ ] Structured output format matches docs
-- [ ] Server-side tool types/names match docs (web_search, code_execution, etc.)
+- [ ] Server-side tool types/names match docs — verify EXACT versioned type strings against the tool reference table
+- [ ] Top-level `cache_control` parameter format matches docs
+- [ ] `speed` parameter format and model compatibility matches docs
+- [ ] Models API response fields (`max_tokens`, `max_input_tokens`, `capabilities`) used correctly
 
 ### 5. Pricing Accuracy
 - [ ] All model pricing matches current rates

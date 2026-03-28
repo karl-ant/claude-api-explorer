@@ -15,7 +15,7 @@ A visual web app for testing Anthropic API endpoints. Uses React + htm (no build
 - Cost Reports API - Cost breakdowns (requires Admin key)
 
 **Beta Features:**
-- Beta Headers - Toggle buttons for anthropic-beta header (Skills, Code Exec, Files API, Computer Use, Compaction, 1M Context, Interleaved Thinking)
+- Beta Headers - Toggle buttons for anthropic-beta header (Skills, Files API, Computer Use, Compaction, 1M Context, Context Mgmt, Interleaved Thinking)
 - Skills Tab - Manage custom skills (List, Create, Get, Delete) with folder drag & drop upload
 - Skills Versions - List and manage skill versions before deletion
 - Container Skills - Configure container.skills for document processing in Messages API
@@ -35,11 +35,15 @@ A visual web app for testing Anthropic API endpoints. Uses React + htm (no build
 - Seamless tool execution within conversations
 
 **Server-Side Tools (Anthropic-managed):**
-- Web Search, Web Fetch, Code Execution, Computer Use, Text Editor
+- Web Search, Web Fetch, Code Execution, Computer Use, Text Editor, Memory, Tool Search
 - Toggle buttons that add server-side tool definitions to requests
 
 **Export:**
 - Copy as cURL — generates curl command with all headers and body
+
+**Workbench (v3.3):**
+- Raw Request Inspector — collapsible panel showing exact headers/body/timing sent (API key redacted)
+- Internal Model Mode — Ctrl+Shift+I reveals session-only custom model ID input (nothing persisted, nothing hardcoded)
 
 ## Architecture
 
@@ -245,7 +249,7 @@ Edit `src/config/models.js`:
 ```javascript
 { "id": "claude-new-model-20250101", "name": "Claude New", "description": "...", "pricing": { "input": 3, "output": 15 }, "maxOutput": 64000 }
 ```
-**Note:** `maxOutput` drives dynamic max tokens validation in ModelSelector. Run api-docs-validator agent to verify against official docs.
+**Note:** `maxOutput` drives dynamic max tokens validation in ModelSelector. As of v3.3, ModelSelector prefers live `max_tokens` from the `/v1/models` API response over this static value — static config is fallback-only (offline / no API key). Run api-docs-validator agent to verify against official docs.
 
 ### Adding a New API Endpoint
 1. Define in `src/config/endpoints.js`
@@ -294,16 +298,15 @@ npm run test:coverage # Run with coverage report
 ### Beta Headers
 Located under API Key in the Configuration sidebar. Toggle buttons for:
 - `skills-2025-10-02` - Skills API
-- `code-execution-2025-08-25` - Code execution (required for container skills)
 - `files-api-2025-04-14` - Files API (required for container skills)
 - `computer-use-2025-11-24` - Computer use (Opus 4.5+)
 - `computer-use-2025-01-24` - Computer use (legacy models)
 - `compact-2026-01-12` - Compaction (for long conversations)
-- `context-1m-2025-08-07` - 1M context window (Opus 4.6, Sonnet 4.5)
+- `context-1m-2025-08-07` - 1M context window (Sonnet 4/4.5 only — GA for Opus 4.6/Sonnet 4.6)
 - `context-management-2025-06-27` - Context editing (tool result/thinking block clearing)
 - `interleaved-thinking-2025-05-14` - Interleaved thinking
 
-**Graduated to GA (no longer need beta header):** prompt caching, max tokens for Sonnet 3.5
+**Graduated to GA (no longer need beta header):** prompt caching, max tokens for Sonnet 3.5, code execution, web search, web fetch, memory tool, tool search tool, effort parameter
 
 State: `betaHeaders` (array) in AppContext, persisted to localStorage.
 
@@ -340,17 +343,19 @@ Located in Advanced Options → Skills tab. Configure `container.skills` for doc
 
 State: `skillsJson` (string) in AppContext, persisted to localStorage.
 
-**Note:** Container skills require all 3 beta headers (Skills, Code Exec, Files API) and the code_execution tool.
+**Note:** Container skills require beta headers (Skills, Files API) and the code_execution tool. Code execution itself is now GA — no beta header needed.
 
 ## Tool System
 
 ### Server-Side Tools (Anthropic-managed)
 Toggle buttons in Advanced Options → Tools tab. These run on Anthropic's servers:
-- `web_search_20250305` - Real-time web search ($10/1K searches)
-- `web_fetch_20250305` - Fetch full page content (token cost only)
-- `code_execution_20250825` - Sandboxed bash + file manipulation
+- `web_search_20260209` - Real-time web search ($10/1K searches)
+- `web_fetch_20260209` - Fetch full page content (token cost only)
+- `code_execution_20260120` - Sandboxed bash + file manipulation
 - `computer_20250124` - Screen interaction (beta)
-- `text_editor_20250429` - File editing tool
+- `text_editor_20250728` - File editing tool
+- `memory_20250818` - Persistent memory across turns
+- `tool_search_tool_bm25_20251119` - Dynamic tool discovery (BM25 keyword search)
 
 When enabled, adds `{ type: serverTool.type, name: serverTool.name }` to the tools array. No client execution needed.
 
@@ -476,9 +481,10 @@ setImages(prev => [...prev, newImage]);
 
 ---
 
-**Version:** 3.2 | **Updated:** 2026-02-06 | **Owner:** Karl
+**Version:** 3.3 | **Updated:** 2026-03-28 | **Owner:** Karl
 
 **Recent Changes:**
+- v3.3: API catch-up + workbench foundation - Added Sonnet 4.6, removed retired Sonnet 3.7, flagged Haiku 3 deprecated, pruned GA'd beta headers, updated all server tool type strings to current versions, live model metadata from /v1/models (max_tokens/capabilities), new request params (speed, thinking.display, top-level cache_control), cache hit stats in response view, Raw Request Inspector component (headers/body/timing with redacted key), Internal Model Mode (Ctrl+Shift+I, session-only free-text model ID input), 180 tests
 - v3.2: Architecture cleanup - Removed dead tools (stock, email, file_search, database_query), removed debug console.logs, ErrorBoundary component, React 19 CDN upgrade, Copy as cURL export, api-docs-validator agent, 178 tests
 - v3.1: UX polish - Image preview thumbnails in Vision tab, server-side tools section (Web Search, Web Fetch, Code Exec, Computer Use, Text Editor), history delete button per item
 - v3.0: Streaming + Thinking - SSE streaming with incremental display, extended thinking (manual budget 1K-128K), adaptive thinking (effort levels), structured outputs with JSON schema, thinking blocks in response view, Output tab in Advanced Options

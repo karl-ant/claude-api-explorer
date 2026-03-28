@@ -48,6 +48,7 @@ describe('models configuration', () => {
 
     // Current generation
     expect(modelIds).toContain('claude-opus-4-6');
+    expect(modelIds).toContain('claude-sonnet-4-6');
     expect(modelIds).toContain('claude-sonnet-4-5-20250929');
     expect(modelIds).toContain('claude-haiku-4-5-20251001');
 
@@ -55,9 +56,20 @@ describe('models configuration', () => {
     expect(modelIds).toContain('claude-opus-4-5-20251101');
     expect(modelIds).toContain('claude-opus-4-1-20250805');
     expect(modelIds).toContain('claude-sonnet-4-20250514');
-    expect(modelIds).toContain('claude-3-7-sonnet-20250219');
     expect(modelIds).toContain('claude-opus-4-20250514');
     expect(modelIds).toContain('claude-3-haiku-20240307');
+  });
+
+  it('should not include retired models', () => {
+    const modelIds = modelsConfig.models.map(m => m.id);
+    expect(modelIds).not.toContain('claude-3-7-sonnet-20250219');
+    expect(modelIds).not.toContain('claude-3-5-haiku-20241022');
+  });
+
+  it('should flag deprecated models', () => {
+    const haiku3 = modelsConfig.models.find(m => m.id === 'claude-3-haiku-20240307');
+    expect(haiku3.deprecated).toBe(true);
+    expect(haiku3.deprecationNote).toBeDefined();
   });
 
   it('should have maxOutput field for each model', () => {
