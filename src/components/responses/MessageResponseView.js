@@ -120,6 +120,16 @@ export function MessageResponseView({
               <span class="font-semibold text-slate-300 font-mono">${response.stop_reason}</span>
             </div>
           `}
+          ${(response.usage.cache_read_input_tokens > 0 || response.usage.cache_creation_input_tokens > 0) && html`
+            <div class="flex items-center justify-between text-sm bg-slate-800/30 border border-mint-500/30 rounded-lg px-4 py-2 backdrop-blur-sm">
+              <span class="text-slate-400 font-medium font-mono">Cache:</span>
+              <span class="font-mono text-xs">
+                ${response.usage.cache_read_input_tokens > 0 && html`<span class="text-mint-400">${response.usage.cache_read_input_tokens.toLocaleString()} read</span>`}
+                ${response.usage.cache_read_input_tokens > 0 && response.usage.cache_creation_input_tokens > 0 && ' · '}
+                ${response.usage.cache_creation_input_tokens > 0 && html`<span class="text-amber-400">${response.usage.cache_creation_input_tokens.toLocaleString()} created</span>`}
+              </span>
+            </div>
+          `}
         </div>
       `}
     </div>

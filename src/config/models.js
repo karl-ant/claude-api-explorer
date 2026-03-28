@@ -8,6 +8,13 @@ export default {
       "maxOutput": 128000
     },
     {
+      "id": "claude-sonnet-4-6",
+      "name": "Claude Sonnet 4.6",
+      "description": "1M context, adaptive thinking, best speed/intelligence balance",
+      "pricing": { "input": 3, "output": 15 },
+      "maxOutput": 64000
+    },
+    {
       "id": "claude-sonnet-4-5-20250929",
       "name": "Claude Sonnet 4.5",
       "description": "Best combination of speed and intelligence",
@@ -43,13 +50,6 @@ export default {
       "maxOutput": 64000
     },
     {
-      "id": "claude-3-7-sonnet-20250219",
-      "name": "Claude Sonnet 3.7 (Legacy)",
-      "description": "Previous generation Sonnet with extended thinking",
-      "pricing": { "input": 3, "output": 15 },
-      "maxOutput": 64000
-    },
-    {
       "id": "claude-opus-4-20250514",
       "name": "Claude Opus 4 (Legacy)",
       "description": "Previous generation Opus",
@@ -61,7 +61,9 @@ export default {
       "name": "Claude Haiku 3 (Legacy)",
       "description": "Fast and affordable legacy model",
       "pricing": { "input": 0.25, "output": 1.25 },
-      "maxOutput": 4096
+      "maxOutput": 4096,
+      "deprecated": true,
+      "deprecationNote": "Retires 2026-04-19"
     }
   ]
 };

@@ -15,7 +15,8 @@ import {
   CostResponseView,
   SkillsResponseView,
   EmptyResponseState,
-  ActualCostCard
+  ActualCostCard,
+  RequestInspector
 } from './components/responses/index.js';
 
 const html = htm.bind(React.createElement);
@@ -76,12 +77,11 @@ function BetaHeadersSection() {
 
   const BETA_HEADER_OPTIONS = [
     { id: 'skills-2025-10-02', label: 'Skills' },
-    { id: 'code-execution-2025-08-25', label: 'Code Exec' },
     { id: 'files-api-2025-04-14', label: 'Files API' },
     { id: 'computer-use-2025-11-24', label: 'Computer Use (4.5+)' },
     { id: 'computer-use-2025-01-24', label: 'Computer Use (Legacy)' },
     { id: 'compact-2026-01-12', label: 'Compaction' },
-    { id: 'context-1m-2025-08-07', label: '1M Context' },
+    { id: 'context-1m-2025-08-07', label: '1M Context (Sonnet 4/4.5 only)' },
     { id: 'context-management-2025-06-27', label: 'Context Mgmt' },
     { id: 'interleaved-thinking-2025-05-14', label: 'Interleaved Think' },
   ];
@@ -125,16 +125,21 @@ function BetaHeadersSection() {
 }
 
 function ModelSelector() {
-  const { model, setModel, models: staticModels, modelsList, modelsLoading, maxTokens, setMaxTokens, temperature, setTemperature, topP, setTopP, topK, setTopK } = useApp();
+  const {
+    model, setModel, models: staticModels, modelsList, modelsLoading,
+    maxTokens, setMaxTokens, temperature, setTemperature, topP, setTopP, topK, setTopK,
+    internalMode, customModelId, setCustomModelId
+  } = useApp();
 
-  // Get maxOutput from static model config for dynamic max tokens validation
+  // Prefer live API metadata, fall back to static config
   const getMaxOutput = (modelId) => {
+    const apiModel = modelsList?.data?.find(m => m.id === modelId);
+    if (apiModel?.max_tokens) return apiModel.max_tokens;
     const staticMatch = staticModels.find(s => s.id === modelId);
     return staticMatch?.maxOutput || 8192;
   };
 
-  // Use API models if available, merge with static config for pricing/description
-  // Always use model ID as name to distinguish between variants (e.g., multiple "Claude Haiku 4.5")
+  // Merge live API data with static config (pricing, descriptions)
   const availableModels = React.useMemo(() => {
     return modelsList?.data
       ? modelsList.data.map(apiModel => {
@@ -142,8 +147,13 @@ function ModelSelector() {
           return {
             id: apiModel.id,
             name: apiModel.id,
+            maxOutput: apiModel.max_tokens ?? staticMatch?.maxOutput,
+            maxInput: apiModel.max_input_tokens,
+            capabilities: apiModel.capabilities,
             description: staticMatch?.description || apiModel.display_name || '',
-            pricing: staticMatch?.pricing
+            pricing: staticMatch?.pricing,
+            deprecated: staticMatch?.deprecated,
+            deprecationNote: staticMatch?.deprecationNote,
           };
         })
       : staticModels;
@@ -162,7 +172,9 @@ function ModelSelector() {
     <div class="space-y-4">
       <div>
         <label class="block text-sm font-medium text-slate-300 mb-2 font-mono">
-          Model ${modelsLoading ? html`<span class="text-amber-400 text-xs">(loading...)</span>` : modelsList?.data ? html`<span class="text-mint-400 text-xs">(${availableModels.length} available)</span>` : ''}
+          Model
+          ${modelsLoading ? html`<span class="text-amber-400 text-xs"> (loading...)</span>` : modelsList?.data ? html`<span class="text-mint-400 text-xs"> (${availableModels.length} available)</span>` : ''}
+          ${internalMode && html`<span class="ml-2 px-2 py-0.5 text-xs bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded font-mono">[internal]</span>`}
         </label>
         <select
           value=${model}
@@ -170,12 +182,35 @@ function ModelSelector() {
           class="w-full px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none text-sm font-mono text-slate-100 hover:border-slate-600 transition-colors cursor-pointer"
         >
           ${availableModels.map((m) => html`
-            <option key=${m.id} value=${m.id}>${m.name}</option>
+            <option key=${m.id} value=${m.id}>${m.name}${m.deprecated ? ' ⚠' : ''}</option>
           `)}
         </select>
         <p class="text-xs text-slate-500 mt-2 font-mono">
           ${selectedModel?.description || ''}
+          ${selectedModel?.maxInput && html` · ${(selectedModel.maxInput / 1000).toFixed(0)}K input`}
         </p>
+        ${selectedModel?.deprecated && html`
+          <p class="text-xs text-amber-400 font-mono mt-1">
+            ⚠ Deprecated — ${selectedModel.deprecationNote || 'will be removed soon'}
+          </p>
+        `}
+        ${internalMode && html`
+          <div class="mt-3 p-3 bg-slate-800/50 border border-amber-500/30 rounded-lg animate-slide-up">
+            <label class="block text-xs text-amber-400 font-mono mb-2">
+              Custom model ID <span class="text-slate-500">(session-only, not persisted)</span>
+            </label>
+            <input
+              type="text"
+              value=${customModelId}
+              onInput=${(e) => setCustomModelId(e.target.value)}
+              placeholder="type any model id..."
+              class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg focus:outline-none text-sm font-mono text-slate-100 placeholder-slate-600 hover:border-slate-600 transition-colors"
+            />
+            ${customModelId.trim() && html`
+              <p class="text-xs text-slate-500 font-mono mt-2">→ will use: ${customModelId.trim()}</p>
+            `}
+          </div>
+        `}
       </div>
 
       <div class="grid grid-cols-2 gap-3">
@@ -625,11 +660,13 @@ function AdvancedOptions() {
               <p class="text-xs text-slate-500 font-mono">Managed by Anthropic — executed server-side, no client setup needed.</p>
               <div class="grid grid-cols-2 gap-2">
                 ${[
-                  { type: 'web_search_20250305', name: 'web_search', label: 'Web Search', desc: '$10/1K searches' },
-                  { type: 'web_fetch_20250305', name: 'web_fetch', label: 'Web Fetch', desc: 'Token cost only' },
-                  { type: 'code_execution_20250825', name: 'code_execution', label: 'Code Exec', desc: 'Sandboxed bash' },
+                  { type: 'web_search_20260209', name: 'web_search', label: 'Web Search', desc: '$10/1K searches' },
+                  { type: 'web_fetch_20260209', name: 'web_fetch', label: 'Web Fetch', desc: 'Token cost only' },
+                  { type: 'code_execution_20260120', name: 'code_execution', label: 'Code Exec', desc: 'Sandboxed bash' },
                   { type: 'computer_20250124', name: 'computer', label: 'Computer Use', desc: 'Screen interaction' },
-                  { type: 'text_editor_20250429', name: 'text_editor', label: 'Text Editor', desc: 'File editing' },
+                  { type: 'text_editor_20250728', name: 'text_editor', label: 'Text Editor', desc: 'File editing' },
+                  { type: 'memory_20250818', name: 'memory', label: 'Memory', desc: 'Persistent memory' },
+                  { type: 'tool_search_tool_bm25_20251119', name: 'tool_search', label: 'Tool Search', desc: 'BM25 keyword search' },
                 ].map(st => {
                   const isEnabled = tools.some(t => t.type === st.type);
                   return html`
@@ -1002,7 +1039,7 @@ function ChatInterface() {
 }
 
 function ThinkingSection() {
-  const { thinkingEnabled, setThinkingEnabled, thinkingType, setThinkingType, budgetTokens, setBudgetTokens, effortLevel, setEffortLevel, model } = useApp();
+  const { thinkingEnabled, setThinkingEnabled, thinkingType, setThinkingType, budgetTokens, setBudgetTokens, effortLevel, setEffortLevel, thinkingDisplay, setThinkingDisplay, model } = useApp();
 
   const isOpus46 = model === 'claude-opus-4-6';
 
@@ -1090,7 +1127,62 @@ function ThinkingSection() {
             </div>
           `}
 
+          <div class="flex items-center justify-between pt-2 border-t border-slate-700">
+            <div>
+              <span class="text-xs text-slate-400 font-mono">Display mode</span>
+              <p class="text-xs text-slate-500 font-mono">omitted = keep signature, hide content</p>
+            </div>
+            <div class="flex gap-1">
+              ${['full', 'omitted'].map(mode => html`
+                <button
+                  key=${mode}
+                  onClick=${() => setThinkingDisplay(mode)}
+                  class="px-2 py-1 text-xs font-mono rounded transition-colors ${
+                    thinkingDisplay === mode
+                      ? 'bg-purple-500 text-white'
+                      : 'bg-slate-800 text-slate-300 border border-slate-700 hover:border-slate-600'
+                  }"
+                >
+                  ${mode}
+                </button>
+              `)}
+            </div>
+          </div>
+
           <p class="text-xs text-slate-500 font-mono">Temperature will be set to 1 (required for thinking)</p>
+        </div>
+      `}
+    </div>
+  `;
+}
+
+function SpeedCacheSection() {
+  const { speedMode, setSpeedMode, cacheControl, setCacheControl, model } = useApp();
+  const isOpus46 = model === 'claude-opus-4-6';
+
+  return html`
+    <div class="space-y-3 p-3 bg-slate-800/30 border border-slate-700 rounded-lg">
+      <div class="flex items-center justify-between">
+        <div>
+          <span class="text-sm font-medium text-slate-300 font-mono">Prompt Caching</span>
+          <p class="text-xs text-slate-500 font-mono">top-level cache_control: ephemeral</p>
+        </div>
+        <${Toggle}
+          checked=${cacheControl}
+          onChange=${setCacheControl}
+        />
+      </div>
+
+      ${isOpus46 && html`
+        <div class="flex items-center justify-between pt-3 border-t border-slate-700">
+          <div>
+            <span class="text-sm font-medium text-slate-300 font-mono">Fast Mode <span class="text-xs text-amber-400">(waitlist)</span></span>
+            <p class="text-xs text-slate-500 font-mono">speed: fast — Opus 4.6 only</p>
+          </div>
+          <${Toggle}
+            checked=${speedMode}
+            onChange=${setSpeedMode}
+          />
         </div>
       `}
     </div>
@@ -1135,6 +1227,8 @@ function MessagesPanel() {
       <${ModelSelector} />
 
       <${ThinkingSection} />
+
+      <${SpeedCacheSection} />
 
       <div class="border-t border-slate-800 pt-4">
         ${conversationMode
@@ -2293,7 +2387,7 @@ function ResponsePanel() {
     usageReport, costReport, skillsList, skillDetail, handleGetSkill,
     toolExecutionStatus, toolExecutionDetails, models, maxTokens, tokenCount,
     model, batchResultsData, batchResultsLoading, batchResultsError,
-    handleFetchBatchResults, handleGetBatchStatus, streamingText
+    handleFetchBatchResults, handleGetBatchStatus, streamingText, lastRequest
   } = useApp();
   const [viewMode, setViewMode] = useState('formatted');
 
@@ -2360,6 +2454,10 @@ function ResponsePanel() {
       </div>
 
       <div class="flex-1 overflow-y-auto p-4">
+        ${selectedEndpoint === 'messages' && html`
+          <${RequestInspector} request=${lastRequest} />
+        `}
+
         ${error && html`
           <div class="bg-red-900/20 border border-red-700/50 rounded-lg p-4 backdrop-blur-sm animate-slide-up">
             <h3 class="text-sm font-semibold text-red-400 mb-2 font-mono flex items-center gap-2">
@@ -2435,7 +2533,19 @@ function ResponsePanel() {
 }
 
 function AppContent() {
-  const { selectedEndpoint, setSelectedEndpoint, endpoints } = useApp();
+  const { selectedEndpoint, setSelectedEndpoint, endpoints, setInternalMode } = useApp();
+
+  // Keyboard shortcut: Ctrl+Shift+I toggles internal mode
+  React.useEffect(() => {
+    const handler = (e) => {
+      if (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'i')) {
+        e.preventDefault();
+        setInternalMode(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [setInternalMode]);
 
   const endpointTabs = [
     { id: 'messages', label: 'Messages', description: endpoints.messages.description },
@@ -2458,7 +2568,7 @@ function AppContent() {
             <div>
               <h1 class="text-2xl font-bold text-slate-100 tracking-tight">Claude API Explorer</h1>
               <p class="text-slate-400 text-xs font-mono mt-0.5">
-                <span class="text-amber-400">v3.2</span> • Developer Command Center
+                <span class="text-amber-400">v3.3</span> • Developer Command Center
               </p>
             </div>
           </div>

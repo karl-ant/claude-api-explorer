@@ -226,7 +226,10 @@ export const storage = {
   getBetaHeaders() {
     try {
       const headers = localStorage.getItem(STORAGE_KEYS.BETA_HEADERS);
-      return headers ? JSON.parse(headers) : [];
+      const parsed = headers ? JSON.parse(headers) : [];
+      // Filter out headers that have graduated to GA
+      const removed = new Set(['code-execution-2025-08-25']);
+      return parsed.filter(h => !removed.has(h));
     } catch (error) {
       return [];
     }
