@@ -11,19 +11,23 @@ A visual web app for testing Anthropic API endpoints. Uses React + htm (no build
 - Message Batches API - Async batch processing at 50% cost with in-app results viewing
 - Models API - List available models
 - Skills API - Create and manage custom skills (Beta)
+- Files API - Upload/list/get/delete/download files referenced by file_id in Messages (Beta)
 - Usage Reports API - Token usage tracking (requires Admin key)
 - Cost Reports API - Cost breakdowns (requires Admin key)
 
 **Beta Features:**
-- Beta Headers - Toggle buttons for anthropic-beta header (Skills, Files API, Computer Use, Compaction, 1M Context, Context Mgmt, Interleaved Thinking)
+- Beta Headers - Toggle buttons for anthropic-beta header (Skills, Files API, Computer Use, Compaction, 1M Context, Context Mgmt, Interleaved Thinking, 300k Batch Output)
 - Skills Tab - Manage custom skills (List, Create, Get, Delete) with folder drag & drop upload
 - Skills Versions - List and manage skill versions before deletion
 - Container Skills - Configure container.skills for document processing in Messages API
+- Files Tab - Upload (drag & drop), list, get metadata, delete, download (download only for skill/code-execution-generated files); beta header auto-included
 
 **Streaming & Thinking (v3.0):**
 - Streaming responses via SSE with incremental text display and blinking cursor
-- Extended Thinking with manual budget (1K-128K tokens)
-- Adaptive Thinking with effort levels (low/medium/high/max) — Opus 4.6 only
+- Extended Thinking with manual budget (1K-128K tokens) — not supported on Opus 4.7 (adaptive only)
+- Adaptive Thinking with effort levels (low/medium/high/xhigh/max) — Opus 4.7 / 4.6 / Sonnet 4.6 (xhigh: Opus 4.7 only)
+- thinking.display: summarized | omitted
+- Fast Mode (speed: fast) — Opus 4.6 only; auto-injects anthropic-beta: fast-mode-2026-02-01
 - Structured Outputs with JSON schema validation
 - Thinking blocks displayed as collapsible sections in response view
 
@@ -35,11 +39,11 @@ A visual web app for testing Anthropic API endpoints. Uses React + htm (no build
 - Seamless tool execution within conversations
 
 **Server-Side Tools (Anthropic-managed):**
-- Web Search, Web Fetch, Code Execution, Computer Use, Text Editor, Memory, Tool Search
+- Web Search, Web Fetch, Code Execution, Computer Use (computer_20251124), Text Editor, Memory, Tool Search
 - Toggle buttons that add server-side tool definitions to requests
 
 **Export:**
-- Copy as cURL — generates curl command with all headers and body
+- Copy as cURL — generates curl command with all headers and body (includes speed, cache_control, thinking.display, fast-mode beta header when applicable)
 
 **Workbench (v3.3):**
 - Raw Request Inspector — collapsible panel showing exact headers/body/timing sent (API key redacted)
@@ -49,7 +53,7 @@ A visual web app for testing Anthropic API endpoints. Uses React + htm (no build
 
 ### Core Philosophy
 - **No build step** - Edit → refresh → test (htm instead of JSX)
-- **Single file components** - Main app in `FullApp.js` (~2500 lines)
+- **Single file components** - Main app in `FullApp.js` (~2800 lines)
 - **Express proxy** - Required for CORS (browser can't call Anthropic directly)
 - **Streaming proxy** - SSE pipe-through for streaming responses
 
@@ -80,8 +84,10 @@ src/
 │       ├── UsageResponseView.js
 │       ├── CostResponseView.js
 │       ├── SkillsResponseView.js
+│       ├── FilesResponseView.js
 │       ├── EmptyResponseState.js
-│       └── ActualCostCard.js
+│       ├── ActualCostCard.js
+│       └── RequestInspector.js
 ├── context/AppContext.js      # Global state (API keys, config, history, conversations)
 │                              # conversationMode, conversationHistory state
 ├── config/
@@ -298,13 +304,15 @@ npm run test:coverage # Run with coverage report
 ### Beta Headers
 Located under API Key in the Configuration sidebar. Toggle buttons for:
 - `skills-2025-10-02` - Skills API
-- `files-api-2025-04-14` - Files API (required for container skills)
+- `files-api-2025-04-14` - Files API (required for the Files tab and container skills; auto-included for those calls)
 - `computer-use-2025-11-24` - Computer use (Opus 4.5+)
 - `computer-use-2025-01-24` - Computer use (legacy models)
 - `compact-2026-01-12` - Compaction (for long conversations)
-- `context-1m-2025-08-07` - 1M context window (Sonnet 4/4.5 only — GA for Opus 4.6/Sonnet 4.6)
+- `context-1m-2025-08-07` - 1M context window (legacy models — Opus 4.7/4.6 and Sonnet 4.6 have it natively, no header)
 - `context-management-2025-06-27` - Context editing (tool result/thinking block clearing)
 - `interleaved-thinking-2025-05-14` - Interleaved thinking
+- `output-300k-2026-03-24` - 300k output tokens on the Batch API (Opus 4.7/4.6, Sonnet 4.6)
+- `fast-mode-2026-02-01` - Fast Mode (auto-injected when speed: fast is set; Opus 4.6 only)
 
 **Graduated to GA (no longer need beta header):** prompt caching, max tokens for Sonnet 3.5, code execution, web search, web fetch, memory tool, tool search tool, effort parameter
 
@@ -324,6 +332,20 @@ A dedicated tab for managing custom skills via the Skills API (Beta). Features:
 **State:** `skillsList`, `skillDetail`, `skillsSourceFilter`, `skillVersions` in AppContext.
 
 **Note:** The Skills API automatically includes `anthropic-beta: skills-2025-10-02` header. Version deletion may not be fully supported in the beta.
+
+### Files API Tab
+A dedicated tab for managing files via the Files API (Beta). All file operations are free — billing only happens when a `file_id` is referenced in a Messages request.
+
+**Operations:**
+- **List Files** - `GET /v1/files` (paginated; `limit`, `before_id`, `after_id`)
+- **Upload File** - `POST /v1/files` multipart upload (drag & drop or picker; single `file` field; 500 MB max)
+- **Get File Metadata** - `GET /v1/files/:id`
+- **Delete File** - `DELETE /v1/files/:id` (irreversible)
+- **Download** - `GET /v1/files/:id/content` (only enabled for files created by skills or code execution; user-uploaded files cannot be downloaded — the proxy streams raw bytes back, not JSON)
+
+**State:** `filesList`, `fileDetail`, `filesLoading`, `filesError` in AppContext. Nothing persisted (files live server-side).
+
+**Note:** The Files tab automatically includes `anthropic-beta: files-api-2025-04-14` — both client-side (handlers) and server-side (the `/v1/files*` proxy routes inject it via `withBetaFlag`).
 
 ### Container Skills (Messages API)
 Located in Advanced Options → Skills tab. Configure `container.skills` for document processing.
@@ -352,7 +374,7 @@ Toggle buttons in Advanced Options → Tools tab. These run on Anthropic's serve
 - `web_search_20260209` - Real-time web search ($10/1K searches)
 - `web_fetch_20260209` - Fetch full page content (token cost only)
 - `code_execution_20260120` - Sandboxed bash + file manipulation
-- `computer_20250124` - Screen interaction (beta)
+- `computer_20251124` - Screen interaction (Claude 4.5+)
 - `text_editor_20250728` - File editing tool
 - `memory_20250818` - Persistent memory across turns
 - `tool_search_tool_bm25_20251119` - Dynamic tool discovery (BM25 keyword search)
@@ -481,9 +503,10 @@ setImages(prev => [...prev, newImage]);
 
 ---
 
-**Version:** 3.3 | **Updated:** 2026-03-28 | **Owner:** Karl
+**Version:** 3.4 | **Updated:** 2026-05-07 | **Owner:** Karl
 
 **Recent Changes:**
+- v3.4: API catch-up + Files tab - Added Opus 4.7 (adaptive-thinking-only, 1M context, new tokenizer) as current flagship; relabeled Opus 4.6/Sonnet 4.5 as Legacy; flagged Sonnet 4 & Opus 4 deprecated (retire 2026-06-15); removed retired Haiku 3; widened adaptive-thinking guard to Opus 4.7/4.6/Sonnet 4.6; added `xhigh` effort (Opus 4.7 only); fixed `thinking.display` to send only `summarized`/`omitted`; Opus 4.7 manual-thinking guard (client + request path); Fast Mode now auto-injects `fast-mode-2026-02-01` beta header; added `output-300k-2026-03-24` beta header toggle; relabeled 1M-context header (legacy-only); `computer_20251124`; added `speed`/`container` to Messages optional params; **new Files API tab** (upload/list/get/delete/download) with 5 server proxy routes + `FilesResponseView`; refreshed `.claude/agents/api-docs-validator.md` (working tool-use URLs, adaptive/fast-mode/300k/Files checks); cURL builder now includes `speed`/`cache_control`/`thinking.display`/fast-mode header
 - v3.3: API catch-up + workbench foundation - Added Sonnet 4.6, removed retired Sonnet 3.7, flagged Haiku 3 deprecated, pruned GA'd beta headers, updated all server tool type strings to current versions, live model metadata from /v1/models (max_tokens/capabilities), new request params (speed, thinking.display, top-level cache_control), cache hit stats in response view, Raw Request Inspector component (headers/body/timing with redacted key), Internal Model Mode (Ctrl+Shift+I, session-only free-text model ID input), 180 tests
 - v3.2: Architecture cleanup - Removed dead tools (stock, email, file_search, database_query), removed debug console.logs, ErrorBoundary component, React 19 CDN upgrade, Copy as cURL export, api-docs-validator agent, 178 tests
 - v3.1: UX polish - Image preview thumbnails in Vision tab, server-side tools section (Web Search, Web Fetch, Code Exec, Computer Use, Text Editor), history delete button per item

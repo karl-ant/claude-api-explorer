@@ -41,30 +41,40 @@ Fetch these pages to get current data:
    - Graduated (GA) features that no longer need beta headers
 
 5. **Extended Thinking**: `https://platform.claude.com/docs/en/build-with-claude/extended-thinking`
-   - Thinking parameter format
+   - Manual thinking parameter format (`{type: "enabled", budget_tokens}`)
    - Budget tokens range
-   - Model compatibility
+   - Model compatibility (note: Opus 4.7 rejects manual thinking — adaptive only)
+   - `thinking.display` valid values: only `summarized` and `omitted` (no `full`)
 
 6. **Adaptive Thinking**: `https://platform.claude.com/docs/en/build-with-claude/adaptive-thinking`
-   - Effort levels (low/medium/high/max)
-   - output_config format
+   - Effort levels: `low`, `medium`, `high` (default), `xhigh` (Opus 4.7 only), `max`
+   - output_config format (`{effort: "..."}`)
+   - Model compatibility: Opus 4.7, Opus 4.6, Sonnet 4.6
+
+7. **Fast Mode**: `https://platform.claude.com/docs/en/build-with-claude/fast-mode`
+   - Requires BOTH `speed: "fast"` in the body AND `anthropic-beta: fast-mode-2026-02-01` header
    - Model compatibility (Opus 4.6 only)
 
-7. **Streaming**: `https://platform.claude.com/docs/en/build-with-claude/streaming`
+8. **Streaming**: `https://platform.claude.com/docs/en/build-with-claude/streaming`
    - SSE event types
    - Event data formats
 
-8. **Tool Use**: `https://platform.claude.com/docs/en/build-with-claude/tool-use`
+9. **Tool Use**: `https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview`
    - Server-side tool types and names
    - Tool definition format
 
-9. **Tool Reference Table**: `https://platform.claude.com/docs/en/build-with-claude/tool-use/overview`
-   - Exact versioned type strings for each server tool (e.g., `web_search_YYYYMMDD`)
-   - This is the authoritative source for type string validation
+10. **Tool Reference Table**: `https://platform.claude.com/docs/en/agents-and-tools/tool-use/tool-reference`
+    - Exact versioned type strings for each server tool (e.g., `web_search_YYYYMMDD`)
+    - This is the authoritative source for type string validation
 
-10. **Models API**: `https://platform.claude.com/docs/en/api/models`
+11. **Models API**: `https://platform.claude.com/docs/en/api/models`
     - Response schema including `max_tokens`, `max_input_tokens`, `capabilities` fields
     - App uses these for live model metadata (prefer over static config)
+
+12. **Files API**: `https://platform.claude.com/docs/en/build-with-claude/files`
+    - `anthropic-beta: files-api-2025-04-14` header requirement
+    - Endpoints: `POST /v1/files`, `GET /v1/files`, `GET /v1/files/:id`, `DELETE /v1/files/:id`, `GET /v1/files/:id/content`
+    - Limits (file size, org storage, filename constraints), download restrictions (only skill/code-execution-generated files)
 
 ## App Files to Validate
 
@@ -75,9 +85,10 @@ Read these files from the project:
 | `src/config/models.js` | Model IDs, names, pricing, maxOutput |
 | `src/config/endpoints.js` | Parameters (required + optional) |
 | `src/context/AppContext.js` | Default values, API version header, request body construction |
-| `src/FullApp.js` | Beta header options, UI labels, model selector |
+| `src/FullApp.js` | Beta header options, UI labels, model selector, Files tab/panel |
 | `src/components/responses/ActualCostCard.js` | Pricing date accuracy |
-| `server.js` | Proxy routes, API paths |
+| `src/components/responses/FilesResponseView.js` | Files list/metadata rendering |
+| `server.js` | Proxy routes, API paths (incl. `/v1/files*`) |
 
 ## Validation Checks
 
@@ -93,24 +104,27 @@ Read these files from the project:
 
 ### 2. Beta Headers Validation
 - [ ] No graduated (GA) features still listed as beta
-- [ ] All current beta features included
+- [ ] All current beta features included (`output-300k-2026-03-24` for 300k batch output; `fast-mode-2026-02-01` for Fast Mode; `files-api-2025-04-14` for Files API)
 - [ ] Header string IDs match official format exactly
-- [ ] Labels are clear and accurate
+- [ ] Labels are clear and accurate (1M context header is for legacy models only — 4.6+ have it natively)
 
 ### 3. Endpoint Parameters Validation
 - [ ] Messages API required params match docs
-- [ ] Messages API optional params include all new features
+- [ ] Messages API optional params include all new features (`speed`, `container`, etc.)
 - [ ] API version header is current (`anthropic-version`)
+- [ ] Files API endpoints present (`/v1/files`, `/v1/files/:id`, `/v1/files/:id/content`) with correct methods
 
 ### 4. Feature Parity Validation
 - [ ] Streaming support matches current SSE event format
-- [ ] Extended thinking parameter format matches docs (including `display` option)
-- [ ] Adaptive thinking effort levels match docs
+- [ ] Manual thinking parameter format matches docs; Opus 4.7 manual-thinking guard present (it rejects `{type:"enabled"}`)
+- [ ] `thinking.display` only ever sends `summarized` or `omitted` (never `full`)
+- [ ] Adaptive thinking effort levels match docs (incl. `xhigh` for Opus 4.7); adaptive supported on Opus 4.7 / 4.6 / Sonnet 4.6
 - [ ] Structured output format matches docs
 - [ ] Server-side tool types/names match docs — verify EXACT versioned type strings against the tool reference table
 - [ ] Top-level `cache_control` parameter format matches docs
-- [ ] `speed` parameter format and model compatibility matches docs
+- [ ] `speed` parameter format and model compatibility matches docs; Fast Mode also injects `anthropic-beta: fast-mode-2026-02-01`
 - [ ] Models API response fields (`max_tokens`, `max_input_tokens`, `capabilities`) used correctly
+- [ ] Files API: beta header auto-injected for all `/v1/files*` calls; download route streams binary (not JSON-wrapped); upload uses multipart `file` field
 
 ### 5. Pricing Accuracy
 - [ ] All model pricing matches current rates

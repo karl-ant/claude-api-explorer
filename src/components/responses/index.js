@@ -4,6 +4,7 @@ export { ModelsResponseView } from './ModelsResponseView.js';
 export { UsageResponseView } from './UsageResponseView.js';
 export { CostResponseView } from './CostResponseView.js';
 export { SkillsResponseView } from './SkillsResponseView.js';
+export { FilesResponseView } from './FilesResponseView.js';
 export { EmptyResponseState } from './EmptyResponseState.js';
 export { ActualCostCard } from './ActualCostCard.js';
 export { RequestInspector } from './RequestInspector.js';

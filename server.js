@@ -73,6 +73,21 @@ async function proxyToAnthropic(req, res, method, path) {
   }
 }
 
+// Ensure a required beta flag is present in the anthropic-beta header value
+function withBetaFlag(existing, flag) {
+  const parts = (existing || '').split(',').map(s => s.trim()).filter(Boolean);
+  if (!parts.includes(flag)) parts.push(flag);
+  return parts.join(',');
+}
+
+// Proxy to Anthropic, guaranteeing a beta header flag is present
+async function proxyToAnthropicWithBeta(req, res, method, apiPath, betaFlag) {
+  req.headers['anthropic-beta'] = withBetaFlag(req.headers['anthropic-beta'], betaFlag);
+  await proxyToAnthropic(req, res, method, apiPath);
+}
+
+const FILES_BETA = 'files-api-2025-04-14';
+
 // Messages API - Create message
 app.post('/v1/messages', async (req, res) => {
   await proxyToAnthropic(req, res, 'POST', '/v1/messages');
@@ -391,6 +406,127 @@ app.post('/v1/skills', upload.array('files[]'), async (req, res) => {
   } catch (error) {
     console.error('Skills API error:', error);
     res.status(500).json({ error: 'Skills API proxy error: ' + error.message });
+  }
+});
+
+// Files API - List files
+app.get('/v1/files', async (req, res) => {
+  const queryParams = new URLSearchParams(req.query).toString();
+  const apiPath = `/v1/files${queryParams ? '?' + queryParams : ''}`;
+  await proxyToAnthropicWithBeta(req, res, 'GET', apiPath, FILES_BETA);
+});
+
+// Files API - Download file content (must be before /v1/files/:id)
+app.get('/v1/files/:id/content', async (req, res) => {
+  const apiKey = req.headers['x-api-key'];
+  const anthropicVersion = req.headers['anthropic-version'] || '2023-06-01';
+
+  if (!apiKey) {
+    return res.status(401).json({ error: 'API key is required' });
+  }
+
+  try {
+    const headers = {
+      'x-api-key': apiKey,
+      'anthropic-version': anthropicVersion,
+      'anthropic-beta': withBetaFlag(req.headers['anthropic-beta'], FILES_BETA),
+    };
+
+    const upstream = await fetch(
+      `https://api.anthropic.com/v1/files/${encodeURIComponent(req.params.id)}/content`,
+      { method: 'GET', headers }
+    );
+
+    if (!upstream.ok) {
+      const errorText = await upstream.text();
+      let parsed;
+      try { parsed = JSON.parse(errorText); } catch { parsed = { error: errorText }; }
+      return res.status(upstream.status).json(parsed);
+    }
+
+    // This endpoint serves bytes on the same origin as the app, so never let the
+    // upstream pick a renderable content type / inline disposition — force a download.
+    const upstreamType = (upstream.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
+    const SAFE_MIME_TYPES = new Set([
+      'application/octet-stream', 'application/pdf', 'application/json', 'application/zip',
+      'text/plain', 'text/csv', 'text/markdown',
+      'image/png', 'image/jpeg', 'image/gif', 'image/webp',
+    ]);
+    const upstreamDisposition = upstream.headers.get('content-disposition');
+    res.setHeader('Content-Type', SAFE_MIME_TYPES.has(upstreamType) ? upstreamType : 'application/octet-stream');
+    res.setHeader('Content-Disposition',
+      upstreamDisposition && /^attachment/i.test(upstreamDisposition.trim())
+        ? upstreamDisposition
+        : 'attachment; filename="download"');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Content-Security-Policy', "default-src 'none'");
+
+    const buf = Buffer.from(await upstream.arrayBuffer());
+    res.send(buf);
+  } catch (error) {
+    console.error('Files download proxy error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Files download proxy error: ' + error.message });
+    } else {
+      res.end();
+    }
+  }
+});
+
+// Files API - Get file metadata
+app.get('/v1/files/:id', async (req, res) => {
+  await proxyToAnthropicWithBeta(req, res, 'GET', `/v1/files/${encodeURIComponent(req.params.id)}`, FILES_BETA);
+});
+
+// Files API - Delete file
+app.delete('/v1/files/:id', async (req, res) => {
+  await proxyToAnthropicWithBeta(req, res, 'DELETE', `/v1/files/${encodeURIComponent(req.params.id)}`, FILES_BETA);
+});
+
+// Files API - Upload file (multipart/form-data, single "file" field)
+app.post('/v1/files', upload.single('file'), async (req, res) => {
+  const apiKey = req.headers['x-api-key'];
+  const anthropicVersion = req.headers['anthropic-version'] || '2023-06-01';
+
+  if (!apiKey) {
+    return res.status(401).json({ error: 'API key is required' });
+  }
+  if (!req.file) {
+    return res.status(400).json({ error: 'A file is required (multipart field "file")' });
+  }
+
+  try {
+    const formData = new FormData();
+    formData.append(
+      'file',
+      new Blob([req.file.buffer], { type: req.file.mimetype || 'application/octet-stream' }),
+      req.file.originalname
+    );
+
+    const headers = {
+      'x-api-key': apiKey,
+      'anthropic-version': anthropicVersion,
+      'anthropic-beta': withBetaFlag(req.headers['anthropic-beta'], FILES_BETA),
+    };
+    // Let fetch set the multipart Content-Type with boundary.
+
+    const response = await fetch('https://api.anthropic.com/v1/files', {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+
+    const text = await response.text();
+    let data;
+    try { data = text ? JSON.parse(text) : { success: true }; } catch { data = { success: true, raw: text }; }
+
+    if (!response.ok) {
+      return res.status(response.status).json(data);
+    }
+    res.json(data);
+  } catch (error) {
+    console.error('Files upload proxy error:', error);
+    res.status(500).json({ error: 'Files upload proxy error: ' + error.message });
   }
 });
 

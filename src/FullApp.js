@@ -14,6 +14,7 @@ import {
   UsageResponseView,
   CostResponseView,
   SkillsResponseView,
+  FilesResponseView,
   EmptyResponseState,
   ActualCostCard,
   RequestInspector
@@ -81,9 +82,10 @@ function BetaHeadersSection() {
     { id: 'computer-use-2025-11-24', label: 'Computer Use (4.5+)' },
     { id: 'computer-use-2025-01-24', label: 'Computer Use (Legacy)' },
     { id: 'compact-2026-01-12', label: 'Compaction' },
-    { id: 'context-1m-2025-08-07', label: '1M Context (Sonnet 4/4.5 only)' },
+    { id: 'context-1m-2025-08-07', label: '1M Context (legacy models — 4.6+ native)' },
     { id: 'context-management-2025-06-27', label: 'Context Mgmt' },
     { id: 'interleaved-thinking-2025-05-14', label: 'Interleaved Think' },
+    { id: 'output-300k-2026-03-24', label: '300k Batch Output' },
   ];
 
   const toggleBetaHeader = (headerId) => {
@@ -663,7 +665,7 @@ function AdvancedOptions() {
                   { type: 'web_search_20260209', name: 'web_search', label: 'Web Search', desc: '$10/1K searches' },
                   { type: 'web_fetch_20260209', name: 'web_fetch', label: 'Web Fetch', desc: 'Token cost only' },
                   { type: 'code_execution_20260120', name: 'code_execution', label: 'Code Exec', desc: 'Sandboxed bash' },
-                  { type: 'computer_20250124', name: 'computer', label: 'Computer Use', desc: 'Screen interaction' },
+                  { type: 'computer_20251124', name: 'computer', label: 'Computer Use', desc: 'Screen interaction (4.5+)' },
                   { type: 'text_editor_20250728', name: 'text_editor', label: 'Text Editor', desc: 'File editing' },
                   { type: 'memory_20250818', name: 'memory', label: 'Memory', desc: 'Persistent memory' },
                   { type: 'tool_search_tool_bm25_20251119', name: 'tool_search', label: 'Tool Search', desc: 'BM25 keyword search' },
@@ -1041,7 +1043,8 @@ function ChatInterface() {
 function ThinkingSection() {
   const { thinkingEnabled, setThinkingEnabled, thinkingType, setThinkingType, budgetTokens, setBudgetTokens, effortLevel, setEffortLevel, thinkingDisplay, setThinkingDisplay, model } = useApp();
 
-  const isOpus46 = model === 'claude-opus-4-6';
+  const supportsAdaptive = ['claude-opus-4-7', 'claude-opus-4-6', 'claude-sonnet-4-6'].includes(model);
+  const isOpus47 = model === 'claude-opus-4-7';
 
   return html`
     <div class="space-y-3 p-3 bg-slate-800/30 border border-slate-700 rounded-lg">
@@ -1067,11 +1070,14 @@ function ThinkingSection() {
               Adaptive (auto)
             </button>
             <button
-              onClick=${() => setThinkingType('enabled')}
+              onClick=${() => !isOpus47 && setThinkingType('enabled')}
+              disabled=${isOpus47}
               class="px-3 py-1.5 text-xs font-mono rounded-lg transition-colors ${
-                thinkingType === 'enabled'
-                  ? 'bg-amber-500 text-slate-900 hover:bg-amber-400'
-                  : 'bg-slate-800 text-slate-300 border border-slate-700 hover:border-slate-600'
+                isOpus47
+                  ? 'bg-slate-800 text-slate-600 border border-slate-800 cursor-not-allowed'
+                  : thinkingType === 'enabled'
+                    ? 'bg-amber-500 text-slate-900 hover:bg-amber-400'
+                    : 'bg-slate-800 text-slate-300 border border-slate-700 hover:border-slate-600'
               }"
             >
               Manual budget
@@ -1082,7 +1088,7 @@ function ThinkingSection() {
             <div class="space-y-2">
               <label class="text-xs text-slate-400 font-mono">Effort Level</label>
               <div class="flex gap-2">
-                ${['low', 'medium', 'high', 'max'].map(level => html`
+                ${['low', 'medium', 'high', 'xhigh', 'max'].map(level => html`
                   <button
                     key=${level}
                     onClick=${() => setEffortLevel(level)}
@@ -1096,19 +1102,19 @@ function ThinkingSection() {
                   </button>
                 `)}
               </div>
-              ${!isOpus46 && html`
-                <p class="text-xs text-amber-400 font-mono">Adaptive thinking requires Opus 4.6</p>
+              ${!supportsAdaptive && html`
+                <p class="text-xs text-amber-400 font-mono">Adaptive thinking requires Opus 4.7 / 4.6 or Sonnet 4.6</p>
               `}
-              ${!isOpus46 && effortLevel === 'max' && html`
-                <p class="text-xs text-red-400 font-mono">effort: "max" only available on Opus 4.6</p>
+              ${effortLevel === 'xhigh' && !isOpus47 && html`
+                <p class="text-xs text-red-400 font-mono">effort: "xhigh" is only available on Opus 4.7</p>
               `}
             </div>
           `}
 
           ${thinkingType === 'enabled' && html`
             <div class="space-y-2">
-              ${isOpus46 && html`
-                <p class="text-xs text-amber-400 font-mono">type: "enabled" is deprecated on Opus 4.6 — use Adaptive instead</p>
+              ${isOpus47 && html`
+                <p class="text-xs text-red-400 font-mono">Opus 4.7 supports adaptive thinking only — a manual budget will be rejected (400)</p>
               `}
               <label class="text-xs text-slate-400 font-mono">Budget Tokens: ${budgetTokens.toLocaleString()}</label>
               <input
@@ -1130,10 +1136,10 @@ function ThinkingSection() {
           <div class="flex items-center justify-between pt-2 border-t border-slate-700">
             <div>
               <span class="text-xs text-slate-400 font-mono">Display mode</span>
-              <p class="text-xs text-slate-500 font-mono">omitted = keep signature, hide content</p>
+              <p class="text-xs text-slate-500 font-mono">summarized = show summary · omitted = keep signature, hide content</p>
             </div>
             <div class="flex gap-1">
-              ${['full', 'omitted'].map(mode => html`
+              ${['summarized', 'omitted'].map(mode => html`
                 <button
                   key=${mode}
                   onClick=${() => setThinkingDisplay(mode)}
@@ -1176,8 +1182,8 @@ function SpeedCacheSection() {
       ${isOpus46 && html`
         <div class="flex items-center justify-between pt-3 border-t border-slate-700">
           <div>
-            <span class="text-sm font-medium text-slate-300 font-mono">Fast Mode <span class="text-xs text-amber-400">(waitlist)</span></span>
-            <p class="text-xs text-slate-500 font-mono">speed: fast — Opus 4.6 only</p>
+            <span class="text-sm font-medium text-slate-300 font-mono">Fast Mode</span>
+            <p class="text-xs text-slate-500 font-mono">speed: fast — Opus 4.6 only · adds anthropic-beta: fast-mode-2026-02-01</p>
           </div>
           <${Toggle}
             checked=${speedMode}
@@ -2071,6 +2077,165 @@ function SkillsPanel() {
   `;
 }
 
+function FilesPanel() {
+  const {
+    filesLoading,
+    handleListFiles,
+    handleUploadFile,
+    handleGetFile,
+    handleDeleteFile,
+  } = useApp();
+
+  const [activeTab, setActiveTab] = useState('list');
+  const [fileId, setFileId] = useState('');
+  const [deleteFileId, setDeleteFileId] = useState('');
+  const [uploadFile, setUploadFile] = useState(null);
+  const [isDragging, setIsDragging] = useState(false);
+
+  const tabs = [
+    { id: 'list', label: 'List' },
+    { id: 'upload', label: 'Upload' },
+    { id: 'get', label: 'Get' },
+    { id: 'delete', label: 'Delete' },
+  ];
+
+  const handleDragOver = (e) => { e.preventDefault(); e.stopPropagation(); setIsDragging(true); };
+  const handleDragLeave = (e) => { e.preventDefault(); e.stopPropagation(); setIsDragging(false); };
+  const handleDrop = (e) => {
+    e.preventDefault(); e.stopPropagation(); setIsDragging(false);
+    const file = e.dataTransfer.files && e.dataTransfer.files[0];
+    if (file) setUploadFile(file);
+  };
+  const handleFileSelect = (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (file) setUploadFile(file);
+  };
+
+  const handleUpload = () => {
+    if (!uploadFile) return;
+    handleUploadFile(uploadFile);
+    setUploadFile(null);
+  };
+
+  return html`
+    <div class="space-y-4">
+      <div class="bg-mint-900/20 border border-mint-700/50 rounded-lg p-3 backdrop-blur-sm">
+        <p class="text-xs text-mint-400 font-medium mb-1 font-mono">Files API (Beta)</p>
+        <p class="text-xs text-mint-300/80 font-mono">
+          Upload files to reference by file_id in Messages requests. Beta header auto-included. File operations are free.
+        </p>
+      </div>
+
+      <${Tabs} tabs=${tabs} activeTab=${activeTab} onChange=${setActiveTab} />
+
+      <div class="pt-2">
+        ${activeTab === 'list' && html`
+          <div class="space-y-3">
+            <${Button}
+              onClick=${() => handleListFiles()}
+              disabled=${filesLoading}
+              loading=${filesLoading}
+              fullWidth=${true}
+            >
+              List Files
+            </${Button}>
+          </div>
+        `}
+
+        ${activeTab === 'upload' && html`
+          <div class="space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-slate-300 mb-2 font-mono">File</label>
+              <div
+                onDragOver=${handleDragOver}
+                onDragLeave=${handleDragLeave}
+                onDrop=${handleDrop}
+                class="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors
+                       ${isDragging ? 'border-amber-500 bg-amber-500/10' : 'border-slate-700 hover:border-slate-600'}"
+              >
+                <input type="file" onChange=${handleFileSelect} class="hidden" id="file-upload-input" />
+                <label for="file-upload-input" class="cursor-pointer">
+                  <div class="text-slate-400 font-mono text-sm mb-1">Drop a file here or click to select</div>
+                  <div class="text-slate-500 font-mono text-xs">Max 500 MB per file</div>
+                </label>
+              </div>
+            </div>
+
+            ${uploadFile && html`
+              <div class="flex items-center justify-between px-3 py-2 bg-slate-800 rounded-lg font-mono text-sm">
+                <span class="text-slate-100 truncate">
+                  ${uploadFile.name}
+                  <span class="text-slate-500 text-xs ml-2">(${(uploadFile.size / 1024).toFixed(1)} KB)</span>
+                </span>
+                <button onClick=${() => setUploadFile(null)} class="text-red-400 hover:text-red-300 transition-colors ml-2">Remove</button>
+              </div>
+            `}
+
+            <${Button}
+              onClick=${handleUpload}
+              disabled=${filesLoading || !uploadFile}
+              loading=${filesLoading}
+              fullWidth=${true}
+            >
+              Upload File
+            </${Button}>
+          </div>
+        `}
+
+        ${activeTab === 'get' && html`
+          <div class="space-y-3">
+            <div>
+              <label class="block text-sm font-medium text-slate-300 mb-2 font-mono">File ID</label>
+              <input
+                type="text"
+                value=${fileId}
+                onInput=${(e) => setFileId(e.target.value)}
+                placeholder="file_..."
+                class="w-full px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none text-sm font-mono text-slate-100 placeholder-slate-600 hover:border-slate-600 transition-colors"
+              />
+            </div>
+            <${Button}
+              onClick=${() => handleGetFile(fileId)}
+              disabled=${filesLoading || !fileId}
+              loading=${filesLoading}
+              fullWidth=${true}
+            >
+              Retrieve File Metadata
+            </${Button}>
+          </div>
+        `}
+
+        ${activeTab === 'delete' && html`
+          <div class="space-y-3">
+            <div class="bg-red-900/20 border border-red-700/50 rounded-lg p-3 backdrop-blur-sm">
+              <p class="text-xs text-red-300 font-mono">⚠ Deleting a file is irreversible.</p>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-300 mb-2 font-mono">File ID</label>
+              <input
+                type="text"
+                value=${deleteFileId}
+                onInput=${(e) => setDeleteFileId(e.target.value)}
+                placeholder="file_..."
+                class="w-full px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none text-sm font-mono text-slate-100 placeholder-slate-600 hover:border-slate-600 transition-colors"
+              />
+            </div>
+            <${Button}
+              onClick=${() => { handleDeleteFile(deleteFileId); setDeleteFileId(''); }}
+              disabled=${filesLoading || !deleteFileId}
+              loading=${filesLoading}
+              fullWidth=${true}
+              variant="danger"
+            >
+              Delete File
+            </${Button}>
+          </div>
+        `}
+      </div>
+    </div>
+  `;
+}
+
 function TokenCountCard({ tokenCount, costs, stale, onClear }) {
   return html`
     <div class="bg-slate-800/50 border ${stale ? 'border-amber-700/50' : 'border-mint-700/50'} rounded-lg p-3 backdrop-blur-sm animate-slide-up">
@@ -2103,7 +2268,7 @@ function TokenCountCard({ tokenCount, costs, stale, onClear }) {
             <span class="text-amber-400">$${costs.inputCost.toFixed(4)} - $${costs.total.toFixed(4)}</span>
           </div>
           <div class="text-slate-600 text-center pt-1">
-            Prices as of Feb 2026
+            Prices as of May 2026
           </div>
         </div>
       `}
@@ -2126,7 +2291,8 @@ function ConfigPanel() {
     model, maxTokens, models, continueConversation, deleteHistoryItem,
     streaming, setStreaming, streamingText,
     messages, system, temperature, topP, topK, tools, betaHeaders,
-    thinkingEnabled, thinkingType, budgetTokens, effortLevel,
+    thinkingEnabled, thinkingType, budgetTokens, effortLevel, thinkingDisplay,
+    speedMode, cacheControl,
     structuredOutput, outputSchema
   } = useApp();
   const [showHistory, setShowHistory] = useState(false);
@@ -2146,6 +2312,9 @@ function ConfigPanel() {
       } else {
         body.thinking = { type: 'enabled', budget_tokens: budgetTokens };
       }
+      if (thinkingDisplay === 'omitted' || thinkingDisplay === 'summarized') {
+        body.thinking.display = thinkingDisplay;
+      }
       body.temperature = 1;
     }
     if (structuredOutput && outputSchema.trim()) {
@@ -2159,15 +2328,21 @@ function ConfigPanel() {
         // Invalid schema, skip
       }
     }
+    if (speedMode) body.speed = 'fast';
+    if (cacheControl) body.cache_control = { type: 'ephemeral' };
     if (streaming) body.stream = true;
 
+    const betaHeadersForCurl = [...betaHeaders];
+    if (speedMode && !betaHeadersForCurl.includes('fast-mode-2026-02-01')) {
+      betaHeadersForCurl.push('fast-mode-2026-02-01');
+    }
     const headers = [
       `-H "content-type: application/json"`,
       `-H "x-api-key: $ANTHROPIC_API_KEY"`,
       `-H "anthropic-version: 2023-06-01"`,
     ];
-    if (betaHeaders.length > 0) {
-      headers.push(`-H "anthropic-beta: ${betaHeaders.join(',')}"`);
+    if (betaHeadersForCurl.length > 0) {
+      headers.push(`-H "anthropic-beta: ${betaHeadersForCurl.join(',')}"`);
     }
 
     // Escape single quotes in JSON body for safe shell embedding
@@ -2225,6 +2400,7 @@ function ConfigPanel() {
           ${selectedEndpoint === 'batches' && html`<${BatchesPanel} />`}
           ${selectedEndpoint === 'models' && html`<${ModelsPanel} />`}
           ${selectedEndpoint === 'skills' && html`<${SkillsPanel} />`}
+          ${selectedEndpoint === 'files' && html`<${FilesPanel} />`}
           ${selectedEndpoint === 'usage' && html`<${UsagePanel} />`}
           ${selectedEndpoint === 'cost' && html`<${CostPanel} />`}
         </div>
@@ -2385,6 +2561,7 @@ function ResponsePanel() {
   const {
     response, loading, error, selectedEndpoint, modelsList, batchStatus,
     usageReport, costReport, skillsList, skillDetail, handleGetSkill,
+    filesList, fileDetail, handleGetFile, handleDeleteFile, handleDownloadFile,
     toolExecutionStatus, toolExecutionDetails, models, maxTokens, tokenCount,
     model, batchResultsData, batchResultsLoading, batchResultsError,
     handleFetchBatchResults, handleGetBatchStatus, streamingText, lastRequest
@@ -2392,7 +2569,7 @@ function ResponsePanel() {
   const [viewMode, setViewMode] = useState('formatted');
 
   // Determine if we should show view mode toggle
-  const showViewModeToggle = response || modelsList || batchStatus || usageReport || costReport || skillsList || skillDetail;
+  const showViewModeToggle = response || modelsList || batchStatus || usageReport || costReport || skillsList || skillDetail || filesList || fileDetail;
 
   // Determine the response type
   const getResponseType = () => {
@@ -2400,13 +2577,14 @@ function ResponsePanel() {
     if (selectedEndpoint === 'batches' && (batchStatus || response?.id)) return 'batch';
     if (selectedEndpoint === 'messages' && response?.content) return 'message';
     if (selectedEndpoint === 'skills' && (skillsList || skillDetail)) return 'skills';
+    if (selectedEndpoint === 'files' && (filesList || fileDetail)) return 'files';
     if (selectedEndpoint === 'usage' && (usageReport || response?.data)) return 'usage';
     if (selectedEndpoint === 'cost' && (costReport || response?.data)) return 'cost';
     return 'generic';
   };
 
   const responseType = getResponseType();
-  const hasNoData = !response && !modelsList && !batchStatus && !usageReport && !costReport && !skillsList && !skillDetail;
+  const hasNoData = !response && !modelsList && !batchStatus && !usageReport && !costReport && !skillsList && !skillDetail && !filesList && !fileDetail;
 
   return html`
     <div class="h-full flex flex-col bg-slate-900">
@@ -2477,7 +2655,7 @@ function ResponsePanel() {
 
         ${!loading && !error && viewMode === 'json' && showViewModeToggle && html`
           <pre class="bg-slate-950 text-mint-300 p-6 rounded-lg overflow-x-auto text-sm font-mono leading-relaxed border border-slate-800 shadow-xl terminal-glow animate-fade-in whitespace-pre-wrap break-words">
-            ${JSON.stringify(response || modelsList || batchStatus || usageReport || costReport || skillsList || skillDetail, null, 2)}
+            ${JSON.stringify(response || modelsList || batchStatus || usageReport || costReport || skillsList || skillDetail || filesList || fileDetail, null, 2)}
           </pre>
         `}
 
@@ -2524,6 +2702,16 @@ function ResponsePanel() {
           />
         `}
 
+        ${!loading && !error && viewMode === 'formatted' && responseType === 'files' && (filesList || fileDetail) && html`
+          <${FilesResponseView}
+            filesList=${filesList}
+            fileDetail=${fileDetail}
+            handleGetFile=${handleGetFile}
+            handleDeleteFile=${handleDeleteFile}
+            handleDownloadFile=${handleDownloadFile}
+          />
+        `}
+
         ${!loading && !error && hasNoData && html`
           <${EmptyResponseState} />
         `}
@@ -2552,6 +2740,7 @@ function AppContent() {
     { id: 'batches', label: 'Batches', description: endpoints.batches.description },
     { id: 'models', label: 'Models', description: endpoints.models.description },
     { id: 'skills', label: 'Skills', description: endpoints.skills.description },
+    { id: 'files', label: 'Files', description: endpoints.files.description },
     { id: 'usage', label: 'Usage', description: endpoints.usage.description },
     { id: 'cost', label: 'Cost', description: endpoints.cost.description },
   ];
@@ -2568,7 +2757,7 @@ function AppContent() {
             <div>
               <h1 class="text-2xl font-bold text-slate-100 tracking-tight">Claude API Explorer</h1>
               <p class="text-slate-400 text-xs font-mono mt-0.5">
-                <span class="text-amber-400">v3.3</span> • Developer Command Center
+                <span class="text-amber-400">v3.4</span> • Developer Command Center
               </p>
             </div>
           </div>

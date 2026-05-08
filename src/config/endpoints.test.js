@@ -30,6 +30,28 @@ describe('getEndpoint', () => {
     expect(endpoint.subEndpoints.get).toBeDefined();
     expect(endpoint.subEndpoints.list).toBeDefined();
   });
+
+  it('should expose speed and container as optional Messages params', () => {
+    const endpoint = getEndpoint('messages');
+    expect(endpoint.parameters.optional).toContain('speed');
+    expect(endpoint.parameters.optional).toContain('container');
+  });
+
+  it('should return files endpoint with subEndpoints', () => {
+    const endpoint = getEndpoint('files');
+
+    expect(endpoint).toBeDefined();
+    expect(endpoint.id).toBe('files');
+    expect(endpoint.path).toBe('/v1/files');
+    expect(endpoint.subEndpoints).toBeDefined();
+    expect(endpoint.subEndpoints.upload).toBeDefined();
+    expect(endpoint.subEndpoints.upload.method).toBe('POST');
+    expect(endpoint.subEndpoints.get).toBeDefined();
+    expect(endpoint.subEndpoints.delete).toBeDefined();
+    expect(endpoint.subEndpoints.delete.method).toBe('DELETE');
+    expect(endpoint.subEndpoints.download).toBeDefined();
+    expect(endpoint.subEndpoints.download.path).toBe('/v1/files/:id/content');
+  });
 });
 
 describe('getAllEndpoints', () => {
@@ -61,6 +83,7 @@ describe('getEndpointIds', () => {
     expect(ids).toContain('usage');
     expect(ids).toContain('cost');
     expect(ids).toContain('skills');
+    expect(ids).toContain('files');
   });
 });
 
