@@ -1,9 +1,9 @@
 export default {
   "models": [
     {
-      "id": "claude-opus-4-6",
-      "name": "Claude Opus 4.6",
-      "description": "Most intelligent model for building agents and coding",
+      "id": "claude-opus-4-7",
+      "name": "Claude Opus 4.7",
+      "description": "Most capable model — step-change agentic coding, adaptive thinking only, 1M context",
       "pricing": { "input": 5, "output": 25 },
       "maxOutput": 128000
     },
@@ -15,17 +15,24 @@ export default {
       "maxOutput": 64000
     },
     {
-      "id": "claude-sonnet-4-5-20250929",
-      "name": "Claude Sonnet 4.5",
-      "description": "Best combination of speed and intelligence",
-      "pricing": { "input": 3, "output": 15 },
-      "maxOutput": 64000
-    },
-    {
       "id": "claude-haiku-4-5-20251001",
       "name": "Claude Haiku 4.5",
       "description": "Fastest model with near-frontier intelligence",
       "pricing": { "input": 1, "output": 5 },
+      "maxOutput": 64000
+    },
+    {
+      "id": "claude-opus-4-6",
+      "name": "Claude Opus 4.6 (Legacy)",
+      "description": "Previous Opus generation — adaptive thinking, 1M context",
+      "pricing": { "input": 5, "output": 25 },
+      "maxOutput": 128000
+    },
+    {
+      "id": "claude-sonnet-4-5-20250929",
+      "name": "Claude Sonnet 4.5 (Legacy)",
+      "description": "Previous Sonnet generation",
+      "pricing": { "input": 3, "output": 15 },
       "maxOutput": 64000
     },
     {
@@ -47,23 +54,18 @@ export default {
       "name": "Claude Sonnet 4 (Legacy)",
       "description": "Previous generation Sonnet",
       "pricing": { "input": 3, "output": 15 },
-      "maxOutput": 64000
+      "maxOutput": 64000,
+      "deprecated": true,
+      "deprecationNote": "Retires 2026-06-15"
     },
     {
       "id": "claude-opus-4-20250514",
       "name": "Claude Opus 4 (Legacy)",
       "description": "Previous generation Opus",
       "pricing": { "input": 15, "output": 75 },
-      "maxOutput": 32000
-    },
-    {
-      "id": "claude-3-haiku-20240307",
-      "name": "Claude Haiku 3 (Legacy)",
-      "description": "Fast and affordable legacy model",
-      "pricing": { "input": 0.25, "output": 1.25 },
-      "maxOutput": 4096,
+      "maxOutput": 32000,
       "deprecated": true,
-      "deprecationNote": "Retires 2026-04-19"
+      "deprecationNote": "Retires 2026-06-15"
     }
   ]
 };

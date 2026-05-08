@@ -27,7 +27,7 @@ export function AppProvider({ children }) {
   const [selectedEndpoint, setSelectedEndpoint] = useState('messages');
 
   // Request configuration (Messages API)
-  const [model, setModel] = useState('claude-sonnet-4-5-20250929');
+  const [model, setModel] = useState('claude-sonnet-4-6');
   const [messages, setMessages] = useState([{ role: 'user', content: '' }]);
   const [system, setSystem] = useState('');
   const [maxTokens, setMaxTokens] = useState(4096);
@@ -55,7 +55,7 @@ export function AppProvider({ children }) {
   const [thinkingType, setThinkingType] = useState(storage.get('thinkingType') || 'adaptive');
   const [budgetTokens, setBudgetTokens] = useState(storage.get('budgetTokens') || 10000);
   const [effortLevel, setEffortLevel] = useState(storage.get('effortLevel') || 'high');
-  const [thinkingDisplay, setThinkingDisplay] = useState(storage.get('thinkingDisplay') || 'full');
+  const [thinkingDisplay, setThinkingDisplay] = useState(storage.get('thinkingDisplay') || 'summarized');
 
   const [speedMode, setSpeedMode] = useState(storage.get('speedMode') || false);
   const [cacheControl, setCacheControl] = useState(storage.get('cacheControl') || false);
@@ -70,7 +70,7 @@ export function AppProvider({ children }) {
 
   // Endpoint-specific state
   // Batches API
-  const [batchRequests, setBatchRequests] = useState([{ custom_id: '', params: { model: 'claude-sonnet-4-5-20250929', messages: [{ role: 'user', content: '' }], max_tokens: 4096 } }]);
+  const [batchRequests, setBatchRequests] = useState([{ custom_id: '', params: { model: 'claude-sonnet-4-6', messages: [{ role: 'user', content: '' }], max_tokens: 4096 } }]);
   const [batchStatus, setBatchStatus] = useState(null);
   const [batchResults, setBatchResults] = useState(null);
   const [batchResultsData, setBatchResultsData] = useState(null);
@@ -95,6 +95,12 @@ export function AppProvider({ children }) {
   const [skillDetail, setSkillDetail] = useState(null);
   const [skillsSourceFilter, setSkillsSourceFilter] = useState('custom');
   const [skillVersions, setSkillVersions] = useState(null);
+
+  // Files API
+  const [filesList, setFilesList] = useState(null);
+  const [fileDetail, setFileDetail] = useState(null);
+  const [filesLoading, setFilesLoading] = useState(false);
+  const [filesError, setFilesError] = useState(null);
 
   // Token Count
   const [tokenCount, setTokenCount] = useState(null);
@@ -276,6 +282,32 @@ export function AppProvider({ children }) {
       ? customModelId.trim()
       : model;
 
+    // Model-capability pre-flight guards — these requests 400 at the API otherwise.
+    // Skipped when an internal custom model ID is in use (power-user mode, no assumptions).
+    const usingCustomModel = !!(internalMode && customModelId.trim());
+    const ADAPTIVE_THINKING_MODELS = ['claude-opus-4-7', 'claude-opus-4-6', 'claude-sonnet-4-6'];
+
+    if (!usingCustomModel && thinkingEnabled && thinkingType === 'enabled' && effectiveModel === 'claude-opus-4-7') {
+      setError('Claude Opus 4.7 supports adaptive thinking only. Switch the thinking type to "Adaptive" or choose a different model.');
+      setLoading(false);
+      return;
+    }
+    if (!usingCustomModel && thinkingEnabled && thinkingType === 'adaptive' && !ADAPTIVE_THINKING_MODELS.includes(effectiveModel)) {
+      setError('Adaptive thinking is only supported on Claude Opus 4.7, Opus 4.6, and Sonnet 4.6. Switch the thinking type to "Manual budget" or choose a supported model.');
+      setLoading(false);
+      return;
+    }
+    if (!usingCustomModel && thinkingEnabled && thinkingType === 'adaptive' && effortLevel === 'xhigh' && effectiveModel !== 'claude-opus-4-7') {
+      setError('effort: "xhigh" is only available on Claude Opus 4.7. Choose a lower effort level or switch to Opus 4.7.');
+      setLoading(false);
+      return;
+    }
+    if (!usingCustomModel && speedMode && effectiveModel !== 'claude-opus-4-6') {
+      setError('Fast Mode (speed: "fast") is only supported on Claude Opus 4.6. Disable Fast Mode or switch to Opus 4.6.');
+      setLoading(false);
+      return;
+    }
+
     const requestBody = {
       model: effectiveModel,
       messages: messagesWithImages,
@@ -304,8 +336,8 @@ export function AppProvider({ children }) {
       } else {
         requestBody.thinking = { type: 'enabled', budget_tokens: budgetTokens };
       }
-      if (thinkingDisplay === 'omitted') {
-        requestBody.thinking.display = 'omitted';
+      if (thinkingDisplay === 'omitted' || thinkingDisplay === 'summarized') {
+        requestBody.thinking.display = thinkingDisplay;
       }
       // Extended thinking requires temperature = 1
       requestBody.temperature = 1;
@@ -344,6 +376,12 @@ export function AppProvider({ children }) {
       }
     }
 
+    // Some features require a beta header in addition to a body field — merge those in
+    const betaHeadersForRequest = [...betaHeaders];
+    if (speedMode && !betaHeadersForRequest.includes('fast-mode-2026-02-01')) {
+      betaHeadersForRequest.push('fast-mode-2026-02-01');
+    }
+
     try {
       // Build headers
       const headers = {
@@ -351,8 +389,8 @@ export function AppProvider({ children }) {
         'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
       };
-      if (betaHeaders.length > 0) {
-        headers['anthropic-beta'] = betaHeaders.join(',');
+      if (betaHeadersForRequest.length > 0) {
+        headers['anthropic-beta'] = betaHeadersForRequest.join(',');
       }
 
       const requestUrl = streaming
@@ -587,6 +625,12 @@ export function AppProvider({ children }) {
         if (requestBody.container) {
           followUpBody.container = requestBody.container;
         }
+        if (requestBody.speed) {
+          followUpBody.speed = requestBody.speed;
+        }
+        if (requestBody.cache_control) {
+          followUpBody.cache_control = requestBody.cache_control;
+        }
 
         setToolExecutionStatus('Getting final response...');
 
@@ -596,8 +640,8 @@ export function AppProvider({ children }) {
           'x-api-key': apiKey,
           'anthropic-version': '2023-06-01',
         };
-        if (betaHeaders.length > 0) {
-          followUpHeaders['anthropic-beta'] = betaHeaders.join(',');
+        if (betaHeadersForRequest.length > 0) {
+          followUpHeaders['anthropic-beta'] = betaHeadersForRequest.join(',');
         }
 
         // Make follow-up request
@@ -1228,6 +1272,223 @@ export function AppProvider({ children }) {
     }
   };
 
+  // Files API handlers
+  const FILES_BETA_HEADER = 'files-api-2025-04-14';
+
+  const handleListFiles = async (queryParams = {}) => {
+    if (!apiKey) {
+      setFilesError('Please provide an API key');
+      return;
+    }
+
+    setFilesLoading(true);
+    setFilesError(null);
+    setFileDetail(null);
+
+    const params = new URLSearchParams();
+    if (queryParams.limit) params.append('limit', queryParams.limit);
+    if (queryParams.before_id) params.append('before_id', queryParams.before_id);
+    if (queryParams.after_id) params.append('after_id', queryParams.after_id);
+    const queryString = params.toString() ? `?${params.toString()}` : '';
+
+    try {
+      const res = await fetch(`http://localhost:3002/v1/files${queryString}`, {
+        method: 'GET',
+        headers: {
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-beta': FILES_BETA_HEADER,
+        },
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error?.message || `API request failed with status ${res.status}`);
+      }
+
+      const data = await res.json();
+      setFilesList(data);
+      setResponse(data);
+    } catch (err) {
+      console.error('Files API Error:', err);
+      setFilesError(err.message || 'An error occurred while listing files');
+    } finally {
+      setFilesLoading(false);
+    }
+  };
+
+  const handleUploadFile = async (file) => {
+    if (!apiKey) {
+      setFilesError('Please provide an API key');
+      return;
+    }
+    if (!file) {
+      setFilesError('Please choose a file to upload');
+      return;
+    }
+
+    setFilesLoading(true);
+    setFilesError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file, file.name);
+
+      const res = await fetch('http://localhost:3002/v1/files', {
+        method: 'POST',
+        headers: {
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-beta': FILES_BETA_HEADER,
+        },
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error?.message || `API request failed with status ${res.status}`);
+      }
+
+      const data = await res.json();
+      setFileDetail(data);
+      setResponse(data);
+      // Refresh the list so the new file shows up
+      await handleListFiles();
+    } catch (err) {
+      console.error('Files API Error:', err);
+      setFilesError(err.message || 'An error occurred while uploading the file');
+    } finally {
+      setFilesLoading(false);
+    }
+  };
+
+  const handleGetFile = async (fileId) => {
+    if (!apiKey) {
+      setFilesError('Please provide an API key');
+      return;
+    }
+    if (!fileId) {
+      setFilesError('Please provide a file ID');
+      return;
+    }
+
+    setFilesLoading(true);
+    setFilesError(null);
+
+    try {
+      const res = await fetch(`http://localhost:3002/v1/files/${encodeURIComponent(fileId)}`, {
+        method: 'GET',
+        headers: {
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-beta': FILES_BETA_HEADER,
+        },
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error?.message || `API request failed with status ${res.status}`);
+      }
+
+      const data = await res.json();
+      setFileDetail(data);
+      setFilesList(null);
+      setResponse(data);
+    } catch (err) {
+      console.error('Files API Error:', err);
+      setFilesError(err.message || 'An error occurred while fetching file metadata');
+    } finally {
+      setFilesLoading(false);
+    }
+  };
+
+  const handleDeleteFile = async (fileId) => {
+    if (!apiKey) {
+      setFilesError('Please provide an API key');
+      return;
+    }
+    if (!fileId) {
+      setFilesError('Please provide a file ID');
+      return;
+    }
+
+    setFilesLoading(true);
+    setFilesError(null);
+
+    try {
+      const res = await fetch(`http://localhost:3002/v1/files/${encodeURIComponent(fileId)}`, {
+        method: 'DELETE',
+        headers: {
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-beta': FILES_BETA_HEADER,
+        },
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error?.message || `API request failed with status ${res.status}`);
+      }
+
+      const data = await res.json();
+      setResponse(data);
+      setFileDetail(null);
+      // Refresh the list
+      await handleListFiles();
+    } catch (err) {
+      console.error('Files API Error:', err);
+      setFilesError(err.message || 'An error occurred while deleting the file');
+    } finally {
+      setFilesLoading(false);
+    }
+  };
+
+  const handleDownloadFile = async (fileId, filename = 'download') => {
+    if (!apiKey) {
+      setFilesError('Please provide an API key');
+      return;
+    }
+    if (!fileId) {
+      setFilesError('Please provide a file ID');
+      return;
+    }
+
+    setFilesError(null);
+
+    try {
+      const res = await fetch(`http://localhost:3002/v1/files/${encodeURIComponent(fileId)}/content`, {
+        method: 'GET',
+        headers: {
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-beta': FILES_BETA_HEADER,
+        },
+      });
+
+      if (!res.ok) {
+        let message = `Download failed with status ${res.status}`;
+        try {
+          const errorData = await res.json();
+          message = errorData.error?.message || errorData.error || message;
+        } catch (e) { /* non-JSON error body */ }
+        throw new Error(message);
+      }
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Files API Error:', err);
+      setFilesError(err.message || 'An error occurred while downloading the file');
+    }
+  };
+
   // Batches API handlers
   const handleCreateBatch = async () => {
     if (!apiKey) {
@@ -1632,6 +1893,19 @@ export function AppProvider({ children }) {
     handleListVersions,
     handleDeleteVersion,
 
+    // Files API
+    filesList,
+    setFilesList,
+    fileDetail,
+    setFileDetail,
+    filesLoading,
+    filesError,
+    handleListFiles,
+    handleUploadFile,
+    handleGetFile,
+    handleDeleteFile,
+    handleDownloadFile,
+
     // Token Count
     tokenCount,
     setTokenCount,
@@ -1674,6 +1948,7 @@ export function AppProvider({ children }) {
     usageReport, usageLoading,
     costReport, costLoading,
     skillsList, skillsLoading, skillDetail, skillsSourceFilter,
+    filesList, fileDetail, filesLoading, filesError,
     tokenCount, tokenCountLoading, tokenCountStale,
     response, loading, error, streamingText, toolExecutionStatus, toolExecutionDetails,
     history

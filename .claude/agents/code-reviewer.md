@@ -89,8 +89,9 @@ export function MyComponent({ prop1 }) {
 ```
 src/
 ├── main.js                    # Entry point
-├── FullApp.js                 # Main app (~2150 lines, consider refactoring)
+├── FullApp.js                 # Main app (~2800 lines, consider refactoring)
 ├── components/common/         # Reusable UI components
+├── components/responses/      # Response panel views (Message/Batch/Models/Usage/Cost/Skills/Files)
 ├── context/AppContext.js      # Global state
 ├── config/                    # Configuration modules
 │   ├── models.js

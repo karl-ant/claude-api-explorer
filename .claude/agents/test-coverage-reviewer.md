@@ -35,7 +35,7 @@ Enforce comprehensive test coverage for all production code, ensuring edge cases
 - Business logic functions
 
 **Files NOT requiring tests:**
-- UI components (FullApp.js, components/common/)
+- UI components (FullApp.js, components/common/, components/responses/)
 - Browser-dependent code (localStorage.js, fileToBase64)
 - Mock/demo implementations
 - Server.js (integration test candidate)
