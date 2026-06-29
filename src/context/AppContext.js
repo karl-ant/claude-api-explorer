@@ -1,9 +1,13 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import htm from 'htm';
 import { storage } from '../utils/localStorage.js';
-import { executeTool } from '../utils/toolExecutors/index.js';
-import { TOOL_MODES } from '../config/toolConfig.js';
-import modelsConfig from '../config/models.js';
+import modelsConfig, {
+  supportsAdaptiveThinking,
+  manualThinkingBlocked,
+  supportsXhigh,
+  supportsFastMode,
+  modelNamesSupporting
+} from '../config/models.js';
 import endpoints from '../config/endpoints.js';
 import { extractMessageText } from '../utils/formatters.js';
 
@@ -39,10 +43,6 @@ export function AppProvider({ children }) {
   const [tools, setTools] = useState([]);
   const [images, setImages] = useState([]);
 
-  // Tool execution mode and API keys
-  const [toolMode, setToolMode] = useState(storage.getToolMode() || TOOL_MODES.DEMO);
-  const [toolApiKeys, setToolApiKeys] = useState(storage.getToolApiKeys() || {});
-
   // Beta headers and Skills
   const [betaHeaders, setBetaHeaders] = useState(storage.getBetaHeaders());
   const [skillsJson, setSkillsJson] = useState(storage.getSkillsJson());
@@ -55,10 +55,17 @@ export function AppProvider({ children }) {
   const [thinkingType, setThinkingType] = useState(storage.get('thinkingType') || 'adaptive');
   const [budgetTokens, setBudgetTokens] = useState(storage.get('budgetTokens') || 10000);
   const [effortLevel, setEffortLevel] = useState(storage.get('effortLevel') || 'high');
-  const [thinkingDisplay, setThinkingDisplay] = useState(storage.get('thinkingDisplay') || 'summarized');
+  // Coerce stale persisted values (older versions allowed 'full') to a valid one
+  const [thinkingDisplay, setThinkingDisplay] = useState(() => {
+    const stored = storage.get('thinkingDisplay');
+    return ['summarized', 'omitted'].includes(stored) ? stored : 'summarized';
+  });
 
   const [speedMode, setSpeedMode] = useState(storage.get('speedMode') || false);
   const [cacheControl, setCacheControl] = useState(storage.get('cacheControl') || false);
+
+  // Cache diagnostics (cache-diagnosis beta) — session-only, not persisted
+  const [previousMessageId, setPreviousMessageId] = useState('');
 
   // Structured Outputs
   const [structuredOutput, setStructuredOutput] = useState(false);
@@ -69,25 +76,9 @@ export function AppProvider({ children }) {
   const [conversationHistory, setConversationHistory] = useState([]);
 
   // Endpoint-specific state
-  // Batches API
-  const [batchRequests, setBatchRequests] = useState([{ custom_id: '', params: { model: 'claude-sonnet-4-6', messages: [{ role: 'user', content: '' }], max_tokens: 4096 } }]);
-  const [batchStatus, setBatchStatus] = useState(null);
-  const [batchResults, setBatchResults] = useState(null);
-  const [batchResultsData, setBatchResultsData] = useState(null);
-  const [batchResultsLoading, setBatchResultsLoading] = useState(false);
-  const [batchResultsError, setBatchResultsError] = useState(null);
-
-  // Models API
+  // Models API (powers the live model metadata in ModelSelector)
   const [modelsList, setModelsList] = useState(null);
   const [modelsLoading, setModelsLoading] = useState(false);
-
-  // Usage API
-  const [usageReport, setUsageReport] = useState(null);
-  const [usageLoading, setUsageLoading] = useState(false);
-
-  // Cost API
-  const [costReport, setCostReport] = useState(null);
-  const [costLoading, setCostLoading] = useState(false);
 
   // Skills API
   const [skillsList, setSkillsList] = useState(null);
@@ -112,8 +103,6 @@ export function AppProvider({ children }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [streamingText, setStreamingText] = useState('');
-  const [toolExecutionStatus, setToolExecutionStatus] = useState(null);
-  const [toolExecutionDetails, setToolExecutionDetails] = useState(null);
 
   // History
   const [history, setHistory] = useState(storage.getHistory());
@@ -130,15 +119,6 @@ export function AppProvider({ children }) {
       storage.saveApiKey(apiKey, persistKey);
     }
   }, [apiKey, persistKey]);
-
-  // Persist tool mode and API keys
-  useEffect(() => {
-    storage.saveToolMode(toolMode);
-  }, [toolMode]);
-
-  useEffect(() => {
-    storage.saveToolApiKeys(toolApiKeys);
-  }, [toolApiKeys]);
 
   useEffect(() => {
     storage.saveBetaHeaders(betaHeaders);
@@ -184,8 +164,9 @@ export function AppProvider({ children }) {
     storage.saveConversationMode(conversationMode);
   }, [conversationMode]);
 
-  // Load last configuration on mount
+  // Load last configuration on mount (and drop keys persisted by removed features)
   useEffect(() => {
+    storage.cleanupLegacyKeys();
     const lastConfig = storage.getLastConfig();
     if (lastConfig) {
       if (lastConfig.model) setModel(lastConfig.model);
@@ -228,31 +209,10 @@ export function AppProvider({ children }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiKey]);
 
-  const handleSendRequest = async (overrideConversationHistory = null) => {
-    if (!apiKey) {
-      setError('Please provide an API key');
-      return;
-    }
-
-    // Validate messages
-    const hasValidContent = messages.some(msg => {
-      if (typeof msg.content === 'string') return msg.content.trim().length > 0;
-      if (Array.isArray(msg.content)) return msg.content.length > 0;
-      return false;
-    });
-
-    if (!messages.length || !hasValidContent) {
-      setError('Please provide at least one message with content');
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-    setResponse(null);
-    setStreamingText('');
-    setToolExecutionStatus(null);
-    setToolExecutionDetails(null);
-
+  // Build the exact Messages request (body + beta headers) from the current
+  // configuration. Pure — no state updates. handleSendRequest sends it and
+  // ConfigPanel's "Copy as cURL" formats it, so the two can never drift.
+  const buildMessagesRequest = (overrideConversationHistory = null) => {
     // In conversation mode, build messages from conversationHistory
     let messagesToSend = messages;
     const historyToUse = overrideConversationHistory || conversationHistory;
@@ -281,32 +241,6 @@ export function AppProvider({ children }) {
     const effectiveModel = (internalMode && customModelId.trim())
       ? customModelId.trim()
       : model;
-
-    // Model-capability pre-flight guards — these requests 400 at the API otherwise.
-    // Skipped when an internal custom model ID is in use (power-user mode, no assumptions).
-    const usingCustomModel = !!(internalMode && customModelId.trim());
-    const ADAPTIVE_THINKING_MODELS = ['claude-opus-4-7', 'claude-opus-4-6', 'claude-sonnet-4-6'];
-
-    if (!usingCustomModel && thinkingEnabled && thinkingType === 'enabled' && effectiveModel === 'claude-opus-4-7') {
-      setError('Claude Opus 4.7 supports adaptive thinking only. Switch the thinking type to "Adaptive" or choose a different model.');
-      setLoading(false);
-      return;
-    }
-    if (!usingCustomModel && thinkingEnabled && thinkingType === 'adaptive' && !ADAPTIVE_THINKING_MODELS.includes(effectiveModel)) {
-      setError('Adaptive thinking is only supported on Claude Opus 4.7, Opus 4.6, and Sonnet 4.6. Switch the thinking type to "Manual budget" or choose a supported model.');
-      setLoading(false);
-      return;
-    }
-    if (!usingCustomModel && thinkingEnabled && thinkingType === 'adaptive' && effortLevel === 'xhigh' && effectiveModel !== 'claude-opus-4-7') {
-      setError('effort: "xhigh" is only available on Claude Opus 4.7. Choose a lower effort level or switch to Opus 4.7.');
-      setLoading(false);
-      return;
-    }
-    if (!usingCustomModel && speedMode && effectiveModel !== 'claude-opus-4-6') {
-      setError('Fast Mode (speed: "fast") is only supported on Claude Opus 4.6. Disable Fast Mode or switch to Opus 4.6.');
-      setLoading(false);
-      return;
-    }
 
     const requestBody = {
       model: effectiveModel,
@@ -339,8 +273,14 @@ export function AppProvider({ children }) {
       if (thinkingDisplay === 'omitted' || thinkingDisplay === 'summarized') {
         requestBody.thinking.display = thinkingDisplay;
       }
-      // Extended thinking requires temperature = 1
-      requestBody.temperature = 1;
+      if (manualThinkingBlocked(effectiveModel)) {
+        // Adaptive-only models (Fable 5, Opus 4.8/4.7) reject non-default
+        // sampling params outright — never send temperature alongside thinking.
+        delete requestBody.temperature;
+      } else {
+        // Extended thinking requires temperature = 1
+        requestBody.temperature = 1;
+      }
     }
 
     // Add structured output configuration
@@ -368,7 +308,7 @@ export function AppProvider({ children }) {
           }
           const hasCodeExecution = requestBody.tools.some(t => t.type?.startsWith('code_execution'));
           if (!hasCodeExecution) {
-            requestBody.tools.push({ type: 'code_execution_20260120', name: 'code_execution' });
+            requestBody.tools.push({ type: 'code_execution_20260521', name: 'code_execution' });
           }
         }
       } catch (e) {
@@ -376,10 +316,75 @@ export function AppProvider({ children }) {
       }
     }
 
+    // Cache diagnostics: when the beta header is on, always send diagnostics.
+    // The first turn opts in with previous_message_id: null; later turns pass
+    // the previous response id and the API reports cache_miss_reason.
+    if (betaHeaders.includes('cache-diagnosis-2026-04-07')) {
+      requestBody.diagnostics = { previous_message_id: previousMessageId.trim() || null };
+    }
+
     // Some features require a beta header in addition to a body field — merge those in
     const betaHeadersForRequest = [...betaHeaders];
     if (speedMode && !betaHeadersForRequest.includes('fast-mode-2026-02-01')) {
       betaHeadersForRequest.push('fast-mode-2026-02-01');
+    }
+    const hasAdvisorTool = (requestBody.tools || []).some(t => typeof t.type === 'string' && t.type.startsWith('advisor_'));
+    if (hasAdvisorTool && !betaHeadersForRequest.includes('advisor-tool-2026-03-01')) {
+      betaHeadersForRequest.push('advisor-tool-2026-03-01');
+    }
+
+    return { requestBody, betaHeaders: betaHeadersForRequest, effectiveModel };
+  };
+
+  const handleSendRequest = async (overrideConversationHistory = null) => {
+    if (!apiKey) {
+      setError('Please provide an API key');
+      return;
+    }
+
+    // Validate messages
+    const hasValidContent = messages.some(msg => {
+      if (typeof msg.content === 'string') return msg.content.trim().length > 0;
+      if (Array.isArray(msg.content)) return msg.content.length > 0;
+      return false;
+    });
+
+    if (!messages.length || !hasValidContent) {
+      setError('Please provide at least one message with content');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    setResponse(null);
+    setStreamingText('');
+
+    const historyToUse = overrideConversationHistory || conversationHistory;
+    const { requestBody, betaHeaders: betaHeadersForRequest, effectiveModel } =
+      buildMessagesRequest(overrideConversationHistory);
+
+    // Model-capability pre-flight guards — these requests 400 at the API otherwise.
+    // Driven by the capability matrix in config/models.js. Unknown model IDs
+    // (Internal Model Mode, or models newer than the catalog) are never blocked.
+    if (thinkingEnabled && thinkingType === 'enabled' && manualThinkingBlocked(effectiveModel)) {
+      setError(`${effectiveModel} supports adaptive thinking only — manual thinking budgets return a 400. Switch the thinking type to "Adaptive" or choose a different model.`);
+      setLoading(false);
+      return;
+    }
+    if (thinkingEnabled && thinkingType === 'adaptive' && !supportsAdaptiveThinking(effectiveModel)) {
+      setError(`Adaptive thinking is not supported on ${effectiveModel}. Switch the thinking type to "Manual budget" or choose an adaptive-thinking model (${modelNamesSupporting('adaptiveThinking')}).`);
+      setLoading(false);
+      return;
+    }
+    if (thinkingEnabled && thinkingType === 'adaptive' && effortLevel === 'xhigh' && !supportsXhigh(effectiveModel)) {
+      setError(`effort: "xhigh" is only available on ${modelNamesSupporting('xhighEffort')}. Choose a lower effort level or switch models.`);
+      setLoading(false);
+      return;
+    }
+    if (speedMode && !supportsFastMode(effectiveModel)) {
+      setError(`Fast Mode (speed: "fast") is only supported on ${modelNamesSupporting('fastMode')}. Disable Fast Mode or switch models.`);
+      setLoading(false);
+      return;
     }
 
     try {
@@ -425,7 +430,6 @@ export function AppProvider({ children }) {
         let accumulatedText = '';
         let accumulatedThinking = '';
         let finalMessage = null;
-        let currentBlockType = null;
 
         while (true) {
           const { done, value } = await reader.read();
@@ -449,9 +453,6 @@ export function AppProvider({ children }) {
                   case 'message_start':
                     finalMessage = event.message;
                     break;
-                  case 'content_block_start':
-                    currentBlockType = event.content_block?.type;
-                    break;
                   case 'content_block_delta':
                     if (event.delta?.type === 'text_delta') {
                       accumulatedText += event.delta.text;
@@ -461,9 +462,6 @@ export function AppProvider({ children }) {
                     } else if (event.delta?.type === 'input_json_delta') {
                       // Tool input streaming — accumulate for later
                     }
-                    break;
-                  case 'content_block_stop':
-                    currentBlockType = null;
                     break;
                   case 'message_delta':
                     if (finalMessage) {
@@ -496,6 +494,8 @@ export function AppProvider({ children }) {
           }
           finalMessage.content = content.length > 0 ? content : finalMessage.content;
           setResponse(finalMessage);
+          // Track the last response id so cache diagnostics can chain turns
+          if (finalMessage.id) setPreviousMessageId(finalMessage.id);
 
           // Handle conversation mode for streamed responses
           let updatedConversationHistory = historyToUse;
@@ -539,218 +539,48 @@ export function AppProvider({ children }) {
       }
 
       const data = await res.json();
+      setResponse(data);
+      // Track the last response id so cache diagnostics can chain turns
+      if (data.id) setPreviousMessageId(data.id);
 
-      // Check if Claude wants to use tools
-      // Note: code_execution is a server-side tool that Claude executes automatically
-      // We only need to handle client-side tools here
-      if (data.stop_reason === 'tool_use' && tools.length > 0) {
-        setToolExecutionStatus('Executing tools...');
+      // Tools are either server-side (Anthropic executes them) or user-defined
+      // definitions for inspection. There is no client-side execution: a
+      // stop_reason of "tool_use" simply ends the turn and is displayed as-is.
 
-        // Extract tool use blocks, excluding server-side tools like code_execution
-        const serverSideTools = ['code_execution'];
-        const toolUseBlocks = data.content.filter(
-          block => block.type === 'tool_use' && !serverSideTools.includes(block.name)
-        );
+      // Conversation mode: append assistant response
+      let updatedConversationHistory = historyToUse;
+      if (conversationMode) {
+        // Extract text content and check if it's not empty
+        const textContent = extractMessageText(data.content);
 
-        // If no client-side tools to execute, just show the response
-        if (toolUseBlocks.length === 0) {
-          setResponse(data);
-          setToolExecutionStatus(null);
-          storage.saveToHistory(requestBody, data);
-          setHistory(storage.getHistory());
-          setLoading(false);
-          return;
-        }
-
-        // Execute each tool and create tool_result blocks
-        const executionDetails = [];
-        const toolResults = await Promise.all(toolUseBlocks.map(async (toolUse) => {
-          const result = await executeTool(toolUse.name, toolUse.input, toolMode, toolApiKeys);
-
-          // Store execution details for display
-          executionDetails.push({
-            tool_name: toolUse.name,
-            tool_input: toolUse.input,
-            tool_result: result
-          });
-
-          return {
-            type: 'tool_result',
-            tool_use_id: toolUse.id,
-            content: result
-          };
-        }));
-
-        // Store tool execution details
-        setToolExecutionDetails(executionDetails);
-
-        // Prepare the follow-up request with tool results
-        const followUpMessages = [
-          ...messagesWithImages,
-          {
-            role: 'assistant',
-            content: data.content
-          },
-          {
-            role: 'user',
-            content: toolResults
-          }
-        ];
-
-        const followUpBody = {
-          model,
-          messages: followUpMessages,
-          max_tokens: maxTokens,
-        };
-
-        if (system) followUpBody.system = system;
-        if (temperature !== 1.0) followUpBody.temperature = temperature;
-        if (topP !== 0.99) followUpBody.top_p = topP;
-        if (topK !== 0) followUpBody.top_k = topK;
-        // Use requestBody.tools which may include auto-injected code_execution tool
-        if (requestBody.tools && requestBody.tools.length > 0) {
-          followUpBody.tools = requestBody.tools;
-        }
-
-        // Include thinking config in follow-up if present
-        if (requestBody.thinking) {
-          followUpBody.thinking = requestBody.thinking;
-          followUpBody.temperature = 1;
-        }
-        if (requestBody.output_config) {
-          followUpBody.output_config = requestBody.output_config;
-        }
-
-        // Include container.skills in follow-up if present
-        if (requestBody.container) {
-          followUpBody.container = requestBody.container;
-        }
-        if (requestBody.speed) {
-          followUpBody.speed = requestBody.speed;
-        }
-        if (requestBody.cache_control) {
-          followUpBody.cache_control = requestBody.cache_control;
-        }
-
-        setToolExecutionStatus('Getting final response...');
-
-        // Build follow-up headers
-        const followUpHeaders = {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-        };
-        if (betaHeadersForRequest.length > 0) {
-          followUpHeaders['anthropic-beta'] = betaHeadersForRequest.join(',');
-        }
-
-        // Make follow-up request
-        const followUpRes = await fetch('http://localhost:3002/v1/messages', {
-          method: 'POST',
-          headers: followUpHeaders,
-          body: JSON.stringify(followUpBody),
-        });
-
-        if (!followUpRes.ok) {
-          const errorData = await followUpRes.json();
-          throw new Error(errorData.error?.message || `Follow-up request failed with status ${followUpRes.status}`);
-        }
-
-        const finalData = await followUpRes.json();
-        setResponse(finalData);
-        setToolExecutionStatus(null);
-
-        // Conversation mode: append all tool-use related messages
-        let updatedConversationHistory = historyToUse;
-        if (conversationMode) {
-          // Add three messages: assistant with tool_use, user with tool_result, final assistant response
-          const toolUseMessage = {
+        // Skip the append when the turn contains tool_use blocks (whatever the
+        // stop_reason — e.g. max_tokens can truncate mid tool call): with no
+        // tool_result to pair them with, the next request would fail validation.
+        const hasToolUse = Array.isArray(data.content) && data.content.some(b => b.type === 'tool_use');
+        if (!hasToolUse && textContent && textContent.trim()) {
+          const assistantMessage = {
             role: 'assistant',
             content: data.content,
             timestamp: Date.now(),
-            id: `msg-${Date.now()}-tool-use`
+            id: `msg-${Date.now()}`
           };
+          updatedConversationHistory = [...historyToUse, assistantMessage];
+          setConversationHistory(updatedConversationHistory);
 
-          const toolResultMessage = {
-            role: 'user',
-            content: toolResults,
-            timestamp: Date.now(),
-            id: `msg-${Date.now()}-tool-result`
-          };
-
-          // Extract text content and check if final response is not empty
-          const textContent = extractMessageText(finalData.content);
-
-          if (textContent && textContent.trim()) {
-            const finalAssistantMessage = {
-              role: 'assistant',
-              content: finalData.content,
-              timestamp: Date.now(),
-              id: `msg-${Date.now()}-final`
-            };
-            updatedConversationHistory = [...historyToUse, toolUseMessage, toolResultMessage, finalAssistantMessage];
-            setConversationHistory(updatedConversationHistory);
-
-            // Update messages array for next API call
-            setMessages(prev => [...prev,
-              { role: 'assistant', content: data.content },
-              { role: 'user', content: toolResults },
-              { role: 'assistant', content: finalData.content }
-            ]);
-          } else {
-            // Still add tool_use and tool_result even if final response is empty
-            updatedConversationHistory = [...historyToUse, toolUseMessage, toolResultMessage];
-            setConversationHistory(updatedConversationHistory);
-            setMessages(prev => [...prev,
-              { role: 'assistant', content: data.content },
-              { role: 'user', content: toolResults }
-            ]);
-          }
+          // Update messages array for next API call
+          setMessages(prev => [...prev, { role: 'assistant', content: data.content }]);
         }
-
-        // Save the final response to history
-        storage.saveToHistory(requestBody, finalData, {
-          isConversation: conversationMode,
-          conversationHistory: updatedConversationHistory
-        });
-        setHistory(storage.getHistory());
-      } else {
-        // No tool use, just set the response
-        setResponse(data);
-
-        // Conversation mode: append assistant response
-        let updatedConversationHistory = historyToUse;
-        if (conversationMode) {
-          // Extract text content and check if it's not empty
-          const textContent = extractMessageText(data.content);
-
-          if (textContent && textContent.trim()) {
-            const assistantMessage = {
-              role: 'assistant',
-              content: data.content,
-              timestamp: Date.now(),
-              id: `msg-${Date.now()}`
-            };
-            updatedConversationHistory = [...historyToUse, assistantMessage];
-            setConversationHistory(updatedConversationHistory);
-
-            // Update messages array for next API call
-            setMessages(prev => [...prev, { role: 'assistant', content: data.content }]);
-          } else {
-          }
-        }
-
-        // Save to history
-        storage.saveToHistory(requestBody, data, {
-          isConversation: conversationMode,
-          conversationHistory: updatedConversationHistory
-        });
-        setHistory(storage.getHistory());
       }
+
+      // Save to history
+      storage.saveToHistory(requestBody, data, {
+        isConversation: conversationMode,
+        conversationHistory: updatedConversationHistory
+      });
+      setHistory(storage.getHistory());
     } catch (err) {
       console.error('API Error:', err);
       setError(err.message || 'An error occurred while processing your request');
-      setToolExecutionStatus(null);
     } finally {
       setStreamingText('');
       setLoading(false);
@@ -869,128 +699,6 @@ export function AppProvider({ children }) {
       setError(err.message || 'An error occurred while fetching models');
     } finally {
       setModelsLoading(false);
-    }
-  };
-
-  // Usage API handler
-  const handleGetUsageReport = async (queryParams = {}) => {
-    if (!apiKey) {
-      setError('Please provide an Admin API key');
-      return;
-    }
-
-    if (!queryParams.starting_at || !queryParams.ending_at || !queryParams.bucket_width) {
-      setError('starting_at, ending_at, and bucket_width are required parameters');
-      return;
-    }
-
-    setUsageLoading(true);
-    setError(null);
-
-    // Build query string
-    const params = new URLSearchParams();
-    params.append('starting_at', queryParams.starting_at);
-    params.append('ending_at', queryParams.ending_at);
-    params.append('bucket_width', queryParams.bucket_width);
-
-    // Optional array parameters
-    if (queryParams.models && queryParams.models.length > 0) {
-      queryParams.models.forEach(m => params.append('models[]', m));
-    }
-    if (queryParams.service_tiers && queryParams.service_tiers.length > 0) {
-      queryParams.service_tiers.forEach(st => params.append('service_tiers[]', st));
-    }
-    if (queryParams.workspace_ids && queryParams.workspace_ids.length > 0) {
-      queryParams.workspace_ids.forEach(w => params.append('workspace_ids[]', w));
-    }
-    if (queryParams.group_by && queryParams.group_by.length > 0) {
-      queryParams.group_by.forEach(g => params.append('group_by[]', g));
-    }
-
-    // Optional scalar parameters
-    if (queryParams.limit) params.append('limit', queryParams.limit);
-    if (queryParams.page) params.append('page', queryParams.page);
-
-    const queryString = params.toString() ? `?${params.toString()}` : '';
-
-    try {
-      const res = await fetch(`http://localhost:3002/v1/organizations/usage_report/messages${queryString}`, {
-        method: 'GET',
-        headers: {
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-        },
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error?.message || `API request failed with status ${res.status}`);
-      }
-
-      const data = await res.json();
-      setUsageReport(data);
-      setResponse(data);
-    } catch (err) {
-      console.error('API Error:', err);
-      setError(err.message || 'An error occurred while fetching usage report');
-    } finally {
-      setUsageLoading(false);
-    }
-  };
-
-  // Cost API handler
-  const handleGetCostReport = async (queryParams = {}) => {
-    if (!apiKey) {
-      setError('Please provide an Admin API key');
-      return;
-    }
-
-    if (!queryParams.starting_at || !queryParams.ending_at) {
-      setError('starting_at and ending_at are required parameters');
-      return;
-    }
-
-    setCostLoading(true);
-    setError(null);
-
-    // Build query string
-    const params = new URLSearchParams();
-    params.append('starting_at', queryParams.starting_at);
-    params.append('ending_at', queryParams.ending_at);
-
-    // Optional array parameters
-    if (queryParams.group_by && queryParams.group_by.length > 0) {
-      queryParams.group_by.forEach(g => params.append('group_by[]', g));
-    }
-
-    // Optional scalar parameters
-    if (queryParams.limit) params.append('limit', queryParams.limit);
-    if (queryParams.page) params.append('page', queryParams.page);
-
-    const queryString = params.toString() ? `?${params.toString()}` : '';
-
-    try {
-      const res = await fetch(`http://localhost:3002/v1/organizations/cost_report${queryString}`, {
-        method: 'GET',
-        headers: {
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-        },
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error?.message || `API request failed with status ${res.status}`);
-      }
-
-      const data = await res.json();
-      setCostReport(data);
-      setResponse(data);
-    } catch (err) {
-      console.error('API Error:', err);
-      setError(err.message || 'An error occurred while fetching cost report');
-    } finally {
-      setCostLoading(false);
     }
   };
 
@@ -1489,189 +1197,6 @@ export function AppProvider({ children }) {
     }
   };
 
-  // Batches API handlers
-  const handleCreateBatch = async () => {
-    if (!apiKey) {
-      setError('Please provide an API key');
-      return;
-    }
-
-    // Validate batch requests
-    const hasValidRequests = batchRequests.some(req =>
-      req.custom_id &&
-      req.params.messages &&
-      req.params.messages.some(msg => msg.content.trim().length > 0)
-    );
-
-    if (!batchRequests.length || !hasValidRequests) {
-      setError('Please provide at least one valid batch request');
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-    setResponse(null);
-    setBatchStatus(null);
-    setBatchResultsData(null);
-    setBatchResultsError(null);
-
-    const requestBody = {
-      requests: batchRequests.filter(req =>
-        req.custom_id &&
-        req.params.messages &&
-        req.params.messages.some(msg => msg.content.trim().length > 0)
-      )
-    };
-
-    try {
-      const res = await fetch('http://localhost:3002/v1/messages/batches', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-        },
-        body: JSON.stringify(requestBody),
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error?.message || `API request failed with status ${res.status}`);
-      }
-
-      const data = await res.json();
-      setResponse(data);
-      setBatchStatus(data);
-    } catch (err) {
-      console.error('API Error:', err);
-      setError(err.message || 'An error occurred while creating the batch');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleGetBatchStatus = async (batchId) => {
-    if (!apiKey) {
-      setError('Please provide an API key');
-      return;
-    }
-
-    if (!batchId) {
-      setError('Please provide a batch ID');
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const res = await fetch(`http://localhost:3002/v1/messages/batches/${batchId}`, {
-        method: 'GET',
-        headers: {
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-        },
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error?.message || `API request failed with status ${res.status}`);
-      }
-
-      const data = await res.json();
-      setResponse(data);
-      setBatchStatus(data);
-
-      // If batch is complete and has results_url, fetch the results
-      if (data.processing_status === 'ended' && data.results_url) {
-        // Note: results_url is a signed URL that returns .jsonl format
-        // We'll let the user download it or fetch it separately
-        setBatchResults(data);
-      }
-    } catch (err) {
-      console.error('API Error:', err);
-      setError(err.message || 'An error occurred while fetching batch status');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleFetchBatchResults = async (resultsUrl) => {
-    if (!resultsUrl) {
-      setBatchResultsError('No results URL provided');
-      return;
-    }
-
-    if (!apiKey) {
-      setBatchResultsError('API key is required to fetch batch results');
-      return;
-    }
-
-    setBatchResultsLoading(true);
-    setBatchResultsError(null);
-    setBatchResultsData(null);
-
-    try {
-      let text;
-      // Try direct fetch first with API key, fallback to proxy if CORS blocks
-      try {
-        const resp = await fetch(resultsUrl, {
-          headers: {
-            'x-api-key': apiKey,
-            'anthropic-version': '2023-06-01'
-          }
-        });
-        if (resp.ok) {
-          text = await resp.text();
-        } else {
-          const errorData = await resp.json();
-          throw new Error(errorData.error?.message || 'Direct fetch failed');
-        }
-      } catch (directError) {
-        // Fallback to proxy if CORS blocks or other error
-        const proxyResp = await fetch('http://localhost:3002/proxy-batch-results', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url: resultsUrl, apiKey })
-        });
-        if (!proxyResp.ok) {
-          const errorData = await proxyResp.json();
-          throw new Error(errorData.error || 'Proxy fetch failed');
-        }
-        text = await proxyResp.text();
-      }
-
-      // Check if response is HTML (error page) instead of JSONL
-      if (text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html')) {
-        console.error('Received HTML instead of JSONL. First 200 chars:', text.substring(0, 200));
-        throw new Error('Received HTML response instead of JSONL. The results URL may have expired or be inaccessible. Try fetching the batch status again to get a fresh URL.');
-      }
-
-      // Parse JSONL (one JSON object per line)
-      const results = text.trim().split('\n')
-        .filter(line => line.trim())
-        .map((line, i) => {
-          try {
-            return JSON.parse(line);
-          } catch {
-            return { custom_id: `error_${i}`, error: `Parse error line ${i + 1}` };
-          }
-        });
-
-      // Check if we got any valid results
-      if (results.length === 0) {
-        throw new Error('No valid results found in response');
-      }
-
-      setBatchResultsData(results);
-    } catch (err) {
-      console.error('Fetch batch results error:', err);
-      setBatchResultsError(err.message || 'Failed to fetch batch results');
-    } finally {
-      setBatchResultsLoading(false);
-    }
-  };
-
   const clearApiKey = () => {
     storage.clearApiKey();
     setApiKey('');
@@ -1685,9 +1210,9 @@ export function AppProvider({ children }) {
     setImages([]);
     setBetaHeaders([]);
     setSkillsJson('');
+    setPreviousMessageId('');
     setResponse(null);
     setError(null);
-    setToolExecutionDetails(null);
   };
 
   const loadFromHistory = (historyItem) => {
@@ -1699,7 +1224,7 @@ export function AppProvider({ children }) {
     if (request.temperature !== undefined) setTemperature(request.temperature);
     if (request.top_p !== undefined) setTopP(request.top_p);
     if (request.top_k !== undefined) setTopK(request.top_k);
-    if (request.tools) setTools(request.tools);
+    if (request.tools) setTools(storage.upgradeServerToolTypes(request.tools));
     if (request.container?.skills) {
       setSkillsJson(JSON.stringify(request.container.skills, null, 2));
     }
@@ -1789,12 +1314,6 @@ export function AppProvider({ children }) {
     images,
     setImages,
 
-    // Tool execution mode and API keys
-    toolMode,
-    setToolMode,
-    toolApiKeys,
-    setToolApiKeys,
-
     // Beta headers and Skills
     betaHeaders,
     setBetaHeaders,
@@ -1823,6 +1342,10 @@ export function AppProvider({ children }) {
     cacheControl,
     setCacheControl,
 
+    // Cache diagnostics
+    previousMessageId,
+    setPreviousMessageId,
+
     lastRequest,
 
     // Internal mode (session-only)
@@ -1843,38 +1366,9 @@ export function AppProvider({ children }) {
     conversationHistory,
     setConversationHistory,
 
-    // Batches API
-    batchRequests,
-    setBatchRequests,
-    batchStatus,
-    setBatchStatus,
-    batchResults,
-    setBatchResults,
-    batchResultsData,
-    setBatchResultsData,
-    batchResultsLoading,
-    batchResultsError,
-    handleCreateBatch,
-    handleGetBatchStatus,
-    handleFetchBatchResults,
-
-    // Models API
+    // Models API (live model metadata for ModelSelector)
     modelsList,
-    setModelsList,
     modelsLoading,
-    handleListModels,
-
-    // Usage API
-    usageReport,
-    setUsageReport,
-    usageLoading,
-    handleGetUsageReport,
-
-    // Cost API
-    costReport,
-    setCostReport,
-    costLoading,
-    handleGetCostReport,
 
     // Skills API
     skillsList,
@@ -1918,9 +1412,8 @@ export function AppProvider({ children }) {
     loading,
     error,
     streamingText,
-    toolExecutionStatus,
-    toolExecutionDetails,
     handleSendRequest,
+    buildMessagesRequest,
 
     // History
     history,
@@ -1934,23 +1427,19 @@ export function AppProvider({ children }) {
     selectedEndpoint,
     model, messages, system, maxTokens, temperature, topP, topK,
     tools, images,
-    toolMode, toolApiKeys,
     betaHeaders, skillsJson,
     streaming,
     thinkingEnabled, thinkingType, budgetTokens, effortLevel, thinkingDisplay,
-    speedMode, cacheControl,
+    speedMode, cacheControl, previousMessageId,
     lastRequest,
     internalMode, customModelId,
     structuredOutput, outputSchema,
     conversationMode, conversationHistory,
-    batchRequests, batchStatus, batchResults, batchResultsData, batchResultsLoading, batchResultsError,
     modelsList, modelsLoading,
-    usageReport, usageLoading,
-    costReport, costLoading,
-    skillsList, skillsLoading, skillDetail, skillsSourceFilter,
+    skillsList, skillsLoading, skillDetail, skillsSourceFilter, skillVersions,
     filesList, fileDetail, filesLoading, filesError,
     tokenCount, tokenCountLoading, tokenCountStale,
-    response, loading, error, streamingText, toolExecutionStatus, toolExecutionDetails,
+    response, loading, error, streamingText,
     history
   ]);
 

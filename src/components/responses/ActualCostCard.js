@@ -15,6 +15,8 @@ export function ActualCostCard({ usage, model, models, maxTokens, tokenCount, se
   const outputCost = (usage.output_tokens / 1_000_000) * actualPricing.output;
   const totalCost = inputCost + outputCost;
   const totalTokens = usage.input_tokens + usage.output_tokens;
+  // How many of the billed output tokens were extended thinking (when reported)
+  const thinkingTokens = usage.output_tokens_details?.thinking_tokens;
 
   // Estimated costs use selected model pricing (what user expected before sending)
   const estPricing = getPricing(selectedModel || model);
@@ -30,6 +32,13 @@ export function ActualCostCard({ usage, model, models, maxTokens, tokenCount, se
           ${totalTokens.toLocaleString()}
         </span>
       </div>
+
+      ${typeof thinkingTokens === 'number' && html`
+        <div class="flex items-center justify-between text-xs font-mono mb-1">
+          <span class="text-slate-500">of which thinking</span>
+          <span class="text-purple-400">${thinkingTokens.toLocaleString()} output tokens</span>
+        </div>
+      `}
 
       <div class="text-xs font-mono border-t border-slate-700 pt-2 mt-2">
         <div class="grid grid-cols-3 gap-2 mb-1">
@@ -53,7 +62,7 @@ export function ActualCostCard({ usage, model, models, maxTokens, tokenCount, se
           <span class="text-right text-amber-400">$${totalCost.toFixed(5)}</span>
         </div>
         <div class="text-slate-600 text-center pt-2">
-          Prices as of May 2026
+          Prices as of June 2026
         </div>
       </div>
     </div>

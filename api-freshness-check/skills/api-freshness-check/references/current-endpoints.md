@@ -2,7 +2,7 @@
 
 Source: [Anthropic API Overview](https://platform.claude.com/docs/en/api/overview)
 
-Last updated: 2026-01-30
+Last updated: 2026-06-29
 
 ## GA Endpoints
 
@@ -15,8 +15,16 @@ Last updated: 2026-01-30
 | `POST` | `/v1/messages/batches/:id/cancel` | Cancel a batch |
 | `GET` | `/v1/messages/batches/:id/results` | Get batch results |
 | `POST` | `/v1/messages/count_tokens` | Count tokens for a message |
-| `GET` | `/v1/models` | List available models |
+| `GET` | `/v1/models` | List available models (returns `max_tokens`, `max_input_tokens`, `capabilities`) |
 | `GET` | `/v1/models/:id` | Get a specific model |
+
+## Admin Endpoints (require an Admin API key)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/v1/organizations/usage_report/messages` | Token usage report |
+| `GET` | `/v1/organizations/cost_report` | Cost report |
+| `GET` | `/v1/rate-limits` | Rate Limits API (added 2026-04-24) |
 
 ## Beta Endpoints
 
@@ -44,3 +52,10 @@ Requires header: `anthropic-beta: skills-2025-10-02`
 | `DELETE` | `/v1/skills/:id` | Delete a skill |
 | `GET` | `/v1/skills/:id/versions` | List skill versions |
 | `DELETE` | `/v1/skills/:id/versions/:version` | Delete a skill version |
+
+## App coverage (v4.0)
+
+The Claude API Explorer exposes **Messages**, **Skills**, and **Files** as tabs, plus
+`/v1/messages/count_tokens` (the Count button) and `/v1/models` (the live model
+dropdown). The Batches, Models, Usage, and Cost tabs were removed in v4.0; those
+endpoints still exist in the API but the app no longer proxies them.

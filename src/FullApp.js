@@ -6,17 +6,20 @@ import { Toggle } from './components/common/Toggle.js';
 import { Tabs } from './components/common/Tabs.js';
 import { ErrorBoundary } from './components/common/ErrorBoundary.js';
 import { fileToBase64, getImageMediaType, extractMessageText } from './utils/formatters.js';
-import { TOOL_MODES } from './config/toolConfig.js';
+import {
+  supportsAdaptiveThinking,
+  manualThinkingBlocked,
+  thinkingAlwaysOn,
+  supportsXhigh,
+  supportsFastMode,
+  fastModeNote,
+  modelNamesSupporting
+} from './config/models.js';
 import {
   MessageResponseView,
-  BatchResponseView,
-  ModelsResponseView,
-  UsageResponseView,
-  CostResponseView,
   SkillsResponseView,
   FilesResponseView,
   EmptyResponseState,
-  ActualCostCard,
   RequestInspector
 } from './components/responses/index.js';
 
@@ -85,7 +88,9 @@ function BetaHeadersSection() {
     { id: 'context-1m-2025-08-07', label: '1M Context (legacy models — 4.6+ native)' },
     { id: 'context-management-2025-06-27', label: 'Context Mgmt' },
     { id: 'interleaved-thinking-2025-05-14', label: 'Interleaved Think' },
-    { id: 'output-300k-2026-03-24', label: '300k Batch Output' },
+    { id: 'advisor-tool-2026-03-01', label: 'Advisor Tool' },
+    { id: 'cache-diagnosis-2026-04-07', label: 'Cache Diagnostics' },
+    { id: 'task-budgets-2026-03-13', label: 'Task Budgets (4.7+)' },
   ];
 
   const toggleBetaHeader = (headerId) => {
@@ -348,7 +353,7 @@ function MessageBuilder() {
 }
 
 function AdvancedOptions() {
-  const { tools, setTools, images, setImages, skillsJson, setSkillsJson, toolMode, setToolMode } = useApp();
+  const { tools, setTools, images, setImages, skillsJson, setSkillsJson } = useApp();
   const [activeTab, setActiveTab] = useState('vision');
   const [toolJson, setToolJson] = useState('');
 
@@ -405,151 +410,6 @@ function AdvancedOptions() {
       setToolJson('');
     } catch (error) {
       alert('Invalid JSON: ' + error.message);
-    }
-  };
-
-  const addPredefinedTool = (toolType) => {
-    const predefined = {
-      calculator: {
-        name: 'calculator',
-        description: 'Perform mathematical calculations. Supports basic arithmetic, exponents, and common math functions.',
-        input_schema: {
-          type: 'object',
-          properties: {
-            expression: {
-              type: 'string',
-              description: 'The mathematical expression to evaluate (e.g., "2 + 2", "sqrt(16)", "pow(2, 3)")'
-            }
-          },
-          required: ['expression']
-        }
-      },
-      get_weather: {
-        name: 'get_weather',
-        description: 'Get the current weather for a specific location',
-        input_schema: {
-          type: 'object',
-          properties: {
-            location: {
-              type: 'string',
-              description: 'The city and state, e.g., San Francisco, CA'
-            },
-            unit: {
-              type: 'string',
-              enum: ['celsius', 'fahrenheit'],
-              description: 'The unit of temperature to return'
-            }
-          },
-          required: ['location']
-        }
-      },
-      web_search: {
-        name: 'web_search',
-        description: 'Search for instant answers - definitions, facts, Wikipedia summaries (DuckDuckGo)',
-        input_schema: {
-          type: 'object',
-          properties: {
-            query: {
-              type: 'string',
-              description: 'The search query to execute'
-            },
-            num_results: {
-              type: 'integer',
-              description: 'Number of results to return (1-10)',
-              minimum: 1,
-              maximum: 10
-            }
-          },
-          required: ['query']
-        }
-      },
-      get_current_time: {
-        name: 'get_current_time',
-        description: 'Get the current time in a specific timezone',
-        input_schema: {
-          type: 'object',
-          properties: {
-            timezone: {
-              type: 'string',
-              description: 'The timezone identifier (e.g., America/New_York, Europe/London, Asia/Tokyo)'
-            }
-          },
-          required: ['timezone']
-        }
-      },
-      json_validator: {
-        name: 'json_validator',
-        description: 'Validate and format JSON strings. Returns formatted JSON or validation errors.',
-        input_schema: {
-          type: 'object',
-          properties: {
-            json_string: {
-              type: 'string',
-              description: 'The JSON string to validate'
-            }
-          },
-          required: ['json_string']
-        }
-      },
-      code_formatter: {
-        name: 'code_formatter',
-        description: 'Format code in various languages (JavaScript, Python, JSON).',
-        input_schema: {
-          type: 'object',
-          properties: {
-            code: {
-              type: 'string',
-              description: 'The code to format'
-            },
-            language: {
-              type: 'string',
-              enum: ['javascript', 'python', 'json'],
-              description: 'Programming language'
-            }
-          },
-          required: ['code', 'language']
-        }
-      },
-      token_counter: {
-        name: 'token_counter',
-        description: 'Estimate the number of Claude tokens in text.',
-        input_schema: {
-          type: 'object',
-          properties: {
-            text: {
-              type: 'string',
-              description: 'The text to count tokens for'
-            }
-          },
-          required: ['text']
-        }
-      },
-      regex_tester: {
-        name: 'regex_tester',
-        description: 'Test a regular expression against text and return matches.',
-        input_schema: {
-          type: 'object',
-          properties: {
-            pattern: {
-              type: 'string',
-              description: 'The regex pattern'
-            },
-            text: {
-              type: 'string',
-              description: 'The text to test against'
-            },
-            flags: {
-              type: 'string',
-              description: 'Regex flags (g, i, m, etc.)'
-            }
-          },
-          required: ['pattern', 'text']
-        }
-      },
-    };
-
-    if (predefined[toolType]) {
-      setTools(prev => [...prev, predefined[toolType]]);
     }
   };
 
@@ -622,53 +482,20 @@ function AdvancedOptions() {
           <div class="space-y-3">
             <p class="text-sm text-slate-400 font-mono">Configure tools for Claude to use.</p>
 
-            <!-- Tool Mode Toggle -->
-            <div class="bg-slate-800/50 border border-slate-700 rounded-lg p-4 space-y-3">
-              <div class="flex items-center justify-between">
-                <label class="text-sm font-medium text-slate-300 font-mono">Tool Execution Mode</label>
-                <div class="flex gap-2">
-                  <button
-                    onClick=${() => setToolMode(TOOL_MODES.DEMO)}
-                    class="px-3 py-1.5 text-xs font-mono rounded-lg transition-colors ${
-                      toolMode === TOOL_MODES.DEMO
-                        ? 'bg-amber-500 text-slate-900 hover:bg-amber-400'
-                        : 'bg-slate-800 text-slate-300 border border-slate-700 hover:border-slate-600'
-                    }"
-                  >
-                    🎭 Demo Mode
-                  </button>
-                  <button
-                    onClick=${() => setToolMode(TOOL_MODES.REAL)}
-                    class="px-3 py-1.5 text-xs font-mono rounded-lg transition-colors ${
-                      toolMode === TOOL_MODES.REAL
-                        ? 'bg-amber-500 text-slate-900 hover:bg-amber-400'
-                        : 'bg-slate-800 text-slate-300 border border-slate-700 hover:border-slate-600'
-                    }"
-                  >
-                    🚀 Real Mode
-                  </button>
-                </div>
-              </div>
-              <p class="text-xs text-slate-500 font-mono">
-                ${toolMode === TOOL_MODES.DEMO
-                  ? '→ Tools return mock data for testing'
-                  : '→ Tools use free APIs (no signup required - Open-Meteo, DuckDuckGo)'}
-              </p>
-            </div>
-
             <!-- Server-Side Tools (Anthropic) -->
             <div class="space-y-3">
               <p class="text-sm font-medium text-slate-300 font-mono">Server-Side Tools (Anthropic)</p>
               <p class="text-xs text-slate-500 font-mono">Managed by Anthropic — executed server-side, no client setup needed.</p>
               <div class="grid grid-cols-2 gap-2">
                 ${[
-                  { type: 'web_search_20260209', name: 'web_search', label: 'Web Search', desc: '$10/1K searches' },
-                  { type: 'web_fetch_20260209', name: 'web_fetch', label: 'Web Fetch', desc: 'Token cost only' },
-                  { type: 'code_execution_20260120', name: 'code_execution', label: 'Code Exec', desc: 'Sandboxed bash' },
+                  { type: 'web_search_20260318', name: 'web_search', label: 'Web Search', desc: '$10/1K searches' },
+                  { type: 'web_fetch_20260318', name: 'web_fetch', label: 'Web Fetch', desc: 'Token cost only' },
+                  { type: 'code_execution_20260521', name: 'code_execution', label: 'Code Exec', desc: 'Sandboxed bash' },
                   { type: 'computer_20251124', name: 'computer', label: 'Computer Use', desc: 'Screen interaction (4.5+)' },
                   { type: 'text_editor_20250728', name: 'text_editor', label: 'Text Editor', desc: 'File editing' },
                   { type: 'memory_20250818', name: 'memory', label: 'Memory', desc: 'Persistent memory' },
                   { type: 'tool_search_tool_bm25_20251119', name: 'tool_search', label: 'Tool Search', desc: 'BM25 keyword search' },
+                  { type: 'advisor_20260301', name: 'advisor', label: 'Advisor', desc: 'Advisor model mid-generation (Beta)' },
                 ].map(st => {
                   const isEnabled = tools.some(t => t.type === st.type);
                   return html`
@@ -697,54 +524,9 @@ function AdvancedOptions() {
 
             <div class="border-t border-slate-700 pt-3"></div>
 
-            <div class="space-y-3">
-              <p class="text-sm font-medium text-slate-300 font-mono">Client-Side Tools</p>
-
-              <div class="space-y-2">
-                <div class="text-xs font-medium text-slate-500 uppercase font-mono">Data & Information</div>
-                <div class="grid grid-cols-2 gap-2">
-                  <${Button} variant="secondary" size="sm" onClick=${() => addPredefinedTool('get_weather')}>
-                    🌤️ Weather
-                  </${Button}>
-                  <${Button} variant="secondary" size="sm" onClick=${() => addPredefinedTool('get_current_time')}>
-                    🕐 Current Time
-                  </${Button}>
-                  <${Button} variant="secondary" size="sm" onClick=${() => addPredefinedTool('web_search')}>
-                    🔍 Web Search
-                  </${Button}>
-                </div>
-              </div>
-
-              <div class="space-y-2">
-                <div class="text-xs font-medium text-slate-500 uppercase font-mono">Computation</div>
-                <div class="grid grid-cols-2 gap-2">
-                  <${Button} variant="secondary" size="sm" onClick=${() => addPredefinedTool('calculator')}>
-                    🧮 Calculator
-                  </${Button}>
-                </div>
-              </div>
-
-              <div class="space-y-2">
-                <div class="text-xs font-medium text-slate-500 uppercase font-mono">Developer</div>
-                <div class="grid grid-cols-2 gap-2">
-                  <${Button} variant="secondary" size="sm" onClick=${() => addPredefinedTool('json_validator')}>
-                    ✅ JSON Validator
-                  </${Button}>
-                  <${Button} variant="secondary" size="sm" onClick=${() => addPredefinedTool('code_formatter')}>
-                    📝 Code Formatter
-                  </${Button}>
-                  <${Button} variant="secondary" size="sm" onClick=${() => addPredefinedTool('token_counter')}>
-                    🔢 Token Counter
-                  </${Button}>
-                  <${Button} variant="secondary" size="sm" onClick=${() => addPredefinedTool('regex_tester')}>
-                    🔍 Regex Tester
-                  </${Button}>
-                </div>
-              </div>
-            </div>
-
             <div class="space-y-2">
               <p class="text-sm font-medium text-slate-300 font-mono">Custom Tool (JSON)</p>
+              <p class="text-xs text-slate-500 font-mono">Define a client tool schema for Claude to call. Tool use ends the turn — the tool_use block is displayed, not executed.</p>
               <textarea
                 value=${toolJson}
                 onInput=${(e) => setToolJson(e.target.value)}
@@ -799,7 +581,7 @@ function AdvancedOptions() {
 
         ${activeTab === 'skills' && html`
           <div class="space-y-3">
-            <p class="text-sm text-slate-400 font-mono">Configure skills for document processing. Requires beta headers: Skills, Code Exec, and Files API.</p>
+            <p class="text-sm text-slate-400 font-mono">Configure skills for document processing. Requires the Skills and Files API beta headers; the code_execution tool is auto-added (GA, no beta header).</p>
 
             <div class="space-y-2">
               <p class="text-xs text-slate-400 font-mono">Pre-built Anthropic Skills:</p>
@@ -838,6 +620,7 @@ function AdvancedOptions() {
           <div class="space-y-3">
             <p class="text-sm text-slate-400 font-mono">Configure output format constraints.</p>
             <${StructuredOutputSection} />
+            <${CacheDiagnosticsSection} />
           </div>
         `}
       </div>
@@ -1043,8 +826,11 @@ function ChatInterface() {
 function ThinkingSection() {
   const { thinkingEnabled, setThinkingEnabled, thinkingType, setThinkingType, budgetTokens, setBudgetTokens, effortLevel, setEffortLevel, thinkingDisplay, setThinkingDisplay, model } = useApp();
 
-  const supportsAdaptive = ['claude-opus-4-7', 'claude-opus-4-6', 'claude-sonnet-4-6'].includes(model);
-  const isOpus47 = model === 'claude-opus-4-7';
+  // Capability flags come from the matrix in config/models.js (unknown IDs → permissive)
+  const supportsAdaptive = supportsAdaptiveThinking(model);
+  const manualBlocked = manualThinkingBlocked(model);
+  const alwaysOn = thinkingAlwaysOn(model);
+  const xhighOk = supportsXhigh(model);
 
   return html`
     <div class="space-y-3 p-3 bg-slate-800/30 border border-slate-700 rounded-lg">
@@ -1055,6 +841,10 @@ function ThinkingSection() {
           onChange=${setThinkingEnabled}
         />
       </div>
+
+      ${alwaysOn && html`
+        <p class="text-xs text-slate-500 font-mono">Adaptive thinking is always on for this model and cannot be disabled. The toggle only controls whether thinking/effort options are sent explicitly.</p>
+      `}
 
       ${thinkingEnabled && html`
         <div class="space-y-3 animate-slide-up">
@@ -1070,10 +860,10 @@ function ThinkingSection() {
               Adaptive (auto)
             </button>
             <button
-              onClick=${() => !isOpus47 && setThinkingType('enabled')}
-              disabled=${isOpus47}
+              onClick=${() => !manualBlocked && setThinkingType('enabled')}
+              disabled=${manualBlocked}
               class="px-3 py-1.5 text-xs font-mono rounded-lg transition-colors ${
-                isOpus47
+                manualBlocked
                   ? 'bg-slate-800 text-slate-600 border border-slate-800 cursor-not-allowed'
                   : thinkingType === 'enabled'
                     ? 'bg-amber-500 text-slate-900 hover:bg-amber-400'
@@ -1103,18 +893,18 @@ function ThinkingSection() {
                 `)}
               </div>
               ${!supportsAdaptive && html`
-                <p class="text-xs text-amber-400 font-mono">Adaptive thinking requires Opus 4.7 / 4.6 or Sonnet 4.6</p>
+                <p class="text-xs text-amber-400 font-mono">Adaptive thinking requires: ${modelNamesSupporting('adaptiveThinking')}</p>
               `}
-              ${effortLevel === 'xhigh' && !isOpus47 && html`
-                <p class="text-xs text-red-400 font-mono">effort: "xhigh" is only available on Opus 4.7</p>
+              ${effortLevel === 'xhigh' && !xhighOk && html`
+                <p class="text-xs text-red-400 font-mono">effort: "xhigh" is only available on: ${modelNamesSupporting('xhighEffort')}</p>
               `}
             </div>
           `}
 
           ${thinkingType === 'enabled' && html`
             <div class="space-y-2">
-              ${isOpus47 && html`
-                <p class="text-xs text-red-400 font-mono">Opus 4.7 supports adaptive thinking only — a manual budget will be rejected (400)</p>
+              ${manualBlocked && html`
+                <p class="text-xs text-red-400 font-mono">This model supports adaptive thinking only — a manual budget will be rejected (400)</p>
               `}
               <label class="text-xs text-slate-400 font-mono">Budget Tokens: ${budgetTokens.toLocaleString()}</label>
               <input
@@ -1137,6 +927,7 @@ function ThinkingSection() {
             <div>
               <span class="text-xs text-slate-400 font-mono">Display mode</span>
               <p class="text-xs text-slate-500 font-mono">summarized = show summary · omitted = keep signature, hide content</p>
+              <p class="text-xs text-slate-600 font-mono">API default is "omitted" on Fable 5 / Opus 4.8 / 4.7, "summarized" on older adaptive models</p>
             </div>
             <div class="flex gap-1">
               ${['summarized', 'omitted'].map(mode => html`
@@ -1155,7 +946,9 @@ function ThinkingSection() {
             </div>
           </div>
 
-          <p class="text-xs text-slate-500 font-mono">Temperature will be set to 1 (required for thinking)</p>
+          <p class="text-xs text-slate-500 font-mono">${manualBlocked
+            ? 'Sampling params are not sent alongside thinking on this model'
+            : 'Temperature will be set to 1 (required for thinking)'}</p>
         </div>
       `}
     </div>
@@ -1164,7 +957,8 @@ function ThinkingSection() {
 
 function SpeedCacheSection() {
   const { speedMode, setSpeedMode, cacheControl, setCacheControl, model } = useApp();
-  const isOpus46 = model === 'claude-opus-4-6';
+  const fastModeOk = supportsFastMode(model);
+  const fastNote = fastModeNote(model);
 
   return html`
     <div class="space-y-3 p-3 bg-slate-800/30 border border-slate-700 rounded-lg">
@@ -1179,11 +973,17 @@ function SpeedCacheSection() {
         />
       </div>
 
-      ${isOpus46 && html`
+      ${(fastModeOk || speedMode) && html`
         <div class="flex items-center justify-between pt-3 border-t border-slate-700">
           <div>
             <span class="text-sm font-medium text-slate-300 font-mono">Fast Mode</span>
-            <p class="text-xs text-slate-500 font-mono">speed: fast — Opus 4.6 only · adds anthropic-beta: fast-mode-2026-02-01</p>
+            <p class="text-xs text-slate-500 font-mono">speed: fast · adds anthropic-beta: fast-mode-2026-02-01</p>
+            ${fastModeOk && fastNote && html`
+              <p class="text-xs text-amber-400 font-mono">${fastNote}</p>
+            `}
+            ${!fastModeOk && html`
+              <p class="text-xs text-red-400 font-mono">Not supported on this model (${modelNamesSupporting('fastMode')} only) — turn it off or switch models</p>
+            `}
           </div>
           <${Toggle}
             checked=${speedMode}
@@ -1224,6 +1024,39 @@ function StructuredOutputSection() {
   `;
 }
 
+function CacheDiagnosticsSection() {
+  const { betaHeaders, previousMessageId, setPreviousMessageId, response } = useApp();
+  const enabled = betaHeaders.includes('cache-diagnosis-2026-04-07');
+
+  if (!enabled) return null;
+
+  return html`
+    <div class="space-y-3 p-3 bg-slate-800/30 border border-slate-700 rounded-lg animate-slide-up">
+      <div>
+        <span class="text-sm font-medium text-slate-300 font-mono">Cache Diagnostics</span>
+        <p class="text-xs text-slate-500 font-mono">Sends diagnostics.previous_message_id (null on the first turn) — the response reports cache_miss_reason explaining where the prompt cache prefix diverged. Auto-filled from the last response.</p>
+      </div>
+      <div class="flex gap-2">
+        <input
+          type="text"
+          value=${previousMessageId}
+          onInput=${(e) => setPreviousMessageId(e.target.value)}
+          placeholder="msg_..."
+          class="flex-1 px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none text-sm font-mono text-slate-100 placeholder-slate-600 hover:border-slate-600 transition-colors"
+        />
+        <${Button}
+          variant="secondary"
+          size="sm"
+          disabled=${!response?.id}
+          onClick=${() => response?.id && setPreviousMessageId(response.id)}
+        >
+          Use last response
+        </${Button}>
+      </div>
+    </div>
+  `;
+}
+
 function MessagesPanel() {
   const { conversationMode } = useApp();
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -1260,395 +1093,6 @@ function MessagesPanel() {
           `}
         </div>
       `}
-    </div>
-  `;
-}
-
-function ModelsPanel() {
-  const { modelsList, modelsLoading, handleListModels } = useApp();
-
-  return html`
-    <div class="space-y-4">
-      <div>
-        <p class="text-sm text-slate-400 mb-4 font-mono">
-          List all available Claude models from the Anthropic API
-        </p>
-        <${Button}
-          onClick=${() => handleListModels({ limit: 20 })}
-          disabled=${modelsLoading}
-          variant="primary"
-          loading=${modelsLoading}
-        >
-          List Models
-        </${Button}>
-      </div>
-
-      ${modelsList && html`
-        <div class="border-t border-slate-800 pt-4">
-          <h3 class="text-sm font-medium text-slate-100 mb-3 font-mono">
-            Found ${modelsList.data?.length || 0} models
-          </h3>
-          <div class="space-y-2 max-h-96 overflow-y-auto">
-            ${modelsList.data?.map((model) => html`
-              <div key=${model.id} class="p-3 bg-slate-800/50 rounded-lg border border-slate-700 backdrop-blur-sm hover-lift">
-                <div class="font-medium text-sm text-slate-100 font-mono">${model.display_name || model.id}</div>
-                <div class="text-xs text-amber-400 font-mono mt-1">${model.id}</div>
-                <div class="text-xs text-slate-500 mt-1 font-mono">
-                  Created: ${new Date(model.created_at).toLocaleDateString()}
-                </div>
-              </div>
-            `)}
-          </div>
-        </div>
-      `}
-    </div>
-  `;
-}
-
-function BatchesPanel() {
-  const { batchRequests, setBatchRequests, handleCreateBatch, handleGetBatchStatus, batchStatus } = useApp();
-  const [batchId, setBatchId] = useState('');
-
-  const addBatchRequest = () => {
-    setBatchRequests([...batchRequests, {
-      custom_id: '',
-      params: {
-        model: 'claude-sonnet-4-5-20250929',
-        messages: [{ role: 'user', content: '' }],
-        max_tokens: 4096
-      }
-    }]);
-  };
-
-  const updateBatchRequest = (index, field, value) => {
-    const updated = [...batchRequests];
-    if (field === 'custom_id') {
-      updated[index].custom_id = value;
-    } else if (field === 'model') {
-      updated[index].params.model = value;
-    } else if (field === 'message') {
-      updated[index].params.messages[0].content = value;
-    } else if (field === 'max_tokens') {
-      updated[index].params.max_tokens = parseInt(value, 10);
-    }
-    setBatchRequests(updated);
-  };
-
-  const removeBatchRequest = (index) => {
-    if (batchRequests.length > 1) {
-      setBatchRequests(batchRequests.filter((_, i) => i !== index));
-    }
-  };
-
-  return html`
-    <div class="space-y-4">
-      <div class="bg-amber-900/20 border border-amber-700/50 rounded-lg p-3 backdrop-blur-sm">
-        <p class="text-sm text-amber-300 font-mono">
-          💡 Message Batches process requests asynchronously at 50% cost
-        </p>
-      </div>
-
-      <div>
-        <div class="flex items-center justify-between mb-2">
-          <label class="block text-sm font-medium text-slate-300 font-mono">Batch Requests</label>
-          <${Button} variant="ghost" size="sm" onClick=${addBatchRequest}>+ Add Request</${Button}>
-        </div>
-
-        <div class="space-y-3 max-h-64 overflow-y-auto">
-          ${batchRequests.map((req, index) => html`
-            <div key=${index} class="border border-slate-700 rounded-lg p-3 space-y-2 bg-slate-800/30 backdrop-blur-sm">
-              <div class="flex items-center justify-between">
-                <input
-                  type="text"
-                  value=${req.custom_id}
-                  onInput=${(e) => updateBatchRequest(index, 'custom_id', e.target.value)}
-                  placeholder="Custom ID (unique identifier)"
-                  class="flex-1 px-3 py-2 bg-slate-900 border border-slate-700 rounded text-sm font-mono text-slate-100 placeholder-slate-600 hover:border-slate-600 transition-colors"
-                />
-                ${batchRequests.length > 1 && html`
-                  <button
-                    onClick=${() => removeBatchRequest(index)}
-                    class="ml-2 text-red-400 hover:text-red-300 text-sm font-mono transition-colors"
-                  >
-                    Remove
-                  </button>
-                `}
-              </div>
-              <textarea
-                value=${req.params.messages[0].content}
-                onInput=${(e) => updateBatchRequest(index, 'message', e.target.value)}
-                placeholder="Message content..."
-                rows="2"
-                class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded text-sm resize-none font-mono text-slate-100 placeholder-slate-600 hover:border-slate-600 transition-colors"
-              ></textarea>
-            </div>
-          `)}
-        </div>
-      </div>
-
-      <div class="border-t border-slate-800 pt-4">
-        <${Button}
-          onClick=${handleCreateBatch}
-          variant="primary"
-          fullWidth=${true}
-        >
-          Create Batch
-        </${Button}>
-      </div>
-
-      <div class="border-t border-slate-800 pt-4">
-        <label class="block text-sm font-medium text-slate-300 mb-2 font-mono">Check Batch Status</label>
-        <div class="flex gap-2">
-          <input
-            type="text"
-            value=${batchId}
-            onInput=${(e) => setBatchId(e.target.value)}
-            placeholder="Batch ID"
-            class="flex-1 px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-sm font-mono text-slate-100 placeholder-slate-600 hover:border-slate-600 transition-colors"
-          />
-          <${Button}
-            onClick=${() => handleGetBatchStatus(batchId)}
-            variant="secondary"
-            disabled=${!batchId}
-          >
-            Check
-          </${Button}>
-        </div>
-      </div>
-
-      ${batchStatus && html`
-        <div class="border-t border-slate-800 pt-4">
-          <div class="p-3 bg-slate-800/50 rounded-lg border border-slate-700 backdrop-blur-sm">
-            <div class="flex items-center justify-between mb-2">
-              <div class="text-sm font-medium text-slate-100 font-mono">Batch Status</div>
-              <button
-                onClick=${() => handleGetBatchStatus(batchStatus.id)}
-                class="px-2 py-1 text-xs bg-slate-700 hover:bg-slate-600 text-slate-100 rounded font-mono transition-colors"
-              >
-                Refresh
-              </button>
-            </div>
-            <div class="text-xs text-slate-400 space-y-1 font-mono">
-              <div>ID: <span class="text-amber-400">${batchStatus.id}</span></div>
-              <div>Status: <span class="text-mint-400">${batchStatus.processing_status || 'unknown'}</span></div>
-              ${batchStatus.request_counts && html`
-                <div class="mt-2 pt-2 border-t border-slate-700">
-                  <span class="text-slate-500">Processing:</span> <span class="text-mint-400">${batchStatus.request_counts.processing || 0}</span> |
-                  <span class="text-slate-500">Succeeded:</span> <span class="text-mint-400">${batchStatus.request_counts.succeeded || 0}</span> |
-                  <span class="text-slate-500">Errored:</span> <span class="text-red-400">${batchStatus.request_counts.errored || 0}</span>
-                </div>
-              `}
-            </div>
-          </div>
-        </div>
-      `}
-    </div>
-  `;
-}
-
-function UsagePanel() {
-  const { handleGetUsageReport, usageLoading } = useApp();
-  const [startingAt, setStartingAt] = useState('');
-  const [endingAt, setEndingAt] = useState('');
-  const [bucketWidth, setBucketWidth] = useState('1h');
-  const [selectedModels, setSelectedModels] = useState([]);
-  const [serviceTiers, setServiceTiers] = useState([]);
-  const [groupBy, setGroupBy] = useState([]);
-
-  // Set default date range (last 7 days)
-  React.useEffect(() => {
-    const end = new Date();
-    const start = new Date();
-    start.setDate(start.getDate() - 7);
-    setStartingAt(start.toISOString().split('.')[0] + 'Z');
-    setEndingAt(end.toISOString().split('.')[0] + 'Z');
-  }, []);
-
-  const handleGetReport = () => {
-    const params = {
-      starting_at: startingAt,
-      ending_at: endingAt,
-      bucket_width: bucketWidth,
-    };
-
-    if (selectedModels.length > 0) params.models = selectedModels;
-    if (serviceTiers.length > 0) params.service_tiers = serviceTiers;
-    if (groupBy.length > 0) params.group_by = groupBy;
-
-    handleGetUsageReport(params);
-  };
-
-  const toggleArrayValue = (array, setArray, value) => {
-    if (array.includes(value)) {
-      setArray(array.filter(v => v !== value));
-    } else {
-      setArray([...array, value]);
-    }
-  };
-
-  return html`
-    <div class="space-y-4">
-      <div class="bg-amber-900/20 border border-amber-700/50 rounded-lg p-3 backdrop-blur-sm">
-        <p class="text-xs text-amber-400 font-medium mb-1 font-mono">Admin API Key Required</p>
-        <p class="text-xs text-amber-300/80 font-mono">
-          This endpoint requires an Admin API key (sk-ant-admin...) available only to organization admins.
-        </p>
-      </div>
-
-      <div class="space-y-3">
-        <div>
-          <label class="block text-sm font-medium text-slate-300 mb-2 font-mono">Starting At (ISO 8601)</label>
-          <input
-            type="datetime-local"
-            value=${startingAt.slice(0, 16)}
-            onChange=${(e) => setStartingAt(e.target.value + ':00Z')}
-            class="w-full px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none text-sm font-mono text-slate-100 hover:border-slate-600 transition-colors"
-          />
-        </div>
-
-        <div>
-          <label class="block text-sm font-medium text-slate-300 mb-2 font-mono">Ending At (ISO 8601)</label>
-          <input
-            type="datetime-local"
-            value=${endingAt.slice(0, 16)}
-            onChange=${(e) => setEndingAt(e.target.value + ':00Z')}
-            class="w-full px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none text-sm font-mono text-slate-100 hover:border-slate-600 transition-colors"
-          />
-        </div>
-
-        <div>
-          <label class="block text-sm font-medium text-slate-300 mb-2 font-mono">Bucket Width</label>
-          <select
-            value=${bucketWidth}
-            onChange=${(e) => setBucketWidth(e.target.value)}
-            class="w-full px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none text-sm font-mono text-slate-100 hover:border-slate-600 transition-colors cursor-pointer"
-          >
-            <option value="1m">1 minute (real-time monitoring)</option>
-            <option value="1h">1 hour (daily patterns)</option>
-            <option value="1d">1 day (weekly/monthly reports)</option>
-          </select>
-        </div>
-
-        <div>
-          <label class="block text-sm font-medium text-slate-300 mb-2 font-mono">Group By (Optional)</label>
-          <div class="space-y-2 text-sm">
-            ${['model', 'workspace_id', 'service_tier', 'api_key_id'].map(option => html`
-              <label class="flex items-center gap-2 cursor-pointer group">
-                <input
-                  type="checkbox"
-                  checked=${groupBy.includes(option)}
-                  onChange=${() => toggleArrayValue(groupBy, setGroupBy, option)}
-                  class="rounded border-slate-600 bg-slate-800 text-amber-500 focus:ring-amber-500 focus:ring-offset-slate-900"
-                />
-                <span class="text-slate-300 font-mono group-hover:text-slate-200 transition-colors">${option}</span>
-              </label>
-            `)}
-          </div>
-        </div>
-
-        <${Button}
-          onClick=${handleGetReport}
-          loading=${usageLoading}
-          disabled=${!startingAt || !endingAt}
-          fullWidth=${true}
-        >
-          Get Usage Report
-        </${Button}>
-      </div>
-    </div>
-  `;
-}
-
-function CostPanel() {
-  const { handleGetCostReport, costLoading } = useApp();
-  const [startingAt, setStartingAt] = useState('');
-  const [endingAt, setEndingAt] = useState('');
-  const [groupBy, setGroupBy] = useState([]);
-
-  // Set default date range (last 7 days)
-  React.useEffect(() => {
-    const end = new Date();
-    const start = new Date();
-    start.setDate(start.getDate() - 7);
-    setStartingAt(start.toISOString().split('.')[0] + 'Z');
-    setEndingAt(end.toISOString().split('.')[0] + 'Z');
-  }, []);
-
-  const handleGetReport = () => {
-    const params = {
-      starting_at: startingAt,
-      ending_at: endingAt,
-    };
-
-    if (groupBy.length > 0) params.group_by = groupBy;
-
-    handleGetCostReport(params);
-  };
-
-  const toggleArrayValue = (array, setArray, value) => {
-    if (array.includes(value)) {
-      setArray(array.filter(v => v !== value));
-    } else {
-      setArray([...array, value]);
-    }
-  };
-
-  return html`
-    <div class="space-y-4">
-      <div class="bg-amber-900/20 border border-amber-700/50 rounded-lg p-3 backdrop-blur-sm">
-        <p class="text-xs text-amber-400 font-medium mb-1 font-mono">Admin API Key Required</p>
-        <p class="text-xs text-amber-300/80 font-mono">
-          This endpoint requires an Admin API key (sk-ant-admin...). All costs are in USD (cents).
-        </p>
-      </div>
-
-      <div class="space-y-3">
-        <div>
-          <label class="block text-sm font-medium text-slate-300 mb-2 font-mono">Starting At (ISO 8601)</label>
-          <input
-            type="datetime-local"
-            value=${startingAt.slice(0, 16)}
-            onChange=${(e) => setStartingAt(e.target.value + ':00Z')}
-            class="w-full px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none text-sm font-mono text-slate-100 hover:border-slate-600 transition-colors"
-          />
-        </div>
-
-        <div>
-          <label class="block text-sm font-medium text-slate-300 mb-2 font-mono">Ending At (ISO 8601)</label>
-          <input
-            type="datetime-local"
-            value=${endingAt.slice(0, 16)}
-            onChange=${(e) => setEndingAt(e.target.value + ':00Z')}
-            class="w-full px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none text-sm font-mono text-slate-100 hover:border-slate-600 transition-colors"
-          />
-        </div>
-
-        <div>
-          <label class="block text-sm font-medium text-slate-300 mb-2 font-mono">Group By (Optional)</label>
-          <div class="space-y-2 text-sm">
-            ${['workspace_id', 'description'].map(option => html`
-              <label class="flex items-center gap-2 cursor-pointer group">
-                <input
-                  type="checkbox"
-                  checked=${groupBy.includes(option)}
-                  onChange=${() => toggleArrayValue(groupBy, setGroupBy, option)}
-                  class="rounded border-slate-600 bg-slate-800 text-amber-500 focus:ring-amber-500 focus:ring-offset-slate-900"
-                />
-                <span class="text-slate-300 font-mono group-hover:text-slate-200 transition-colors">${option}</span>
-              </label>
-            `)}
-          </div>
-        </div>
-
-        <${Button}
-          onClick=${handleGetReport}
-          loading=${costLoading}
-          disabled=${!startingAt || !endingAt}
-          fullWidth=${true}
-        >
-          Get Cost Report
-        </${Button}>
-      </div>
     </div>
   `;
 }
@@ -2285,57 +1729,22 @@ function TokenCountCard({ tokenCount, costs, stale, onClear }) {
 
 function ConfigPanel() {
   const {
-    selectedEndpoint, handleSendRequest, handleCreateBatch, loading, apiKey,
+    selectedEndpoint, handleSendRequest, buildMessagesRequest, loading, apiKey,
     history, loadFromHistory, clearHistory, exportHistory, clearConfiguration,
     handleCountTokens, tokenCount, tokenCountLoading, tokenCountStale, setTokenCount,
     model, maxTokens, models, continueConversation, deleteHistoryItem,
-    streaming, setStreaming, streamingText,
-    messages, system, temperature, topP, topK, tools, betaHeaders,
-    thinkingEnabled, thinkingType, budgetTokens, effortLevel, thinkingDisplay,
-    speedMode, cacheControl,
-    structuredOutput, outputSchema
+    streaming, setStreaming, streamingText
   } = useApp();
   const [showHistory, setShowHistory] = useState(false);
   const [copyStatus, setCopyStatus] = useState('');
 
   const copyAsCurl = () => {
-    const body = { model, messages, max_tokens: maxTokens };
-    if (system) body.system = system;
-    if (temperature !== 1.0) body.temperature = temperature;
-    if (topP !== 0.99) body.top_p = topP;
-    if (topK !== 0) body.top_k = topK;
-    if (tools.length > 0) body.tools = tools;
-    if (thinkingEnabled) {
-      if (thinkingType === 'adaptive') {
-        body.thinking = { type: 'adaptive' };
-        body.output_config = { ...(body.output_config || {}), effort: effortLevel };
-      } else {
-        body.thinking = { type: 'enabled', budget_tokens: budgetTokens };
-      }
-      if (thinkingDisplay === 'omitted' || thinkingDisplay === 'summarized') {
-        body.thinking.display = thinkingDisplay;
-      }
-      body.temperature = 1;
-    }
-    if (structuredOutput && outputSchema.trim()) {
-      try {
-        const parsedSchema = JSON.parse(outputSchema);
-        body.output_config = {
-          ...(body.output_config || {}),
-          format: { type: 'json_schema', json_schema: parsedSchema }
-        };
-      } catch (e) {
-        // Invalid schema, skip
-      }
-    }
-    if (speedMode) body.speed = 'fast';
-    if (cacheControl) body.cache_control = { type: 'ephemeral' };
+    // Same builder the Send button uses, so the copied curl can never drift
+    // from the request the app actually sends.
+    const { requestBody, betaHeaders: betaHeadersForCurl } = buildMessagesRequest();
+    const body = { ...requestBody };
     if (streaming) body.stream = true;
 
-    const betaHeadersForCurl = [...betaHeaders];
-    if (speedMode && !betaHeadersForCurl.includes('fast-mode-2026-02-01')) {
-      betaHeadersForCurl.push('fast-mode-2026-02-01');
-    }
     const headers = [
       `-H "content-type: application/json"`,
       `-H "x-api-key: $ANTHROPIC_API_KEY"`,
@@ -2367,8 +1776,8 @@ function ConfigPanel() {
     return { inputCost, maxOutputCost, total: inputCost + maxOutputCost };
   };
 
-  // Check if action button should be shown
-  const showActionButton = selectedEndpoint === 'messages' || selectedEndpoint === 'batches';
+  // The Send/Count/cURL footer only applies to the Messages tab
+  const showActionFooter = selectedEndpoint === 'messages';
 
   return html`
     <div class="h-full flex flex-col bg-slate-900">
@@ -2397,12 +1806,8 @@ function ConfigPanel() {
 
         <div class="border-t border-slate-800 pt-4">
           ${selectedEndpoint === 'messages' && html`<${MessagesPanel} />`}
-          ${selectedEndpoint === 'batches' && html`<${BatchesPanel} />`}
-          ${selectedEndpoint === 'models' && html`<${ModelsPanel} />`}
           ${selectedEndpoint === 'skills' && html`<${SkillsPanel} />`}
           ${selectedEndpoint === 'files' && html`<${FilesPanel} />`}
-          ${selectedEndpoint === 'usage' && html`<${UsagePanel} />`}
-          ${selectedEndpoint === 'cost' && html`<${CostPanel} />`}
         </div>
 
         ${selectedEndpoint === 'messages' && html`
@@ -2490,9 +1895,8 @@ function ConfigPanel() {
         `}
       </div>
 
-      ${showActionButton && html`
+      ${showActionFooter && html`
         <div class="p-4 border-t border-slate-800 bg-slate-900/50 space-y-3">
-          ${selectedEndpoint === 'messages' && html`
             <${ConversationModeToggle} />
 
             <div class="flex items-center justify-between p-2 bg-slate-800/30 border border-slate-700 rounded-lg mb-2">
@@ -2540,17 +1944,6 @@ function ConfigPanel() {
             >
               ${copyStatus || 'Copy as cURL'}
             </${Button}>
-          `}
-          ${selectedEndpoint === 'batches' && html`
-            <${Button}
-              onClick=${handleCreateBatch}
-              disabled=${loading || !apiKey}
-              fullWidth=${true}
-              size="lg"
-            >
-              ${loading ? 'Processing...' : 'Create Batch'}
-            </${Button}>
-          `}
         </div>
       `}
     </div>
@@ -2559,32 +1952,26 @@ function ConfigPanel() {
 
 function ResponsePanel() {
   const {
-    response, loading, error, selectedEndpoint, modelsList, batchStatus,
-    usageReport, costReport, skillsList, skillDetail, handleGetSkill,
+    response, loading, error, selectedEndpoint, skillsList, skillDetail, handleGetSkill,
     filesList, fileDetail, handleGetFile, handleDeleteFile, handleDownloadFile,
-    toolExecutionStatus, toolExecutionDetails, models, maxTokens, tokenCount,
-    model, batchResultsData, batchResultsLoading, batchResultsError,
-    handleFetchBatchResults, handleGetBatchStatus, streamingText, lastRequest
+    models, maxTokens, tokenCount,
+    model, streamingText, lastRequest
   } = useApp();
   const [viewMode, setViewMode] = useState('formatted');
 
   // Determine if we should show view mode toggle
-  const showViewModeToggle = response || modelsList || batchStatus || usageReport || costReport || skillsList || skillDetail || filesList || fileDetail;
+  const showViewModeToggle = response || skillsList || skillDetail || filesList || fileDetail;
 
   // Determine the response type
   const getResponseType = () => {
-    if (selectedEndpoint === 'models' && modelsList) return 'models';
-    if (selectedEndpoint === 'batches' && (batchStatus || response?.id)) return 'batch';
     if (selectedEndpoint === 'messages' && response?.content) return 'message';
     if (selectedEndpoint === 'skills' && (skillsList || skillDetail)) return 'skills';
     if (selectedEndpoint === 'files' && (filesList || fileDetail)) return 'files';
-    if (selectedEndpoint === 'usage' && (usageReport || response?.data)) return 'usage';
-    if (selectedEndpoint === 'cost' && (costReport || response?.data)) return 'cost';
     return 'generic';
   };
 
   const responseType = getResponseType();
-  const hasNoData = !response && !modelsList && !batchStatus && !usageReport && !costReport && !skillsList && !skillDetail && !filesList && !fileDetail;
+  const hasNoData = !response && !skillsList && !skillDetail && !filesList && !fileDetail;
 
   return html`
     <div class="h-full flex flex-col bg-slate-900">
@@ -2625,7 +2012,7 @@ function ResponsePanel() {
           <div class="flex items-center gap-3 text-mint-400 bg-slate-800/50 border border-slate-700 rounded-lg px-4 py-3">
             <div class="rounded-full h-5 w-5 spinner-glow"></div>
             <span class="text-sm font-medium font-mono terminal-glow">
-              ${toolExecutionStatus || 'Processing request...'}
+              Processing request...
             </span>
           </div>
         `}
@@ -2655,43 +2042,18 @@ function ResponsePanel() {
 
         ${!loading && !error && viewMode === 'json' && showViewModeToggle && html`
           <pre class="bg-slate-950 text-mint-300 p-6 rounded-lg overflow-x-auto text-sm font-mono leading-relaxed border border-slate-800 shadow-xl terminal-glow animate-fade-in whitespace-pre-wrap break-words">
-            ${JSON.stringify(response || modelsList || batchStatus || usageReport || costReport || skillsList || skillDetail || filesList || fileDetail, null, 2)}
+            ${JSON.stringify(response || skillsList || skillDetail || filesList || fileDetail, null, 2)}
           </pre>
         `}
 
         ${!loading && !error && viewMode === 'formatted' && responseType === 'message' && response && html`
           <${MessageResponseView}
             response=${response}
-            toolExecutionDetails=${toolExecutionDetails}
             models=${models}
             maxTokens=${maxTokens}
             tokenCount=${tokenCount}
             model=${model}
           />
-        `}
-
-        ${!loading && !error && viewMode === 'formatted' && responseType === 'batch' && (response || batchStatus) && html`
-          <${BatchResponseView}
-            response=${response}
-            batchStatus=${batchStatus}
-            batchResultsData=${batchResultsData}
-            batchResultsLoading=${batchResultsLoading}
-            batchResultsError=${batchResultsError}
-            handleFetchBatchResults=${handleFetchBatchResults}
-            handleGetBatchStatus=${handleGetBatchStatus}
-          />
-        `}
-
-        ${!loading && !error && viewMode === 'formatted' && responseType === 'models' && modelsList && html`
-          <${ModelsResponseView} modelsList=${modelsList} />
-        `}
-
-        ${!loading && !error && viewMode === 'formatted' && responseType === 'usage' && (usageReport || response) && html`
-          <${UsageResponseView} usageReport=${usageReport} response=${response} />
-        `}
-
-        ${!loading && !error && viewMode === 'formatted' && responseType === 'cost' && (costReport || response) && html`
-          <${CostResponseView} costReport=${costReport} response=${response} />
         `}
 
         ${!loading && !error && viewMode === 'formatted' && responseType === 'skills' && (skillsList || skillDetail) && html`
@@ -2737,12 +2099,8 @@ function AppContent() {
 
   const endpointTabs = [
     { id: 'messages', label: 'Messages', description: endpoints.messages.description },
-    { id: 'batches', label: 'Batches', description: endpoints.batches.description },
-    { id: 'models', label: 'Models', description: endpoints.models.description },
     { id: 'skills', label: 'Skills', description: endpoints.skills.description },
     { id: 'files', label: 'Files', description: endpoints.files.description },
-    { id: 'usage', label: 'Usage', description: endpoints.usage.description },
-    { id: 'cost', label: 'Cost', description: endpoints.cost.description },
   ];
 
   return html`
@@ -2757,7 +2115,7 @@ function AppContent() {
             <div>
               <h1 class="text-2xl font-bold text-slate-100 tracking-tight">Claude API Explorer</h1>
               <p class="text-slate-400 text-xs font-mono mt-0.5">
-                <span class="text-amber-400">v3.4</span> • Developer Command Center
+                <span class="text-amber-400">v4.0</span> • Developer Command Center
               </p>
             </div>
           </div>

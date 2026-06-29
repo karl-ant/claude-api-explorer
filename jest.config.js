@@ -19,13 +19,13 @@ export default {
 
   coverageReporters: ['text', 'html', 'json'],
 
-  // Coverage thresholds
+  // Coverage thresholds (re-baselined for v4.0: measured 94/77/80/82)
   coverageThreshold: {
     global: {
-      branches: 34,
-      functions: 45,
-      lines: 40,
-      statements: 40,
+      branches: 80,
+      functions: 70,
+      lines: 75,
+      statements: 75,
     },
   },
 

@@ -3,14 +3,22 @@ const STORAGE_KEYS = {
   PERSIST_KEY: 'claude_api_explorer_persist_key',
   HISTORY: 'claude_api_explorer_history',
   LAST_CONFIG: 'claude_api_explorer_last_config',
-  TOOL_MODE: 'claude_api_explorer_tool_mode',
-  TOOL_API_KEYS: 'claude_api_explorer_tool_api_keys',
   BETA_HEADERS: 'claude_api_explorer_beta_headers',
   SKILLS_JSON: 'claude_api_explorer_skills_json',
   CONVERSATION_MODE: 'claude_api_explorer_conversation_mode'
 };
 
 const MAX_HISTORY_ITEMS = 50;
+
+// Server tools whose versioned `type` string has been superseded. A persisted
+// last-config can carry old strings; without this upgrade they no longer match
+// the toggle buttons (which use the current strings), so the tool looks "off"
+// while still being sent. Old versions still work at the API, but normalize.
+const SERVER_TOOL_TYPE_UPGRADES = {
+  'web_search_20260209': 'web_search_20260318',
+  'web_fetch_20260209': 'web_fetch_20260318',
+  'code_execution_20260120': 'code_execution_20260521',
+};
 
 export const storage = {
   // API Key management
@@ -168,49 +176,38 @@ export const storage = {
     }
   },
 
+  // Upgrade superseded server-tool type strings in a persisted tools array.
+  // Used by every path that restores tools from storage (last config, history).
+  upgradeServerToolTypes(tools) {
+    if (!Array.isArray(tools)) return tools;
+    return tools.map(t =>
+      t && t.type && SERVER_TOOL_TYPE_UPGRADES[t.type]
+        ? { ...t, type: SERVER_TOOL_TYPE_UPGRADES[t.type] }
+        : t
+    );
+  },
+
   getLastConfig() {
     try {
       const config = localStorage.getItem(STORAGE_KEYS.LAST_CONFIG);
-      return config ? JSON.parse(config) : null;
+      if (!config) return null;
+      const parsed = JSON.parse(config);
+      parsed.tools = this.upgradeServerToolTypes(parsed.tools);
+      return parsed;
     } catch (error) {
       console.error('Failed to load config:', error);
       return null;
     }
   },
 
-  // Tool mode and API keys
-  saveToolMode(mode) {
+  // One-time cleanup of keys written by features removed in v4.0
+  // (the client-side tool execution system and its per-tool API keys).
+  cleanupLegacyKeys() {
     try {
-      localStorage.setItem(STORAGE_KEYS.TOOL_MODE, mode);
+      localStorage.removeItem('claude_api_explorer_tool_mode');
+      localStorage.removeItem('claude_api_explorer_tool_api_keys');
     } catch (error) {
-      console.error('Failed to save tool mode:', error);
-    }
-  },
-
-  getToolMode() {
-    try {
-      return localStorage.getItem(STORAGE_KEYS.TOOL_MODE);
-    } catch (error) {
-      console.error('Failed to load tool mode:', error);
-      return null;
-    }
-  },
-
-  saveToolApiKeys(apiKeys) {
-    try {
-      localStorage.setItem(STORAGE_KEYS.TOOL_API_KEYS, JSON.stringify(apiKeys));
-    } catch (error) {
-      console.error('Failed to save tool API keys:', error);
-    }
-  },
-
-  getToolApiKeys() {
-    try {
-      const keys = localStorage.getItem(STORAGE_KEYS.TOOL_API_KEYS);
-      return keys ? JSON.parse(keys) : {};
-    } catch (error) {
-      console.error('Failed to load tool API keys:', error);
-      return {};
+      // localStorage unavailable — nothing to clean up
     }
   },
 
@@ -227,8 +224,8 @@ export const storage = {
     try {
       const headers = localStorage.getItem(STORAGE_KEYS.BETA_HEADERS);
       const parsed = headers ? JSON.parse(headers) : [];
-      // Filter out headers that have graduated to GA
-      const removed = new Set(['code-execution-2025-08-25']);
+      // Filter out headers that have graduated to GA or whose feature was removed
+      const removed = new Set(['code-execution-2025-08-25', 'output-300k-2026-03-24']);
       return parsed.filter(h => !removed.has(h));
     } catch (error) {
       return [];

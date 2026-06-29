@@ -43,17 +43,17 @@ Fetch these pages to get current data:
 5. **Extended Thinking**: `https://platform.claude.com/docs/en/build-with-claude/extended-thinking`
    - Manual thinking parameter format (`{type: "enabled", budget_tokens}`)
    - Budget tokens range
-   - Model compatibility (note: Opus 4.7 rejects manual thinking — adaptive only)
+   - Model compatibility (adaptive-only models — Fable 5, Opus 4.8, Opus 4.7 — reject manual thinking with a 400)
    - `thinking.display` valid values: only `summarized` and `omitted` (no `full`)
 
-6. **Adaptive Thinking**: `https://platform.claude.com/docs/en/build-with-claude/adaptive-thinking`
-   - Effort levels: `low`, `medium`, `high` (default), `xhigh` (Opus 4.7 only), `max`
+6. **Adaptive Thinking / Effort**: `https://platform.claude.com/docs/en/build-with-claude/adaptive-thinking` and `https://platform.claude.com/docs/en/build-with-claude/effort`
+   - Effort levels: `low`, `medium`, `high` (default), `xhigh`, `max`
    - output_config format (`{effort: "..."}`)
-   - Model compatibility: Opus 4.7, Opus 4.6, Sonnet 4.6
+   - Verify the per-model effort/adaptive support lists against `src/config/models.js` capability flags
 
 7. **Fast Mode**: `https://platform.claude.com/docs/en/build-with-claude/fast-mode`
    - Requires BOTH `speed: "fast"` in the body AND `anthropic-beta: fast-mode-2026-02-01` header
-   - Model compatibility (Opus 4.6 only)
+   - Verify the supported-model list and any per-model deprecation/removal dates against the docs
 
 8. **Streaming**: `https://platform.claude.com/docs/en/build-with-claude/streaming`
    - SSE event types
@@ -82,7 +82,7 @@ Read these files from the project:
 
 | File | What to check |
 |---|---|
-| `src/config/models.js` | Model IDs, names, pricing, maxOutput |
+| `src/config/models.js` | Model IDs, names, pricing, maxOutput, **and the per-model `capabilities` matrix** (adaptiveThinking / manualThinking / thinkingAlwaysOn / xhighEffort / fastMode) — this single file drives every model-capability guard in the app |
 | `src/config/endpoints.js` | Parameters (required + optional) |
 | `src/context/AppContext.js` | Default values, API version header, request body construction |
 | `src/FullApp.js` | Beta header options, UI labels, model selector, Files tab/panel |
@@ -101,10 +101,11 @@ Read these files from the project:
 - [ ] Pricing matches official rates (input $/MTok, output $/MTok)
 - [ ] maxOutput values match official max output token counts
 - [ ] Default model is a current-generation model
+- [ ] Each model's `capabilities` flags match the docs (adaptive thinking, manual thinking blocked, xhigh, fast mode)
 
 ### 2. Beta Headers Validation
 - [ ] No graduated (GA) features still listed as beta
-- [ ] All current beta features included (`output-300k-2026-03-24` for 300k batch output; `fast-mode-2026-02-01` for Fast Mode; `files-api-2025-04-14` for Files API)
+- [ ] All current beta features relevant to the app's tabs included (`fast-mode-2026-02-01`, `files-api-2025-04-14`, `skills-2025-10-02`, `advisor-tool-2026-03-01`, `cache-diagnosis-2026-04-07`, `task-budgets-2026-03-13`)
 - [ ] Header string IDs match official format exactly
 - [ ] Labels are clear and accurate (1M context header is for legacy models only — 4.6+ have it natively)
 
@@ -116,10 +117,11 @@ Read these files from the project:
 
 ### 4. Feature Parity Validation
 - [ ] Streaming support matches current SSE event format
-- [ ] Manual thinking parameter format matches docs; Opus 4.7 manual-thinking guard present (it rejects `{type:"enabled"}`)
+- [ ] Manual thinking parameter format matches docs; manual-thinking guard present for adaptive-only models
 - [ ] `thinking.display` only ever sends `summarized` or `omitted` (never `full`)
-- [ ] Adaptive thinking effort levels match docs (incl. `xhigh` for Opus 4.7); adaptive supported on Opus 4.7 / 4.6 / Sonnet 4.6
+- [ ] Adaptive thinking + effort level support per model matches docs (driven by `models.js` capability flags)
 - [ ] Structured output format matches docs
+- [ ] Cache diagnostics: `diagnostics.previous_message_id` request field + `diagnostics.cache_miss_reason` response field handled per docs
 - [ ] Server-side tool types/names match docs — verify EXACT versioned type strings against the tool reference table
 - [ ] Top-level `cache_control` parameter format matches docs
 - [ ] `speed` parameter format and model compatibility matches docs; Fast Mode also injects `anthropic-beta: fast-mode-2026-02-01`

@@ -170,89 +170,10 @@ app.post('/v1/messages/count_tokens', async (req, res) => {
   await proxyToAnthropic(req, res, 'POST', '/v1/messages/count_tokens');
 });
 
-// Message Batches API - Create batch
-app.post('/v1/messages/batches', async (req, res) => {
-  await proxyToAnthropic(req, res, 'POST', '/v1/messages/batches');
-});
-
-// Message Batches API - Get batch status
-app.get('/v1/messages/batches/:id', async (req, res) => {
-  const batchId = req.params.id;
-  await proxyToAnthropic(req, res, 'GET', `/v1/messages/batches/${batchId}`);
-});
-
-// Message Batches API - List batches
-app.get('/v1/messages/batches', async (req, res) => {
-  const queryParams = new URLSearchParams(req.query).toString();
-  const path = `/v1/messages/batches${queryParams ? '?' + queryParams : ''}`;
-  await proxyToAnthropic(req, res, 'GET', path);
-});
-
-// Message Batches API - Cancel batch
-app.post('/v1/messages/batches/:id/cancel', async (req, res) => {
-  const batchId = req.params.id;
-  await proxyToAnthropic(req, res, 'POST', `/v1/messages/batches/${batchId}/cancel`);
-});
-
-// Batch Results Proxy - Fetch JSONL from signed URL (CORS fallback)
-// Security: Only allows URLs from Anthropic's domains to prevent SSRF attacks
-app.post('/proxy-batch-results', async (req, res) => {
-  const { url, apiKey } = req.body;
-  if (!url) return res.status(400).json({ error: 'URL required' });
-  if (!apiKey) return res.status(400).json({ error: 'API key required' });
-
-  // Validate URL belongs to Anthropic's domain (SSRF protection)
-  try {
-    const parsedUrl = new URL(url);
-    const allowedHosts = ['api.anthropic.com', 'storage.anthropic.com'];
-
-    if (parsedUrl.protocol !== 'https:') {
-      return res.status(400).json({ error: 'Only HTTPS URLs are allowed' });
-    }
-
-    if (!allowedHosts.some(host => parsedUrl.hostname === host || parsedUrl.hostname.endsWith('.' + host))) {
-      return res.status(400).json({ error: 'URL must be from Anthropic\'s domain (api.anthropic.com or storage.anthropic.com)' });
-    }
-  } catch (e) {
-    return res.status(400).json({ error: 'Invalid URL format' });
-  }
-
-  try {
-    const response = await fetch(url, {
-      headers: {
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01'
-      }
-    });
-    if (!response.ok) {
-      const errorData = await response.text();
-      return res.status(response.status).json({ error: `Failed: ${response.statusText}`, details: errorData });
-    }
-    res.send(await response.text());
-  } catch (error) {
-    console.error('Batch results proxy error:', error);
-    res.status(500).json({ error: 'Failed to fetch: ' + error.message });
-  }
-});
-
-// Models API - List models
+// Models API - List models (powers the live model dropdown in the Messages tab)
 app.get('/v1/models', async (req, res) => {
   const queryParams = new URLSearchParams(req.query).toString();
   const path = `/v1/models${queryParams ? '?' + queryParams : ''}`;
-  await proxyToAnthropic(req, res, 'GET', path);
-});
-
-// Usage API - Get usage report
-app.get('/v1/organizations/usage_report/messages', async (req, res) => {
-  const queryParams = new URLSearchParams(req.query).toString();
-  const path = `/v1/organizations/usage_report/messages${queryParams ? '?' + queryParams : ''}`;
-  await proxyToAnthropic(req, res, 'GET', path);
-});
-
-// Cost API - Get cost report
-app.get('/v1/organizations/cost_report', async (req, res) => {
-  const queryParams = new URLSearchParams(req.query).toString();
-  const path = `/v1/organizations/cost_report${queryParams ? '?' + queryParams : ''}`;
   await proxyToAnthropic(req, res, 'GET', path);
 });
 
