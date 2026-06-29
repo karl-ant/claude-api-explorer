@@ -6,46 +6,52 @@ A visual web app for testing Anthropic API endpoints. Uses React + htm (no build
 
 **Tech Stack:** React 19 (CDN), htm 3.1.1, Express 5.x proxy, Tailwind CSS (CDN), Jest 30 (testing)
 
-**Supported Endpoints:**
+**Supported Endpoints (3 tabs):**
 - Messages API - Send messages to Claude with multi-turn conversation support
-- Message Batches API - Async batch processing at 50% cost with in-app results viewing
-- Models API - List available models
 - Skills API - Create and manage custom skills (Beta)
 - Files API - Upload/list/get/delete/download files referenced by file_id in Messages (Beta)
-- Usage Reports API - Token usage tracking (requires Admin key)
-- Cost Reports API - Cost breakdowns (requires Admin key)
 
-**Beta Features:**
-- Beta Headers - Toggle buttons for anthropic-beta header (Skills, Files API, Computer Use, Compaction, 1M Context, Context Mgmt, Interleaved Thinking, 300k Batch Output)
-- Skills Tab - Manage custom skills (List, Create, Get, Delete) with folder drag & drop upload
-- Skills Versions - List and manage skill versions before deletion
-- Container Skills - Configure container.skills for document processing in Messages API
-- Files Tab - Upload (drag & drop), list, get metadata, delete, download (download only for skill/code-execution-generated files); beta header auto-included
+**Removed in v4.0** (unused): Batches, Models, Usage Reports, and Cost Reports tabs, and the entire client-side demo/real tool execution system. The `GET /v1/models` proxy route is still used internally to populate the live model dropdown.
 
-**Streaming & Thinking (v3.0):**
+**Beta Headers:**
+- Toggle buttons for `anthropic-beta`: Skills, Files API, Computer Use (current + legacy), Compaction, 1M Context (legacy models), Context Mgmt, Interleaved Thinking, Advisor Tool, Cache Diagnostics, Task Budgets
+
+**Models (v4.0, verified against platform.claude.com 2026-06-29):**
+- Current: Claude Opus 4.8 (`claude-opus-4-8`, flagship), Claude Fable 5 (`claude-fable-5`), Claude Sonnet 4.6 (default), Claude Haiku 4.5
+- Legacy: Opus 4.7, Opus 4.6, Sonnet 4.5, Opus 4.5; Opus 4.1 deprecated (retires 2026-08-05)
+- Removed: Sonnet 4 and Opus 4 (retired 2026-06-15)
+
+**Streaming & Thinking:**
 - Streaming responses via SSE with incremental text display and blinking cursor
-- Extended Thinking with manual budget (1K-128K tokens) — not supported on Opus 4.7 (adaptive only)
-- Adaptive Thinking with effort levels (low/medium/high/xhigh/max) — Opus 4.7 / 4.6 / Sonnet 4.6 (xhigh: Opus 4.7 only)
-- thinking.display: summarized | omitted
-- Fast Mode (speed: fast) — Opus 4.6 only; auto-injects anthropic-beta: fast-mode-2026-02-01
-- Structured Outputs with JSON schema validation
+- Extended Thinking with manual budget (1K-128K tokens) — blocked on adaptive-only models (Fable 5, Opus 4.8, Opus 4.7)
+- Adaptive Thinking with effort levels (low/medium/high/xhigh/max) — Fable 5, Opus 4.8/4.7/4.6, Sonnet 4.6 (xhigh: Fable 5, Opus 4.8, Opus 4.7 only)
+- `thinking.display`: summarized | omitted (the API default is `omitted` on Fable 5 / Opus 4.8 / 4.7)
+- Fast Mode (`speed: fast`) — Opus 4.8 (research preview); deprecated on 4.7 (removed 2026-07-24) and 4.6 (removed 2026-06-29); auto-injects `anthropic-beta: fast-mode-2026-02-01`
+- Structured Outputs with JSON schema validation (`output_config.format`)
+- Cache Diagnostics — when the `cache-diagnosis-2026-04-07` header is on, the app always sends `diagnostics.previous_message_id` (null on the first turn, then auto-chained from the last response id) and renders `diagnostics.cache_miss_reason`
 - Thinking blocks displayed as collapsible sections in response view
 
 **Multi-Turn Conversations:**
 - Conversation Mode toggle for chat-style interactions
 - Automatically maintains conversation context across multiple exchanges
-- Chat interface with user/assistant message display
 - Continue conversations from history with full context restoration
-- Seamless tool execution within conversations
 
 **Server-Side Tools (Anthropic-managed):**
-- Web Search, Web Fetch, Code Execution, Computer Use (computer_20251124), Text Editor, Memory, Tool Search
+- Web Search (`web_search_20260318`), Web Fetch (`web_fetch_20260318`), Code Execution (`code_execution_20260521`), Computer Use (`computer_20251124`), Text Editor (`text_editor_20250728`), Memory (`memory_20250818`), Tool Search BM25 (`tool_search_tool_bm25_20251119`), Advisor (`advisor_20260301`, beta — auto-injects `advisor-tool-2026-03-01`)
 - Toggle buttons that add server-side tool definitions to requests
 
-**Export:**
-- Copy as cURL — generates curl command with all headers and body (includes speed, cache_control, thinking.display, fast-mode beta header when applicable)
+**Client tools (v4.0 behavior change):** There is no client-side tool execution. A freeform "Custom Tool (JSON)" textarea lets you define tools; when Claude responds with `stop_reason: "tool_use"` the `tool_use` block is rendered and the turn ends (no auto-execution, no follow-up request). Server-side tools are unaffected — Anthropic executes those.
 
-**Workbench (v3.3):**
+**Response view additions (v4.0):**
+- `usage.output_tokens_details.thinking_tokens` shown in the cost card
+- `usage.speed` badge (fast/standard)
+- `stop_reason: "refusal"` banner with `stop_details.category` (`cyber` / `bio` / `reasoning_extraction`) and explanation
+- `diagnostics.cache_miss_reason` row when cache diagnostics is enabled
+
+**Export:**
+- Copy as cURL — formats the output of `buildMessagesRequest()` (the same builder `handleSendRequest` uses, exposed via context), so the copied curl is byte-for-byte the request the app sends: model (incl. Internal Model Mode), images, conversation history, tools/container, thinking, diagnostics, speed/cache_control, and all auto-injected beta headers
+
+**Workbench:**
 - Raw Request Inspector — collapsible panel showing exact headers/body/timing sent (API key redacted)
 - Internal Model Mode — Ctrl+Shift+I reveals session-only custom model ID input (nothing persisted, nothing hardcoded)
 
@@ -53,9 +59,11 @@ A visual web app for testing Anthropic API endpoints. Uses React + htm (no build
 
 ### Core Philosophy
 - **No build step** - Edit → refresh → test (htm instead of JSX)
-- **Single file components** - Main app in `FullApp.js` (~2800 lines)
+- **Single file components** - Main app in `FullApp.js` (~2200 lines)
 - **Express proxy** - Required for CORS (browser can't call Anthropic directly)
 - **Streaming proxy** - SSE pipe-through for streaming responses
+- **Capability matrix lives in `src/config/models.js`** - every "which model supports X" rule is a flag there; nothing else hardcodes model-ID lists. Guard/help copy that names models uses `modelNamesSupporting(flag)` so the text can't drift either
+- **One request builder** - `buildMessagesRequest()` in AppContext produces `{ requestBody, betaHeaders, effectiveModel }`; `handleSendRequest`, the Request Inspector snapshot, and Copy-as-cURL all consume it
 
 ### Project Structure
 ```
@@ -66,54 +74,29 @@ A visual web app for testing Anthropic API endpoints. Uses React + htm (no build
 │   ├── test-coverage-reviewer.md  # Test adequacy validation
 │   └── code-reviewer.md       # Code quality review
 └── commands/                  # Slash commands
-    ├── explore.md             # Codebase exploration
-    ├── design-review.md       # Design enforcement
-    └── sync-docs.md           # Documentation sync
 src/
 ├── main.js                    # Entry point
-├── FullApp.js                 # Main UI components (~2500 lines)
-│                              # Includes ThinkingSection, StructuredOutputSection,
-│                              # ConversationModeToggle, ChatInterface
+├── FullApp.js                 # Main UI components (~2200 lines)
 ├── components/
 │   ├── common/                # Reusable components (Button, Toggle, Tabs, ErrorBoundary)
-│   └── responses/             # Response panel components (extracted v2.11)
+│   └── responses/             # Response panel components
 │       ├── index.js           # Barrel exports
 │       ├── MessageResponseView.js
-│       ├── BatchResponseView.js
-│       ├── ModelsResponseView.js
-│       ├── UsageResponseView.js
-│       ├── CostResponseView.js
 │       ├── SkillsResponseView.js
 │       ├── FilesResponseView.js
 │       ├── EmptyResponseState.js
 │       ├── ActualCostCard.js
 │       └── RequestInspector.js
-├── context/AppContext.js      # Global state (API keys, config, history, conversations)
-│                              # conversationMode, conversationHistory state
+├── context/AppContext.js      # Global state (API keys, config, history, conversations) (~1400 lines)
 ├── config/
-│   ├── models.js              # Model definitions
-│   ├── models.test.js         # Model config tests
-│   ├── endpoints.js           # Endpoint definitions
-│   ├── endpoints.test.js      # Endpoint config tests
-│   ├── toolConfig.js          # Tool registry
-│   └── toolConfig.test.js     # Tool config tests
+│   ├── models.js              # Model catalog + capability matrix + helper exports
+│   ├── models.test.js
+│   ├── endpoints.js           # Endpoint definitions (messages, skills, files)
+│   └── endpoints.test.js
 └── utils/
     ├── localStorage.js        # Storage operations (includes conversation persistence)
-    ├── formatters.js          # Demo tool implementations (with security validation)
-    ├── formatters.test.js     # Formatter tests
-    └── toolExecutors/         # Real tool implementations
-        ├── index.js           # Tool router
-        ├── index.test.js      # Router tests (25 tests)
-        ├── calculator.js      # Math expression evaluator
-        ├── calculator.test.js # Calculator tests (17 tests)
-        ├── jsonValidator.js   # JSON validation
-        ├── jsonValidator.test.js  # JSON validator tests (10 tests)
-        ├── codeFormatter.js   # Code formatting
-        ├── codeFormatter.test.js  # Code formatter tests (26 tests)
-        ├── tokenCounter.js    # Token estimation
-        ├── tokenCounter.test.js   # Token counter tests (25 tests)
-        ├── regexTester.js     # Regex pattern testing
-        └── regexTester.test.js    # Regex tester tests (14 tests)
+    ├── formatters.js          # extractMessageText, fileToBase64, getImageMediaType
+    └── formatters.test.js
 ```
 
 ## Code Standards
@@ -180,7 +163,7 @@ border-slate-700  // Interactive/hover
 text-amber-400 / bg-amber-500    // Primary actions
 text-mint-400 / bg-mint-500      // Success, metrics
 text-red-400                     // Errors
-text-purple-400                  // Tool execution
+text-purple-400                  // Thinking
 text-teal-400                    // Skill execution
 
 // Text hierarchy
@@ -194,10 +177,6 @@ text-slate-600  // Disabled
 ```javascript
 // Technical elements ALWAYS use font-mono (JetBrains Mono)
 font-mono  // Code, API keys, IDs, timestamps, data, inputs
-
-// Examples
-html`<input class="font-mono text-slate-100" />`
-html`<span class="font-mono text-amber-400">${model.id}</span>`
 ```
 
 ### Component Patterns
@@ -236,56 +215,33 @@ transition-colors  // All interactive elements
 
 ## Common Tasks
 
-### Using Conversation Mode
-1. **Send first message** using normal MessageBuilder interface
-2. **Wait for response** - conversation toggle appears after first successful API call
-3. **Enable Conversation Mode** toggle (located above Send Request button)
-4. **Chat interface activates** - shows conversation history with chat bubbles
-5. **Send follow-up messages** - full context automatically maintained
-6. **Continue from history** - Use "Continue" button on history items marked with "Chat" badge
-
-**Technical notes:**
-- Toggle only appears after first response (prevents empty messages validation error)
-- Tool execution seamlessly integrates (tool_result messages filtered from display)
-- Conversation history passed directly to avoid React state timing issues
-- Use `handleSendRequest(overrideConversationHistory)` parameter for immediate context
-
 ### Adding a New Model
 Edit `src/config/models.js`:
 ```javascript
-{ "id": "claude-new-model-20250101", "name": "Claude New", "description": "...", "pricing": { "input": 3, "output": 15 }, "maxOutput": 64000 }
+{
+  "id": "claude-new-model",
+  "name": "Claude New",
+  "description": "...",
+  "pricing": { "input": 3, "output": 15 },
+  "maxOutput": 64000,
+  "capabilities": { "adaptiveThinking": true, "manualThinking": false, "xhighEffort": true, "fastMode": false }
+}
 ```
-**Note:** `maxOutput` drives dynamic max tokens validation in ModelSelector. As of v3.3, ModelSelector prefers live `max_tokens` from the `/v1/models` API response over this static value — static config is fallback-only (offline / no API key). Run api-docs-validator agent to verify against official docs.
+**Capability flags drive the UI guards.** `getModelCapabilities`, `supportsAdaptiveThinking`, `manualThinkingBlocked`, `thinkingAlwaysOn`, `supportsXhigh`, `supportsFastMode`, and `fastModeNote` are exported from `models.js` and consumed by `FullApp.js` (ThinkingSection / SpeedCacheSection) and `AppContext.js` (pre-flight request guards). **Unknown model IDs are never blocked** — Internal Model Mode and models newer than this catalog get permissive defaults.
+
+`maxOutput` is fallback-only: the ModelSelector prefers live `max_tokens` from the `/v1/models` API response. Run the api-docs-validator agent after changes.
 
 ### Adding a New API Endpoint
 1. Define in `src/config/endpoints.js`
 2. Add proxy route in `server.js`
 3. Add state/handler in `AppContext.js`
-4. Create UI panel in `FullApp.js`
-5. Update ResponsePanel formatting
-6. Add tab to endpoint navigation
+4. Create UI panel in `FullApp.js` + add it to `ConfigPanel` routing and the `endpointTabs` array in `AppContent`
+5. Update `ResponsePanel` formatting (new view component in `src/components/responses/`)
 
-### Adding a New Tool
-1. Add to `src/config/toolConfig.js` registry
-2. Create real implementation in `src/utils/toolExecutors/`
-3. Add to executor router in `toolExecutors/index.js`
-4. Add tool definition in `FullApp.js`
+**Note:** the `endpointTabs` array in `FullApp.js` (`AppContent`) is hardcoded AND dereferences `endpoints.<id>.description` — adding/removing an endpoint requires touching both `endpoints.js` and that array in the same change.
 
-### Working with Batch Results
-1. **Create batch** - Use the Batches tab to create a batch with multiple requests
-2. **Check status** - Use "Check Batch Status" or click "Refresh" button on the status card
-3. **View results** - When batch is complete, click "View Results" button next to results_url
-4. **Explore responses** - Results display as expandable cards showing custom_id, status, and response
-5. **Expand/collapse** - Click individual cards or use "Expand All" / "Collapse All" toggle
-
-**Technical details:**
-- Results fetched with API key authentication (requires `x-api-key` header)
-- JSONL format parsed automatically (one JSON object per line)
-- Direct fetch attempted first, falls back to proxy if CORS blocked
-- Refresh buttons available on both status card (left panel) and batch info (response panel)
-- State: `batchResultsData`, `batchResultsLoading`, `batchResultsError` in AppContext (lines 59-61)
-- Handler: `handleFetchBatchResults` in AppContext.js (lines 1106-1165)
-- Proxy route: `/proxy-batch-results` in server.js (lines 110-132)
+### Adding a New Server-Side Tool
+Add an entry to the server tool array in `FullApp.js` (`AdvancedOptions` → Tools tab) with the current `type` string from the docs. If the tool needs a beta header, add the header to `BETA_HEADER_OPTIONS` and auto-inject it in `AppContext.handleSendRequest` (see the advisor/fast-mode pattern).
 
 ### Running Tests
 ```bash
@@ -294,10 +250,7 @@ npm run test:watch   # Run in watch mode
 npm run test:coverage # Run with coverage report
 ```
 
-**Test coverage targets:**
-- 178 tests across 10 files (utilities + config)
-- 72% overall coverage
-- Colocated test files: `file.js` → `file.test.js`
+**Test coverage:** 40 tests across 3 files (models, endpoints, formatters). Coverage thresholds: branches 80 / functions 70 / lines 75 / statements 75. There are still no tests for `FullApp.js`, `AppContext.js`, or `server.js`.
 
 ## Beta Headers & Skills
 
@@ -308,44 +261,36 @@ Located under API Key in the Configuration sidebar. Toggle buttons for:
 - `computer-use-2025-11-24` - Computer use (Opus 4.5+)
 - `computer-use-2025-01-24` - Computer use (legacy models)
 - `compact-2026-01-12` - Compaction (for long conversations)
-- `context-1m-2025-08-07` - 1M context window (legacy models — Opus 4.7/4.6 and Sonnet 4.6 have it natively, no header)
+- `context-1m-2025-08-07` - 1M context window (legacy models — 4.6+ have it natively, no header)
 - `context-management-2025-06-27` - Context editing (tool result/thinking block clearing)
 - `interleaved-thinking-2025-05-14` - Interleaved thinking
-- `output-300k-2026-03-24` - 300k output tokens on the Batch API (Opus 4.7/4.6, Sonnet 4.6)
-- `fast-mode-2026-02-01` - Fast Mode (auto-injected when speed: fast is set; Opus 4.6 only)
+- `advisor-tool-2026-03-01` - Advisor tool (also auto-injected when the Advisor server tool is toggled on)
+- `cache-diagnosis-2026-04-07` - Cache diagnostics (reveals a `previous_message_id` input in Advanced Options → Output)
+- `task-budgets-2026-03-13` - Task budgets (Opus 4.7+; header toggle only — no `task_budget` param UI yet)
 
-**Graduated to GA (no longer need beta header):** prompt caching, max tokens for Sonnet 3.5, code execution, web search, web fetch, memory tool, tool search tool, effort parameter
+**Auto-injected (not in the toggle list):** `fast-mode-2026-02-01` (when `speed: fast`), `advisor-tool-2026-03-01` (when an `advisor_*` tool is configured), `skills-2025-10-02` (Skills API calls), `files-api-2025-04-14` (Files API calls).
 
-State: `betaHeaders` (array) in AppContext, persisted to localStorage.
+**Graduated to GA (no header needed):** prompt caching, code execution, web search, web fetch, memory tool, tool search tool, structured outputs, effort parameter, 1M context on 4.6+.
+
+State: `betaHeaders` (array) in AppContext, persisted to localStorage. `storage.getBetaHeaders()` filters out headers whose feature graduated or was removed from the app (`output-300k-2026-03-24`, `code-execution-2025-08-25`).
 
 ### Skills API Tab
-A dedicated tab for managing custom skills via the Skills API (Beta). Features:
+A dedicated tab for managing custom skills via the Skills API (Beta).
 
-**Operations:**
-- **List Skills** - Browse skills with source filter (custom vs anthropic)
-- **Create Skill** - Drag & drop a folder to create (auto-detects skill name from folder)
-- **Get Skill** - View buttons in Response panel to retrieve skill details
-- **Delete Skill** - List versions, delete versions, then delete skill
-
-**Folder Upload:** The Create tab accepts folder drag & drop. The skill name is inferred from the folder name, and all files maintain their relative paths (e.g., `my-skill/SKILL.md`).
+**Operations:** List (with source filter), Create (folder drag & drop, skill name inferred from folder), Get, Delete (with version listing/deletion first).
 
 **State:** `skillsList`, `skillDetail`, `skillsSourceFilter`, `skillVersions` in AppContext.
 
-**Note:** The Skills API automatically includes `anthropic-beta: skills-2025-10-02` header. Version deletion may not be fully supported in the beta.
+**Note:** The Skills API automatically includes the `anthropic-beta: skills-2025-10-02` header.
 
 ### Files API Tab
 A dedicated tab for managing files via the Files API (Beta). All file operations are free — billing only happens when a `file_id` is referenced in a Messages request.
 
-**Operations:**
-- **List Files** - `GET /v1/files` (paginated; `limit`, `before_id`, `after_id`)
-- **Upload File** - `POST /v1/files` multipart upload (drag & drop or picker; single `file` field; 500 MB max)
-- **Get File Metadata** - `GET /v1/files/:id`
-- **Delete File** - `DELETE /v1/files/:id` (irreversible)
-- **Download** - `GET /v1/files/:id/content` (only enabled for files created by skills or code execution; user-uploaded files cannot be downloaded — the proxy streams raw bytes back, not JSON)
+**Operations:** List (`GET /v1/files`, paginated), Upload (`POST /v1/files`, multipart, 500 MB max), Get metadata, Delete (irreversible), Download (`GET /v1/files/:id/content`, only for skill/code-execution-generated files).
 
-**State:** `filesList`, `fileDetail`, `filesLoading`, `filesError` in AppContext. Nothing persisted (files live server-side).
+**State:** `filesList`, `fileDetail`, `filesLoading`, `filesError` in AppContext. Nothing persisted.
 
-**Note:** The Files tab automatically includes `anthropic-beta: files-api-2025-04-14` — both client-side (handlers) and server-side (the `/v1/files*` proxy routes inject it via `withBetaFlag`).
+**Note:** The Files tab automatically includes `anthropic-beta: files-api-2025-04-14` — both client-side and server-side (the `/v1/files*` proxy routes inject it via `withBetaFlag`).
 
 ### Container Skills (Messages API)
 Located in Advanced Options → Skills tab. Configure `container.skills` for document processing.
@@ -354,100 +299,21 @@ Located in Advanced Options → Skills tab. Configure `container.skills` for doc
 
 **API Format:**
 ```json
-{
-  "container": {
-    "skills": [
-      { "type": "anthropic", "skill_id": "xlsx", "version": "latest" }
-    ]
-  }
-}
+{ "container": { "skills": [ { "type": "anthropic", "skill_id": "xlsx", "version": "latest" } ] } }
 ```
 
-State: `skillsJson` (string) in AppContext, persisted to localStorage.
+State: `skillsJson` (string) in AppContext, persisted to localStorage. The `code_execution_20260521` tool is auto-injected when container skills are set (code execution is GA — no beta header). The Skills + Files API beta headers are still required for container skills.
 
-**Note:** Container skills require beta headers (Skills, Files API) and the code_execution tool. Code execution itself is now GA — no beta header needed.
+## Server Proxy Routes (`server.js`, port 3002)
 
-## Tool System
-
-### Server-Side Tools (Anthropic-managed)
-Toggle buttons in Advanced Options → Tools tab. These run on Anthropic's servers:
-- `web_search_20260209` - Real-time web search ($10/1K searches)
-- `web_fetch_20260209` - Fetch full page content (token cost only)
-- `code_execution_20260120` - Sandboxed bash + file manipulation
-- `computer_20251124` - Screen interaction (Claude 4.5+)
-- `text_editor_20250728` - File editing tool
-- `memory_20250818` - Persistent memory across turns
-- `tool_search_tool_bm25_20251119` - Dynamic tool discovery (BM25 keyword search)
-
-When enabled, adds `{ type: serverTool.type, name: serverTool.name }` to the tools array. No client execution needed.
-
-### Client-Side Hybrid Tool System
-
-**Status:** Complete - Free APIs (no signup required)
-
-Tools execute in two modes that users can toggle in the UI:
-- **Demo Mode** (default): Returns mock data for offline testing
-- **Real Mode**: Makes actual API calls using **free APIs** (no signup or API keys required)
-
-**Developer Tools (no API required):**
-- Calculator - Enhanced expression evaluator
-- JSON Validator - Validates and formats JSON
-- Code Formatter - Formats JavaScript, Python, JSON
-- Token Counter - Estimates Claude token counts
-- Regex Tester - Tests regex patterns with match results
-
-**External API Tools (free, no signup required):**
-- Weather - **Open-Meteo API** (free weather data with geocoding)
-- Web Search - **DuckDuckGo Instant Answers** (Wikipedia, definitions, facts)
-
-**Removed in v3.2:** get_stock_price, send_email, file_search, database_query (demo-only, never functional)
-
-### UI Location
-
-**Advanced Options → Tools tab** (FullApp.js ~line 630)
-
-**Components:**
-1. **Tool Mode Toggle** - Button toggle between Demo/Real modes
-2. **Developer Category** - Tool button section with 4 developer tools
-
-**No API Keys panel needed** - Real mode works instantly without configuration.
-
-### State Management
-
-**AppContext state:**
-- `toolMode` - Current mode ('demo' or 'real')
-- Persists automatically via localStorage
-
-**Tool execution:**
-```javascript
-import { executeTool } from './utils/toolExecutors/index.js';
-const result = await executeTool(toolName, input, toolMode);
-```
-
-### Architecture
-
-**Configuration:** `src/config/toolConfig.js`
-- `TOOL_REGISTRY` - Metadata for all tools (requirements, categories)
-- All tools have `requiresApiKey: false`
-- `isToolAvailable()` - Check if tool can run in given mode
-
-**Executors:** `src/utils/toolExecutors/`
-- `index.js` - Router that dispatches to demo or real implementations
-- Individual files for each tool (weather.js, search.js, calculator.js, etc.)
-- **weather.js** - Calls Open-Meteo geocoding + weather APIs directly
-- **search.js** - Calls DuckDuckGo Instant Answer API directly
-
-**No proxy routes needed** - Tools call free APIs directly from the browser
-
-### Implementation Notes
-
-**Tool definitions:** FullApp.js `addPredefinedTool` function
-- 8 client-side tools + 5 server-side tools defined with proper schemas
-- Claude automatically discovers and can use any defined tool
-
-**API Details:**
-- **Open-Meteo**: `https://api.open-meteo.com/v1/forecast` (free, no key)
-- **DuckDuckGo**: `https://api.duckduckgo.com/?format=json` (free, no key)
+| Method | Route | Purpose |
+|---|---|---|
+| POST | `/v1/messages` | Messages |
+| POST | `/v1/messages/stream` | Messages (SSE pipe-through) |
+| POST | `/v1/messages/count_tokens` | Token counting (the Count button) |
+| GET | `/v1/models` | Live model metadata for the model dropdown |
+| GET/POST/DELETE | `/v1/skills*` | Skills API (list/get/create/delete + versions) |
+| GET/POST/DELETE | `/v1/files*` | Files API (list/upload/get/delete/download) |
 
 ## Security
 
@@ -482,47 +348,34 @@ setImages(prev => [...prev, newImage]);
 ## Known Limitations
 
 - History only for Messages endpoint
-- Usage/Cost APIs require Admin key (sk-ant-admin...)
-- Skills version endpoints require `?beta=true` query parameter
-- Streaming does not yet support client-side tool execution mid-stream
+- Streaming does not reconstruct `tool_use` blocks (text + thinking only)
+- No client-side tool execution: `stop_reason: "tool_use"` ends the turn (the `tool_use` block is rendered)
+- Not yet built (conscious skips, easy follow-ups): task-budget `task_budget` param UI, mid-conversation `role: "system"` messages (Opus 4.8), Fable 5 `fallbacks` param, Rate Limits API
 - **Conversation Mode:**
   - Cannot edit past messages in chat (switch to MessageBuilder for edits)
-  - tool_result messages hidden from chat display (API plumbing)
   - No conversation branching or forking
   - Long conversations may hit context limits
 
 ## Technical Debt
 
-1. FullApp.js ~2500 lines (ResponsePanel extracted, but ConfigPanel, SkillsPanel, BatchesPanel, UsagePanel, CostPanel could be extracted to separate files)
+1. FullApp.js ~2200 lines (SkillsPanel, FilesPanel, ConfigPanel could be extracted to `src/components/panels/`)
 2. No TypeScript
-3. Test coverage for main app components still needed (integration tests)
-4. Conversation mode state management complex (React timing issues require parameter passing)
-5. No conversation branching or editing past messages in chat mode
-6. Streaming + tool execution not yet combined (streaming stops at tool_use, no automatic follow-up)
-7. AppContext.js growing large (~1600 lines) — consider splitting handlers into separate modules
+3. No tests for `FullApp.js`, `AppContext.js`, or `server.js`
+4. AppContext.js ~1400 lines — the Skills and Files handlers are self-contained and extractable into hooks
+5. The `api-freshness-check/` plugin's reference docs need regenerating whenever models/betas/tools change
 
 ---
 
-**Version:** 3.4 | **Updated:** 2026-05-07 | **Owner:** Karl
+**Version:** 4.0 | **Updated:** 2026-06-29 | **Owner:** Karl
 
 **Recent Changes:**
-- v3.4: API catch-up + Files tab - Added Opus 4.7 (adaptive-thinking-only, 1M context, new tokenizer) as current flagship; relabeled Opus 4.6/Sonnet 4.5 as Legacy; flagged Sonnet 4 & Opus 4 deprecated (retire 2026-06-15); removed retired Haiku 3; widened adaptive-thinking guard to Opus 4.7/4.6/Sonnet 4.6; added `xhigh` effort (Opus 4.7 only); fixed `thinking.display` to send only `summarized`/`omitted`; Opus 4.7 manual-thinking guard (client + request path); Fast Mode now auto-injects `fast-mode-2026-02-01` beta header; added `output-300k-2026-03-24` beta header toggle; relabeled 1M-context header (legacy-only); `computer_20251124`; added `speed`/`container` to Messages optional params; **new Files API tab** (upload/list/get/delete/download) with 5 server proxy routes + `FilesResponseView`; refreshed `.claude/agents/api-docs-validator.md` (working tool-use URLs, adaptive/fast-mode/300k/Files checks); cURL builder now includes `speed`/`cache_control`/`thinking.display`/fast-mode header
-- v3.3: API catch-up + workbench foundation - Added Sonnet 4.6, removed retired Sonnet 3.7, flagged Haiku 3 deprecated, pruned GA'd beta headers, updated all server tool type strings to current versions, live model metadata from /v1/models (max_tokens/capabilities), new request params (speed, thinking.display, top-level cache_control), cache hit stats in response view, Raw Request Inspector component (headers/body/timing with redacted key), Internal Model Mode (Ctrl+Shift+I, session-only free-text model ID input), 180 tests
-- v3.2: Architecture cleanup - Removed dead tools (stock, email, file_search, database_query), removed debug console.logs, ErrorBoundary component, React 19 CDN upgrade, Copy as cURL export, api-docs-validator agent, 178 tests
-- v3.1: UX polish - Image preview thumbnails in Vision tab, server-side tools section (Web Search, Web Fetch, Code Exec, Computer Use, Text Editor), history delete button per item
-- v3.0: Streaming + Thinking - SSE streaming with incremental display, extended thinking (manual budget 1K-128K), adaptive thinking (effort levels), structured outputs with JSON schema, thinking blocks in response view, Output tab in Advanced Options
-- v2.12: API parity - 9 models matching official docs (Opus 4.6, Sonnet 4.5, Haiku 4.5 + 6 legacy), dynamic max tokens per model, updated beta headers (removed graduated, added compaction/1M/interleaved thinking), pricing Feb 2026, default model Sonnet 4.5, removed unused deps
-- v2.11: Security & code quality improvements - Demo calculator validation, ResponsePanel split into 8 components, 76 new tests (177 total, 72% coverage), font-mono/toggle design fixes
-- v2.10: Batch results viewer - View JSONL results in-app with expandable cards, API key authentication, refresh buttons on status cards
-- v2.9: Multi-turn conversation support - Conversation mode toggle, chat-style UI, history continuation, seamless tool execution in conversations
-- v2.8: Unit testing infrastructure - 101 Jest tests (42% coverage), 3 custom review subagents, /sync-docs command
-- v2.7: Free APIs - Real mode now uses Open-Meteo & DuckDuckGo (no signup/keys required)
-- v2.6: Hybrid Tool System UI complete - Tool mode toggle, API keys panel, 4 new developer tools
-- v2.5: Skills folder upload (drag & drop folders), Delete tab with version management, text wrapping fixes
-- v2.4: Added Skills API tab (List, Create, Get), dynamic model dropdown from /v1/models API
-- v2.3: Added Beta Headers toggle UI, Container Skills support
-- v2.2: Added Usage/Cost APIs, Claude Haiku 4.5
-- v2.1: Multi-endpoint architecture, Batches/Models APIs
+- v4.0: API catch-up + slim-down — **Models:** added Claude Opus 4.8 (new flagship) and Claude Fable 5; removed retired Sonnet 4 / Opus 4; flagged Opus 4.1 deprecated (retires 2026-08-05); Sonnet 4.6 maxOutput → 128k; relabeled Opus 4.7 as Legacy. **Capability refactor:** per-model `capabilities` matrix + helper exports in `models.js` now drive every adaptive/manual-thinking, xhigh, and fast-mode guard (previously duplicated model-ID lists in FullApp + AppContext); unknown IDs are never blocked. **Tools/betas:** bumped `web_search_20260318`, `web_fetch_20260318`, `code_execution_20260521`; added Advisor tool (`advisor_20260301` + auto-injected header); added Cache Diagnostics (header toggle + `diagnostics.previous_message_id` input + `cache_miss_reason` display) and Task Budgets header toggles; removed the batch-only `output-300k` toggle. **Response view:** `thinking_tokens`, `usage.speed`, `stop_reason: "refusal"` banner with `stop_details`. **Removed (unused):** Batches, Models, Usage, and Cost tabs (their panels, response views, handlers, proxy routes) and the entire client-side demo/real tool system (`toolExecutors/`, `toolConfig.js`, mode toggle, API-key plumbing) — `tool_use` now ends the turn; plus dead code (`parameters.js`, unused formatters, write-only state, stale `TODO.md`). 40 tests; coverage thresholds re-baselined to 80/70/75/75.
+- v3.4: API catch-up + Files tab - Added Opus 4.7 as flagship; relabeled Opus 4.6/Sonnet 4.5 as Legacy; widened adaptive-thinking guard; added `xhigh` effort; Fast Mode beta header auto-injection; `computer_20251124`; new Files API tab with 5 server proxy routes + `FilesResponseView`
+- v3.3: API catch-up + workbench foundation - Added Sonnet 4.6, live model metadata from /v1/models, new request params (speed, thinking.display, top-level cache_control), Raw Request Inspector, Internal Model Mode
+- v3.2: Architecture cleanup - Removed dead tools, ErrorBoundary component, React 19 CDN upgrade, Copy as cURL export, api-docs-validator agent
+- v3.1: UX polish - Image preview thumbnails, server-side tools section, history delete button
+- v3.0: Streaming + Thinking - SSE streaming, extended thinking, adaptive thinking, structured outputs
+- v2.x: Multi-endpoint architecture, batches/models/usage/cost APIs (removed in v4.0), skills tab, hybrid tool system (removed in v4.0), conversation mode, testing infrastructure
 - v1.0: Initial release with Messages API
 
 **Note:** Keep the version displayed in the UI (FullApp.js header) in sync with this version.

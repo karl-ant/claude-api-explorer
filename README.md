@@ -8,38 +8,36 @@ A visual, interactive web application for testing and exploring Anthropic's Clau
 
 ### Core Functionality
 - **Two-Panel Layout**: Configuration panel and Response display
-- **Dynamic Model Selection**: Auto-fetches available models from API, shows full model IDs
+- **Dynamic Model Selection**: Auto-fetches available models from `/v1/models`, merged with a static capability catalog
 - **Request Configuration**: Adjust parameters like max_tokens, temperature, top_p, top_k
 - **Multi-Message Support**: Build conversations with multiple user/assistant message pairs
 - **Conversation Mode**: Chat-style interface for multi-turn conversations with automatic context preservation
-- **Multiple API Endpoints**: Messages, Message Batches, Models, Skills, Usage Reports, Cost Reports
-- **Batch Results Viewer**: View JSONL batch results in-app with expandable cards, refresh status buttons
+- **Three API Tabs**: Messages, Skills (Beta), Files (Beta)
 - **Skills API (Beta)**: List, create, get, and delete custom skills with folder drag & drop upload
-- **Skills Version Management**: List and delete skill versions before deleting skills
+- **Files API (Beta)**: Upload (drag & drop), list, get metadata, delete, download
 
 ### Streaming & Thinking
 - **Streaming Responses**: Real-time SSE streaming with incremental text display and blinking cursor
-- **Extended Thinking**: Manual budget control (1K-128K tokens) for complex reasoning
-- **Adaptive Thinking**: Effort levels (low/medium/high/max) for automatic thinking depth — Opus 4.6
-- **Structured Outputs**: JSON schema validation for constrained response formats
+- **Extended Thinking**: Manual budget control (1K-128K tokens) on models that support it
+- **Adaptive Thinking**: Effort levels (low/medium/high/xhigh/max) — Fable 5, Opus 4.8/4.7/4.6, Sonnet 4.6
+- **Structured Outputs**: JSON schema validation via `output_config.format`
+- **Fast Mode**: `speed: "fast"` on Opus 4.8 (research preview)
+- **Cache Diagnostics (Beta)**: send `diagnostics.previous_message_id` and see `cache_miss_reason`
 - **Thinking Display**: Collapsible thinking blocks shown before response content
 
 ### Advanced Features
 - **Vision Support**: Upload images via file picker or add by URL, with thumbnail previews
-- **Server-Side Tools**: Toggle Anthropic-managed tools (Web Search, Web Fetch, Code Execution, Computer Use, Text Editor)
-- **Client-Side Tool System**:
-  - Demo mode with mock data for offline testing
-  - Real mode with actual API integrations (Weather, Web Search)
-  - 5 developer tools: Enhanced Calculator, JSON Validator, Code Formatter, Token Counter, Regex Tester
-  - Automatic tool execution when Claude requests tools
+- **Server-Side Tools**: Toggle Anthropic-managed tools (Web Search, Web Fetch, Code Execution, Computer Use, Text Editor, Memory, Tool Search, Advisor)
+- **Custom Tools**: Define a client tool schema as JSON — `tool_use` responses are rendered (the app does not execute tools client-side)
 - **Request History**: Automatically saves last 50 requests with full request/response data, individual delete
 - **Export**: Export history as JSON, Copy as cURL command
+- **Raw Request Inspector**: See the exact headers/body/timing sent (API key redacted)
 - **API Key Management**: Option to persist key or clear on browser close
 
 ### Response Display
 - Toggle between formatted message view and raw JSON
-- Token usage statistics (input/output/total)
-- Model and stop reason metadata
+- Token usage statistics (input/output/total, thinking tokens, cache hits, `usage.speed`)
+- Model and stop reason metadata, including a refusal banner for `stop_reason: "refusal"`
 - Error handling with inline display
 
 ## Tech Stack
@@ -102,33 +100,20 @@ claude-api-explorer/
 │   │   ├── test-coverage-reviewer.md
 │   │   └── code-reviewer.md
 │   └── commands/                 # Slash commands
-│       ├── explore.md
-│       ├── design-review.md
-│       └── sync-docs.md
 └── src/
     ├── main.js                   # React root renderer
-    ├── FullApp.js                # Main application (~2500 lines)
+    ├── FullApp.js                # Main application (~2200 lines)
     ├── components/
     │   ├── common/               # Reusable UI components (Button, Toggle, Tabs, ErrorBoundary)
-    │   └── responses/            # Response panel components (8 files)
+    │   └── responses/            # Response panel components
     ├── context/
     │   └── AppContext.js         # Global state management
     ├── config/
-    │   ├── models.js + .test.js
-    │   ├── endpoints.js + .test.js
-    │   └── toolConfig.js + .test.js
+    │   ├── models.js + .test.js     # Model catalog + capability matrix
+    │   └── endpoints.js + .test.js  # Endpoint definitions
     └── utils/
         ├── localStorage.js
-        ├── formatters.js + .test.js
-        └── toolExecutors/        # Each with .test.js file
-            ├── index.js          # Tool router
-            ├── calculator.js
-            ├── jsonValidator.js
-            ├── regexTester.js
-            ├── codeFormatter.js
-            ├── tokenCounter.js
-            ├── weather.js
-            └── search.js
+        └── formatters.js + .test.js
 ```
 
 ## Architecture
@@ -145,8 +130,8 @@ Since browsers can't directly call the Anthropic API due to CORS restrictions, w
 ### State Management
 Uses React Context API for global state, with useMemo optimization to prevent unnecessary re-renders.
 
-### Data-Driven Configuration
-Models and parameters are defined in JS modules, making it easy to add new models without touching component code.
+### Capability-Driven Configuration
+`src/config/models.js` holds the model catalog *and* a per-model capability matrix (adaptive thinking, manual thinking, xhigh effort, fast mode). All UI guards and request pre-flight checks derive from it, so an API catch-up is a one-file change. Unknown model IDs (Internal Model Mode, or models newer than the catalog) are never blocked.
 
 ## How It Works
 
@@ -182,42 +167,38 @@ Tested on:
 ## Features Implemented
 
 ✅ API Key management with persist option
-✅ Dynamic model selector (fetches from /v1/models API, 9 models with dynamic max tokens)
+✅ Dynamic model selector (live `/v1/models` merged with the static capability catalog)
+✅ Current models: Claude Opus 4.8, Claude Fable 5, Claude Sonnet 4.6, Claude Haiku 4.5 (+ legacy)
 ✅ Parameter controls (temperature, top_p, top_k, max_tokens)
 ✅ System prompt
 ✅ Multi-message conversations
 ✅ **Conversation Mode** with chat-style UI and context preservation
 ✅ **Streaming responses** via SSE with incremental text display
 ✅ **Extended Thinking** with manual budget (1K-128K tokens)
-✅ **Adaptive Thinking** with effort levels (Opus 4.6)
+✅ **Adaptive Thinking** with effort levels incl. xhigh/max
 ✅ **Structured Outputs** with JSON schema
+✅ **Cache Diagnostics** (beta) with `cache_miss_reason` display
 ✅ Vision API (image uploads with thumbnail previews)
-✅ Multiple API endpoints (Messages, Batches, Models, Skills, Usage, Cost)
-✅ Batch results viewer with expandable cards and refresh buttons
 ✅ Skills API tab (List, Create, Get, Delete) with folder drag & drop upload
-✅ Skills version management (list/delete versions)
-✅ Beta Headers toggle (7 current beta features)
-✅ **Server-side tools** (Web Search, Web Fetch, Code Exec, Computer Use, Text Editor)
-✅ Client-side tool system with demo/real modes
-✅ 5 developer tools (calculator, JSON validator, code formatter, token counter, regex tester)
-✅ 2 external API integrations (weather, web search)
-✅ Automatic tool execution
+✅ Files API tab (List, Upload, Get, Delete, Download)
+✅ Beta Headers toggle
+✅ **Server-side tools** (Web Search, Web Fetch, Code Exec, Computer Use, Text Editor, Memory, Tool Search, Advisor)
+✅ Custom tool definitions (JSON)
 ✅ Request history (50 items, export, individual delete)
-✅ **Copy as cURL** export
+✅ **Copy as cURL** export + Raw Request Inspector
 ✅ Continue conversations from history
 ✅ Response view toggle (Formatted/JSON)
-✅ Token usage statistics with thinking token display
+✅ Token usage statistics with thinking-token and cache-hit display
 ✅ Dark theme UI with ErrorBoundary
 ✅ localStorage persistence
-✅ Unit testing with Jest (178 tests, 72% coverage)
+✅ Unit testing with Jest (40 tests over the config/util layers)
 
 ## Limitations
 
 - Limited to 50 history items
-- Usage/Cost APIs require Admin API key (sk-ant-admin...)
 - History only for Messages endpoint
+- No client-side tool execution — a `tool_use` stop reason ends the turn and the block is displayed
 - Skills version deletion may not be fully supported in Anthropic's beta API
-- Streaming does not yet support client-side tool execution mid-stream
 - **Conversation Mode:**
   - Cannot edit past messages in chat interface (use MessageBuilder for edits)
   - No conversation branching or forking
@@ -226,39 +207,13 @@ Tested on:
 ## Future Enhancements
 
 Potential improvements for the future:
-- Streaming + tool execution combined (auto follow-up after tool_use in stream)
-- Add keyboard shortcuts
-- Add response comparison view
-- Extract more components from FullApp.js (ConfigPanel, SkillsPanel, BatchesPanel, etc.)
+- Task budgets parameter UI (`task-budgets-2026-03-13`)
+- Mid-conversation `role: "system"` messages (Opus 4.8)
+- Fable 5 `fallbacks` parameter
+- Add keyboard shortcuts and a response comparison view
+- Extract more components from FullApp.js (ConfigPanel, SkillsPanel, FilesPanel)
 - Migrate to TypeScript
 - Expand test coverage to main app components (integration tests)
-- Compaction support for long conversations (context_management API)
-
-## Tool System
-
-### Server-Side Tools (Anthropic-managed)
-Toggle buttons add server-side tools to API requests. These run on Anthropic's infrastructure:
-- **Web Search** - Real-time web search ($10/1K searches)
-- **Web Fetch** - Fetch full page content (token cost only)
-- **Code Execution** - Sandboxed bash + file manipulation
-- **Computer Use** - Screen interaction (beta)
-- **Text Editor** - File editing tool
-
-### Client-Side Tool System
-The application includes a hybrid tool execution system with two modes:
-
-**Demo Mode (Default):**
-- Uses mock data for all tool responses
-- Works offline without any API keys
-
-**Real Mode (No API Keys Required):**
-- Enhanced Calculator: Full math expression support with functions
-- JSON Validator: Validate and format JSON with analysis
-- Code Formatter: Format JavaScript, Python, JSON
-- Token Counter: Estimate Claude token counts
-- Regex Tester: Test regex patterns with match details
-- Weather: Real weather data from **Open-Meteo** (free, no signup)
-- Web Search: Instant answers from **DuckDuckGo** (free, no signup)
 
 ## Troubleshooting
 
@@ -277,11 +232,6 @@ The application includes a hybrid tool execution system with two modes:
 - Verify you have credits in your Anthropic account
 - Check the error message in the Response panel for details
 
-**Tool execution errors:**
-- Currently in demo mode by default
-- Enhanced calculator supports: sqrt, sin, cos, tan, pow, log, abs, min, max, etc.
-- Use expressions like `sqrt(16)` or `sin(pi/2)` instead of operation-based format
-
 ## Development
 
 To modify the application:
@@ -290,7 +240,7 @@ To modify the application:
 2. Edit and save - just refresh the browser (no build step!)
 3. Common components are in `src/components/common/`
 4. State management is in `src/context/AppContext.js`
-5. Utilities are in `src/utils/`
+5. Model capabilities are in `src/config/models.js`
 
 ### Testing
 
@@ -303,10 +253,9 @@ npm run test:coverage # Run with coverage report
 ```
 
 **Test Coverage:**
-- 178 tests across 10 files (72% coverage)
-- Utilities: calculator, JSON validator, regex tester, code formatter, token counter, formatters, tool router
-- Config: models, endpoints, tool configuration
-- Colocated test files (e.g., `calculator.js` → `calculator.test.js`)
+- 40 tests across 3 files (models, endpoints, formatters)
+- Coverage thresholds: 80% branches / 70% functions / 75% lines / 75% statements
+- Colocated test files (e.g., `models.js` → `models.test.js`)
 
 ## Contributing
 
@@ -318,9 +267,9 @@ MIT License - feel free to use this project for your own purposes.
 
 ## Links
 
-- [Anthropic API Documentation](https://docs.anthropic.com)
+- [Claude API Documentation](https://platform.claude.com/docs)
 - [Anthropic Console](https://console.anthropic.com)
-- [Claude Models](https://docs.anthropic.com/claude/docs/models-overview)
+- [Claude Models](https://platform.claude.com/docs/en/about-claude/models/overview)
 - [htm Library](https://github.com/developit/htm)
 
 ## Acknowledgments

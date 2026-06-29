@@ -7,7 +7,6 @@ const html = htm.bind(React.createElement);
 
 export function MessageResponseView({
   response,
-  toolExecutionDetails,
   models,
   maxTokens,
   tokenCount,
@@ -23,8 +22,23 @@ export function MessageResponseView({
     : [];
   const hasThinking = thinkingBlocks.length > 0;
 
+  const isRefusal = response.stop_reason === 'refusal';
+
   return html`
     <div class="space-y-4 animate-slide-up">
+      ${isRefusal && html`
+        <div class="bg-red-900/20 border border-red-700/50 rounded-lg p-4 backdrop-blur-sm">
+          <h3 class="text-sm font-semibold text-red-400 mb-2 flex items-center gap-2 font-mono">
+            <span>⛔</span>
+            <span>Refusal${response.stop_details?.category ? ` · ${response.stop_details.category}` : ''}</span>
+          </h3>
+          <p class="text-sm text-red-300 font-mono">
+            ${response.stop_details?.explanation || 'The request was declined by a safety classifier before or during generation.'}
+          </p>
+          <p class="text-xs text-slate-500 font-mono mt-2">stop_reason: "refusal" — requests refused before any output are not billed.</p>
+        </div>
+      `}
+
       ${hasThinking && html`
         <div class="border-l-2 border-purple-500 bg-slate-800/30 rounded-r-lg p-4 backdrop-blur-sm">
           <button
@@ -52,34 +66,6 @@ export function MessageResponseView({
           ${extractMessageText(response.content)}
         </div>
       </div>
-
-      ${toolExecutionDetails && toolExecutionDetails.length > 0 && html`
-        <div class="bg-purple-900/20 border border-purple-700/50 rounded-lg p-4 backdrop-blur-sm">
-          <h3 class="text-sm font-semibold text-purple-400 mb-3 flex items-center gap-2 font-mono">
-            <span>🔧</span>
-            <span>Tools Executed (${toolExecutionDetails.length})</span>
-          </h3>
-          <div class="space-y-3">
-            ${toolExecutionDetails.map((tool, idx) => html`
-              <div key=${idx} class="bg-slate-800/50 rounded-lg p-3 border border-purple-700/30">
-                <div class="font-medium text-purple-300 mb-2 font-mono">
-                  ${tool.tool_name}
-                </div>
-                <div class="space-y-2 text-xs">
-                  <div>
-                    <div class="text-purple-400 font-medium mb-1 font-mono">Input:</div>
-                    <pre class="bg-slate-950 p-2 rounded text-purple-200 overflow-x-auto font-mono border border-slate-700 whitespace-pre-wrap break-words">${JSON.stringify(tool.tool_input, null, 2)}</pre>
-                  </div>
-                  <div>
-                    <div class="text-mint-400 font-medium mb-1 font-mono">Result:</div>
-                    <pre class="bg-slate-950 p-2 rounded text-mint-200 overflow-x-auto font-mono border border-slate-700 whitespace-pre-wrap break-words">${tool.tool_result}</pre>
-                  </div>
-                </div>
-              </div>
-            `)}
-          </div>
-        </div>
-      `}
 
       ${response.container && html`
         <div class="bg-teal-900/20 border border-teal-700/50 rounded-lg p-4 backdrop-blur-sm">
@@ -117,7 +103,25 @@ export function MessageResponseView({
           ${response.stop_reason && html`
             <div class="flex items-center justify-between text-sm bg-slate-800/30 border border-slate-700 rounded-lg px-4 py-2 backdrop-blur-sm">
               <span class="text-slate-400 font-medium font-mono">Stop Reason:</span>
-              <span class="font-semibold text-slate-300 font-mono">${response.stop_reason}</span>
+              <span class="font-semibold ${isRefusal ? 'text-red-400' : 'text-slate-300'} font-mono">${response.stop_reason}</span>
+            </div>
+          `}
+          ${response.usage.speed && html`
+            <div class="flex items-center justify-between text-sm bg-slate-800/30 border border-slate-700 rounded-lg px-4 py-2 backdrop-blur-sm">
+              <span class="text-slate-400 font-medium font-mono">Speed:</span>
+              <span class="font-semibold font-mono ${response.usage.speed === 'fast' ? 'text-amber-400' : 'text-slate-300'}">${response.usage.speed}</span>
+            </div>
+          `}
+          ${response.diagnostics !== undefined && html`
+            <div class="flex items-center justify-between text-sm bg-slate-800/30 border border-amber-500/30 rounded-lg px-4 py-2 backdrop-blur-sm">
+              <span class="text-slate-400 font-medium font-mono">Cache Diagnostics:</span>
+              <span class="font-semibold font-mono ${response.diagnostics?.cache_miss_reason ? 'text-amber-400' : 'text-mint-400'}">
+                ${response.diagnostics === null
+                  ? 'no divergence'
+                  : response.diagnostics.cache_miss_reason === null
+                    ? 'comparison pending'
+                    : `${response.diagnostics.cache_miss_reason.type}${typeof response.diagnostics.cache_miss_reason.cache_missed_input_tokens === 'number' ? ` · ~${response.diagnostics.cache_miss_reason.cache_missed_input_tokens.toLocaleString()} tokens missed` : ''}`}
+              </span>
             </div>
           `}
           ${(response.usage.cache_read_input_tokens > 0 || response.usage.cache_creation_input_tokens > 0) && html`

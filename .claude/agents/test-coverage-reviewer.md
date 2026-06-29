@@ -30,14 +30,12 @@ Enforce comprehensive test coverage for all production code, ensuring edge cases
 
 **Files requiring tests:**
 - All utility functions in `src/utils/`
-- All tool executors in `src/utils/toolExecutors/`
-- All configuration modules in `src/config/`
+- All configuration modules in `src/config/` (including the model capability helpers in `models.js`)
 - Business logic functions
 
 **Files NOT requiring tests:**
 - UI components (FullApp.js, components/common/, components/responses/)
 - Browser-dependent code (localStorage.js, fileToBase64)
-- Mock/demo implementations
 - Server.js (integration test candidate)
 
 ### Test Structure
@@ -194,17 +192,11 @@ Evaluate test quality:
 - Test invalid input handling
 - No mocking needed
 
-### For Configuration Modules (toolConfig, endpoints, models)
+### For Configuration Modules (endpoints, models)
 - Validate data structure
-- Test lookup functions
+- Test lookup / capability helper functions
 - Test edge cases (unknown IDs, null values)
-- Test business logic (availability, fallbacks)
-
-### For Tool Executors
-- Mock external dependencies (fetch, APIs)
-- Test return value format (JSON strings)
-- Test error scenarios
-- Verify security checks (for calculator, etc.)
+- Test business logic (capability gating, fallbacks)
 
 ### For Async Functions
 - Always use async/await in tests
